@@ -45,3 +45,5 @@ download/
 # Local planning notes and data exports
 .claude/
 
+__pycache__/
+
