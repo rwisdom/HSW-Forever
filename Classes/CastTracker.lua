@@ -1,105 +1,62 @@
 local name, addon = ...;
 
-
-
 --[[----------------------------------------------------------------------------
-	CastTracker() - Tracks the number of times the player chain-casted spells
+	CastTracker - counts chain casts (a cast started within 1/3 s of the previous
+	one ending, or an instant used right as a cast lands). Feeds the haste HPCT
+	estimate in Segment:GetHasteHPCT.
 ------------------------------------------------------------------------------]]
 local CastTracker = {};
 local endcast = 0;
 local castedSpellID = 0;
-local leniancy = 0.33333; --1/3 of a second
+local leniancy = 0.33333;
 
-
-
---[[----------------------------------------------------------------------------
-	IncChainCasts() --update info on current/total segments.
-------------------------------------------------------------------------------]]
-function CastTracker:IncChainCasts(spellID)
+function CastTracker:IncChainCasts()
 	local cur_seg = addon.SegmentManager:Get(0);
 	local ttl_seg = addon.SegmentManager:Get("Total");
-	
-	if ( cur_seg ) then
-		cur_seg:IncChainCasts();
-	end
-	
-	if ( ttl_seg ) then
-		ttl_seg:IncChainCasts();
-	end
-	
-	addon.DiscPriest:CHAIN_CAST(spellID);
+	if cur_seg then cur_seg:IncChainCasts() end
+	if ttl_seg then ttl_seg:IncChainCasts() end
 end
 
-
-
---[[----------------------------------------------------------------------------
-	StartCast() - unit_spellcast_start player
-------------------------------------------------------------------------------]]
-function CastTracker:StartCast(unit,n)
-	if ( not addon.inCombat ) then
-		return;
-	end
-	
+-- UNIT_SPELLCAST_START
+function CastTracker:StartCast(unit)
+	if not addon.inCombat then return end
 	local _, _, _, startTimeMS, endTimeMS, _, _, _, spellID = UnitCastingInfo("player");
-
-	local spellInfo = addon.Spells:Get(spellID);
-	if ( not spellInfo ) then
-		return;
-	end
-	
-	if ( addon.BuffTracker:CompareTimestamps(startTimeMS/1000,endcast,leniancy) ) then
+	if not addon.Spells:Get(spellID) then return end
+	if addon.BuffTracker:CompareTimestamps(startTimeMS / 1000, endcast, leniancy) then
 		castedSpellID = spellID;
 	end
-	endcast = endTimeMS / 1000; --convert ms to s
+	endcast = endTimeMS / 1000;
 end
 
+-- UNIT_SPELLCAST_SUCCEEDED
+local reported = {};
 
-
---[[----------------------------------------------------------------------------
-	FinishCast() - unit_spellcast_succeeded player
-------------------------------------------------------------------------------]]
-local casted = {};
-
-function CastTracker:FinishCast(unit,n,spellID,_,a)
-	if ( not addon.inCombat ) then
-		return;
-	end
-	
+function CastTracker:FinishCast(unit, castGUID, spellID)
+	if not addon.inCombat then return end
 	local curTime = GetTime();
-	local flag = false;
-	
-	local spellInfo = addon.Spells:Get(spellID);
-	if ( not spellInfo ) then
-		if ( HSW_ENABLE_FOR_TESTING ) then
-			if not casted[spellID] then
-				addon:Msg("Spellcast Discovered: "..tostring(spellID));
-				casted[spellID] = true;
-			end
+	if not addon.Spells:Get(spellID) then
+		if HSW_ENABLE_FOR_TESTING and not reported[spellID] then
+			addon:Msg("Spellcast Discovered: " .. tostring(spellID));
+			reported[spellID] = true;
 		end
 		return;
 	end
-	
-	if ( castedSpellID == spellID ) then 
-		--chain cast on casted spell
-		self:IncChainCasts(spellID);
+
+	if castedSpellID == spellID then
+		self:IncChainCasts();            -- cast-time spell chained onto the previous cast
 		endcast = curTime;
 	else
-		local start,dur = GetSpellCooldown(spellID);
-		if ( start > 0 ) then
-			if ( addon.BuffTracker:CompareTimestamps(curTime,endcast,leniancy) ) then
-				self:IncChainCasts(spellID);		
+		local start, dur = addon.Compat.GetSpellCooldown(spellID);
+		if start and start > 0 then      -- instant with a cooldown, used right as a cast landed
+			if addon.BuffTracker:CompareTimestamps(curTime, endcast, leniancy) then
+				self:IncChainCasts();
 			end
-			endcast = start+dur;
+			endcast = start + dur;
 		else
 			endcast = curTime;
 		end
 	end
-	
-	if ( castedSpellID ~= 0 ) then
-		castedSpellID = 0;
-	end
+	castedSpellID = 0;
 end
-
-
 
 addon.CastTracker = CastTracker;

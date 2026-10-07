@@ -61,6 +61,12 @@ function CreateFrame()
 end
 -- Deliberately absent, as on Classic-family clients: MAX_TALENT_TIERS, NUM_TALENT_COLUMNS, C_ChallengeMode, GetSpecialization.
 
+-- STUB.casting = { startMS=, endMS=, spellID= } while a cast is in progress
+function UnitCastingInfo()
+	local c = STUB.casting; if not c then return nil end
+	return "spell", "", "icon", c.startMS, c.endMS, false, 1, false, c.spellID
+end
+
 HSW_TEST_ADDON = {
 	hsw = {
 		db = { global = { maxSegments = 10, excludeRaidHealingCooldowns = false, history = {}, front = 0, back = 0,
