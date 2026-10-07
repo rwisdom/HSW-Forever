@@ -78,3 +78,29 @@ function HSW_TEST_ADDON:Msg(s) end
 function HSW_TEST_ADDON:UpdateDisplayStats() end
 function HSW_TEST_ADDON:AdjustVisibility() end
 function HSW_TEST_ADDON:SetupFrame() end
+
+--[[ Ace3 / UI stand-ins so Core.lua and DisplayPanel.lua load in the harness ]]
+local function noop() end
+local AceStub = {};
+function AceStub:NewAddon() return HSW_TEST_ADDON.hsw end
+-- AceDB-3.0: defaults.global overlaid with HSW_TEST_SAVED (a saved-variables stand-in tests may define)
+function AceStub:New(_, defaults)
+	local db = { global = {} };
+	for k, v in pairs(defaults.global) do db.global[k] = v end
+	for k, v in pairs(HSW_TEST_SAVED or {}) do db.global[k] = v end
+	return db;
+end
+function AceStub:RegisterOptionsTable() end
+function AceStub:AddToBlizOptions() return {} end
+function AceStub:Fetch() return "font" end
+function LibStub() return AceStub end
+function HSW_TEST_ADDON.hsw:RegisterChatCommand() end
+AceGUIWidgetLSMlists = { font = {} };
+StaticPopupDialogs = {};
+DEFAULT_CHAT_FRAME = { AddMessage = noop };
+UIParent = {};
+function StaticPopup_Show() end
+function EasyMenu() end
+function UnitFullName() return "Me", "Realm" end
+function GetCurrentRegion() return 1 end
+function string.trim(s) return (s:gsub("^%s*(.-)%s*$", "%1")) end
