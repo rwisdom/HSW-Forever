@@ -1,311 +1,210 @@
 local name, addon = ...;
-addon.inCombat=false;
-addon.currentSegment=0;
-
-
+addon.inCombat = false;
+addon.currentSegment = 0;
 
 --[[----------------------------------------------------------------------------
-	Combat Start
+	Helpers
 ------------------------------------------------------------------------------]]
-function addon.hsw:PLAYER_REGEN_DISABLED()
-	addon:StartFight(nil); 
+local function forEachSegment(fn)
+	local cur_seg = addon.SegmentManager:Get(0);
+	local ttl_seg = addon.SegmentManager:Get("Total");
+	if cur_seg then fn(cur_seg) end
+	if ttl_seg then fn(ttl_seg) end
 end
 
-
+-- Mana cost of a spell right now: the client API when present (talent reductions,
+-- downranks, Clearcasting), else the table value. 0 when unknown.
+local function SpellManaCost(spellID, s)
+	local cost = addon.Compat.GetSpellManaCost(spellID);
+	if cost ~= nil then return cost end
+	return s and s.manaCost or 0;
+end
 
 --[[----------------------------------------------------------------------------
-	Combat End
+	Combat / encounter boundaries
 ------------------------------------------------------------------------------]]
+function addon.hsw:PLAYER_REGEN_DISABLED()
+	addon:StartFight(nil);
+end
+
 function addon.hsw:PLAYER_REGEN_ENABLED()
 	if not addon.inBossFight then
 		addon:EndFight();
 	end
 end
 
-
-
---[[----------------------------------------------------------------------------
-	Encounter start
-------------------------------------------------------------------------------]]
-function addon.hsw:ENCOUNTER_START(eventName,encounterId,encounterName)
+function addon.hsw:ENCOUNTER_START(eventName, encounterId, encounterName)
 	addon:StartFight(encounterName);
-	addon.inBossFight = true; --wait til encounter_end to stop segment
+	addon.inBossFight = true; -- wait for ENCOUNTER_END to close the segment
 end
 
-
-
---[[----------------------------------------------------------------------------
-	Encounter start
-------------------------------------------------------------------------------]]
 function addon.hsw:ENCOUNTER_END()
 	addon.inBossFight = false;
 	addon:EndFight();
 end
 
-
-
 --[[----------------------------------------------------------------------------
-	PLAYER_SPECIALIZATION_CHANGED
+	Character state
 ------------------------------------------------------------------------------]]
-function addon.hsw:PLAYER_SPECIALIZATION_CHANGED()
+local function RefreshCharacter()
+	addon.Util.RebuildTalentCache();
+	addon:SetupConversionFactors();
+	addon:UpdatePlayerStats();
 	addon:AdjustVisibility();
 end
 
-
-
---[[----------------------------------------------------------------------------
-	PLAYER_ENTERING_WORLD
-------------------------------------------------------------------------------]]
 function addon.hsw:PLAYER_ENTERING_WORLD()
+	addon.Util.RebuildTalentCache();
 	addon:SetupConversionFactors();
+	addon:UpdatePlayerStats();
 	addon:SetupFrame();
 	addon:AdjustVisibility();
-	
-	addon.MythicPlusActive = addon:InMythicPlus();
-	if not addon.MythicPlusActive then
-		addon:TryAddTotalInstanceSegmentToHistory();
-	end
 end
 
+function addon.hsw:CHARACTER_POINTS_CHANGED() RefreshCharacter() end
+function addon.hsw:PLAYER_TALENT_UPDATE() RefreshCharacter() end
+function addon.hsw:COMBAT_RATING_UPDATE() addon:UpdatePlayerStats() end
+function addon.hsw:PLAYER_EQUIPMENT_CHANGED() addon:UpdatePlayerStats() end
 
-
---[[----------------------------------------------------------------------------
-	COMBAT_RATING_UPDATE
-------------------------------------------------------------------------------]]
-function addon.hsw:COMBAT_RATING_UPDATE()
-	addon:UpdatePlayerStats();
-end
-
-
-
---[[----------------------------------------------------------------------------
-	PLAYER_EQUIPMENT_CHANGED
-------------------------------------------------------------------------------]]
-function addon.hsw:PLAYER_EQUIPMENT_CHANGED()
-end
-
-
-
---[[----------------------------------------------------------------------------
-	GROUP_ROSTER_UPDATE
-------------------------------------------------------------------------------]]
 function addon.hsw:GROUP_ROSTER_UPDATE()
-	if ( addon.inCombat ) then --update unitmanager if someone leaves/joins group midcombat.
-		addon.UnitManager:Cache(); 
+	if addon.inCombat then -- someone joined/left mid-combat
+		addon.UnitManager:Cache();
 	end
 end
-
-
-
---[[----------------------------------------------------------------------------
-	MYTHIC PLUS EVENTS
-------------------------------------------------------------------------------]]
-function addon.hsw:CHALLENGE_MODE_COMPLETED()
-	self:ENCOUNTER_END(); --forcibly end encounter, in case we are still in combat & the event hasn't fired yet
-	addon.MythicPlusActive=false;
-	addon:TryAddTotalInstanceSegmentToHistory();
-end
-function addon.hsw:CHALLENGE_MODE_RESET()
-	self:ENCOUNTER_END(); --forcibly end encounter, in case we are still in combat & the event hasn't fired yet
-	addon.MythicPlusActive=false;
-	addon:TryAddTotalInstanceSegmentToHistory();
-end
-function addon.hsw:CHALLENGE_MODE_START()
-	addon.MythicPlusActive=true;
-end
-
-
-
-
 
 --[[----------------------------------------------------------------------------
 	COMBAT_LOG_EVENT_UNFILTERED
 ------------------------------------------------------------------------------]]
 local summons = {};
+local reportedEnergize = {};
 
-function addon.hsw:COMBAT_LOG_EVENT_UNFILTERED(...)
-	if ( addon.inCombat ) then
-		local ts,ev,_,sourceGUID, sourceName, _, _, destGUID, destName, _, _, spellID,_, _, amount, overhealing, absorbed, critFlag, arg19, arg20, arg21, arg22 = CombatLogGetCurrentEventInfo();
-				
-		--Track healing amount of mana spent on casting filler spells (for mp5 calculation)
-		if ( sourceGUID == UnitGUID("Player") ) then
-			if ( ev == "SPELL_CAST_SUCCESS" ) then
-				local spellInfo = addon.Spells:Get(spellID);
-				if ( spellInfo and spellInfo.filler) then
-					local cur_seg = addon.SegmentManager:Get(0);
-					local ttl_seg = addon.SegmentManager:Get("Total");
-					
-					local cost = spellInfo.manaCost;
-					if ( spellInfo.manaCostAdjustmentMultiplier ) then
-						cost = cost * spellInfo.manaCostAdjustmentMultiplier();
-					end
-					
-					if ( cur_seg ) then
-						cur_seg:IncFillerCasts(cost,spellInfo.manaCostAdjustmentMultiplier);
-					end
-					
-					if ( ttl_seg ) then
-						ttl_seg:IncFillerCasts(cost,spellInfo.manaCostAdjustmentMultiplier);
-					end
+function addon.hsw:COMBAT_LOG_EVENT_UNFILTERED()
+	if not addon.inCombat then return end
+	local _, ev, _, sourceGUID, sourceName, _, _, destGUID, destName, _, _, spellID, _, _, amount, overhealing, _, critFlag, arg19, _, _, arg22 = CombatLogGetCurrentEventInfo();
+	local playerGUID = UnitGUID("player");
+
+	if sourceGUID == playerGUID then
+		if ev == "SPELL_CAST_SUCCESS" then
+			local s = addon.Spells:Get(spellID);
+			if s and s.filler then
+				local cost = SpellManaCost(spellID, s);
+				if cost > 0 then
+					forEachSegment(function(seg) seg:IncFillerCasts(cost) end);
 				end
 			end
-		
-			--track summons (totems) spawned
-			if ( ev == "SPELL_SUMMON" ) then
-				summons[destGUID] = true;
-			end
-		
-			if ( spellID == addon.Shaman.Resurgence ) then --shaman resurgence
-				if ( ev == "SPELL_ENERGIZE" ) then
-					local cur_seg = addon.SegmentManager:Get(0);
-					local ttl_seg = addon.SegmentManager:Get("Total");
-					cur_seg:IncManaRestore(amount);
-					ttl_seg:IncManaRestore(amount);
-				end
-			elseif ( addon.BeaconBuffs[spellID] ) then --paladin beacon
-				if ( ev == "SPELL_AURA_APPLIED") then
-					addon.BeaconCount = addon.BeaconCount + 1;
-					addon.BeaconUnits[destGUID]=true;	
-				elseif ( ev == "SPELL_AURA_REMOVED" ) then
-					addon.BeaconCount = addon.BeaconCount - 1;
-					addon.BeaconUnits[destGUID]=false;
-				end
-			elseif ( spellID == addon.HolyPriest.EchoOfLight ) then --holy priest mastery (echo of light) 
-				if ( ev == "SPELL_AURA_APPLIED" ) then
-					addon.HolyPriest.EOLTracker:Apply(destGUID);
-				elseif ( ev == "SPELL_AURA_REMOVED" ) then
-					addon.HolyPriest.EOLTracker:Remove(destGUID);
-				elseif ( ev == "SPELL_AURA_REFRESH" ) then
-					addon.HolyPriest.EOLTracker:Refresh(destGUID);
-				end
-			elseif ( spellID == addon.DiscPriest.AtonementBuff ) then -- Disc atonement tracking
-				if ( ev == "SPELL_AURA_APPLIED" ) then
-					addon.DiscPriest.AtonementTracker:ApplyOrRefresh(destGUID);
-				elseif ( ev == "SPELL_AURA_REMOVED" ) then
-					addon.DiscPriest.AtonementTracker:Remove(destGUID);
-				elseif ( ev == "SPELL_AURA_REFRESH" ) then
-					addon.DiscPriest.AtonementTracker:ApplyOrRefresh(destGUID);
-				end
-			elseif ( spellID == addon.DiscPriest.LuminousBarrierAbsorb ) then --Luminous Barrier Tracking
-				if ( ev == "SPELL_AURA_APPLIED" ) then
-					addon.DiscPriest.LBTracker:Apply(destGUID,overhealing);
-				elseif ( ev == "SPELL_AURA_REMOVED" ) then
-					addon.DiscPriest.LBTracker:Remove(destGUID,overhealing);
-				end
-			elseif ( spellID == addon.DiscPriest.PowerWordShield ) then -- Disc PW:S tracking (part 1 of 2)
-				if ( ev == "SPELL_AURA_APPLIED" ) then
-					addon.DiscPriest.PWSTracker:ApplyOrRefresh(destGUID,overhealing); --16th arg is amount
-				elseif ( ev == "SPELL_AURA_REMOVED" ) then
-					addon.DiscPriest.PWSTracker:Remove(destGUID,overhealing); --16th arg is amount
-				elseif ( ev == "SPELL_AURA_REFRESH" ) then
-					addon.DiscPriest.PWSTracker:ApplyOrRefresh(destGUID,overhealing); --16th arg is amount
-				end
+		elseif ev == "SPELL_SUMMON" then
+			summons[destGUID] = true; -- totems heal from their own GUID
+		end
+	end
+
+	if ev == "SPELL_HEAL" or ev == "SPELL_PERIODIC_HEAL" then
+		if sourceGUID == playerGUID or summons[sourceGUID] then
+			addon.StatParser:DecompHealingForCurrentSpec(ev, destGUID, spellID, critFlag, amount - overhealing, overhealing);
+		end
+	elseif ev == "SPELL_ENERGIZE" then
+		if destGUID == playerGUID then
+			if addon.ManaReturnSpells[spellID] then
+				forEachSegment(function(seg) seg:IncManaRestore(amount) end);
+			elseif addon.discoverSpells and not reportedEnergize[spellID] then
+				-- "/hsw discover on": find Water Shield / Mana Tide / Litany of Light energize ids (Task 17)
+				reportedEnergize[spellID] = true;
+				addon:Msg("[HealerStatWeights]: mana return " .. tostring(spellID) .. " (" .. tostring(addon.Compat.GetSpellInfo(spellID)) .. ") is not tracked; +" .. tostring(amount) .. " mana.");
 			end
 		end
-		
-		--Redirect events to the stat parser
-		if ( ev == "SPELL_ABSORBED" ) then
-			local abs_srcGUID, abs_spellID, abs_amount;
-			
-			if ( type(spellID) == "number" ) then
-				--absorbtion came from spellcast. srcguid arg15, spellid arg19, amt arg22
-				abs_srcGUID = amount;
-				abs_spellID = arg19;
-				abs_amount = arg22;
-			else
-				--absorption from non-spellcast. srcguid arg12, spellid arg16, amt arg19
-				abs_srcGUID = spellID;
-				abs_spellID = overhealing;
-				abs_amount = arg19;
-			end
-	
-			if ( abs_srcGUID == UnitGUID("Player") or summons[abs_srcGUID] ) then
-				if (abs_spellID == addon.DiscPriest.PowerWordShield ) then 
-					addon.DiscPriest.PWSTracker:Absorb(destGUID,abs_amount); --disc PW:S tracking (part 2 of 2)
-				elseif ( abs_spellID == addon.DiscPriest.SmiteAbsorb ) then
-					addon.DiscPriest:AbsorbSmite(destGUID,abs_amount);
-				elseif ( abs_spellID == addon.Shaman.EarthenWallTotem ) then
-					addon.Shaman:AbsorbEarthenWallTotem(destGUID,abs_amount);
-				end				
-			end	
-			if ( destGUID == UnitGUID("Player") ) then --include absorbed damage taken in vers DR calculations
-				addon.StatParser:DecompDamageTaken(abs_amount,true);
-			end
-		elseif ( ev == "SPELL_PERIODIC_DAMAGE" or ev == "SPELL_DAMAGE" ) then 
-			local segment = addon.SegmentManager:Get(0);--set current segment name (if not already set)
-			if ( not segment.nameSet ) then
-				local dest_str = string.lower(destGUID);
-				local src_str = string.lower(sourceGUID);
-				
-				local is_src_ply_or_pet = src_str:find("player") or src_str:find("pet");
-				local is_dest_ply_or_pet = dest_str:find("player") or dest_str:find("pet");
-				
-				if ( is_src_ply_or_pet and not is_dest_ply_or_pet ) then
-					addon.SegmentManager:SetCurrentId(destName);
-				elseif ( is_dest_ply_or_pet and not is_src_ply_or_pet ) then
-					addon.SegmentManager:SetCurrentId(sourceName);
-				end
-			end
-			if ( destGUID == UnitGUID("Player") ) then
-				addon.StatParser:DecompDamageTaken(amount);
-			end
-			if ( sourceGUID == UnitGUID("Player") ) then	
-				addon.StatParser:DecompDamageDone(amount,spellID,arg21);	
-			end
-		elseif ( ev == "SPELL_HEAL" or ev == "SPELL_PERIODIC_HEAL"  ) then
-			if ( (sourceGUID == UnitGUID("Player") ) or summons[sourceGUID] ) then
-				addon.StatParser:DecompHealingForCurrentSpec(ev,destGUID,spellID,critFlag,amount-overhealing,overhealing);
-			end
-		elseif ( ev == "SWING_DAMAGE" ) then  --shadowfiend/mindbender
-			if ( summons[sourceGUID] ) then
-				addon.StatParser:DecompDamageDone(spellID,addon.DiscPriest.PetAttack,critFlag); --13th arg = amount
+	elseif ev == "SPELL_ABSORBED" then
+		local absorberGUID, absorbSpellID, absorbAmount;
+		if type(spellID) == "number" then
+			-- absorbed a spell: args 12-14 are that spell; absorber GUID 15, absorb spell 19, amount 22
+			absorberGUID, absorbSpellID, absorbAmount = amount, arg19, arg22;
+		else
+			-- absorbed a melee swing: absorber GUID 12, absorb spell 16, amount 19
+			absorberGUID, absorbSpellID, absorbAmount = spellID, overhealing, arg19;
+		end
+		if absorberGUID == playerGUID and addon.AbsorbSpells[absorbSpellID] then
+			addon.StatParser:DecompAbsorb(destGUID, absorbSpellID, absorbAmount);
+		end
+	elseif ev == "SWING_DAMAGE" or ev == "SPELL_DAMAGE" or ev == "SPELL_PERIODIC_DAMAGE" then
+		-- name the segment after the first enemy that hits us or that we hit
+		local segment = addon.SegmentManager:Get(0);
+		if segment and not segment.nameSet and sourceGUID and destGUID then
+			local src_str, dest_str = string.lower(sourceGUID), string.lower(destGUID);
+			local srcIsUs = src_str:find("player") or src_str:find("pet");
+			local destIsUs = dest_str:find("player") or dest_str:find("pet");
+			if srcIsUs and not destIsUs then
+				addon.SegmentManager:SetCurrentId(destName);
+			elseif destIsUs and not srcIsUs then
+				addon.SegmentManager:SetCurrentId(sourceName);
 			end
 		end
 	end
 end
-
-
 
 --[[----------------------------------------------------------------------------
-	Unit Events
+	Five-second rule: every successful cast that cost mana restarts it.
+	Time up to now is credited with the previous spend first.
+	Approximation: a free-cast buff (Inner Focus, Clearcasting) consumed by this
+	very cast may already be gone when UNIT_SPELLCAST_SUCCEEDED fires; the cost
+	API (when present) still reports 0 in that case.
 ------------------------------------------------------------------------------]]
-local function UnitEventHandler(_,e,...)
-	if ( e == "UNIT_AURA" ) then
-		addon.BuffTracker:UpdatePlayerBuffs();
-	elseif ( e == "UNIT_STATS") then
-		addon:UpdatePlayerStats();
-	elseif ( e == "UNIT_SPELLCAST_START" ) then
-		addon.CastTracker:StartCast(...);
-	elseif ( e == "UNIT_SPELLCAST_SUCCEEDED" ) then
-		addon.CastTracker:FinishCast(...);
+function addon:OnPlayerSpellcast(spellID)
+	if not self.inCombat then return end
+	local cost = SpellManaCost(spellID, self.Spells:Get(spellID));
+	if cost <= 0 then return end
+	for buffId in pairs(self.FreeCastBuffs) do
+		if self.BuffTracker:Get(buffId) > 0 then return end
+	end
+	local now = GetTime();
+	forEachSegment(function(seg) seg:AccumulateFSR(now) end);
+	self.lastManaSpend = now;
+end
+
+--[[----------------------------------------------------------------------------
+	Unit events (player only)
+------------------------------------------------------------------------------]]
+local function AccumulateNow()
+	if addon.inCombat then
+		local now = GetTime();
+		forEachSegment(function(seg) seg:AccumulateFSR(now) end);
 	end
 end
 
-
+local function UnitEventHandler(_, e, ...)
+	if e == "UNIT_AURA" then
+		addon.BuffTracker:UpdatePlayerBuffs();
+		AccumulateNow();          -- credit elapsed time at the old casting-regen share (Innervate etc.)
+		addon:UpdatePlayerStats();
+	elseif e == "UNIT_STATS" then
+		AccumulateNow();
+		addon:UpdatePlayerStats();
+	elseif e == "UNIT_SPELLCAST_START" then
+		addon.CastTracker:StartCast(...);
+	elseif e == "UNIT_SPELLCAST_SUCCEEDED" then
+		local _, _, spellID = ...;
+		addon.CastTracker:FinishCast(...);
+		addon:OnPlayerSpellcast(spellID);
+	end
+end
 
 function addon:SetupUnitEvents()
-	self.frame:RegisterUnitEvent("UNIT_AURA","Player");
-	self.frame:RegisterUnitEvent("UNIT_STATS","Player");
-	self.frame:RegisterUnitEvent("UNIT_SPELLCAST_START","Player");
-	self.frame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED","Player");
-	self.frame:SetScript("OnEvent",UnitEventHandler);
+	self.frame:RegisterUnitEvent("UNIT_AURA", "player");
+	self.frame:RegisterUnitEvent("UNIT_STATS", "player");
+	self.frame:RegisterUnitEvent("UNIT_SPELLCAST_START", "player");
+	self.frame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player");
+	self.frame:SetScript("OnEvent", UnitEventHandler);
 end
 
-
-
 --[[----------------------------------------------------------------------------
-	Events
+	Registration
 ------------------------------------------------------------------------------]]
 addon.hsw:RegisterEvent("PLAYER_REGEN_DISABLED");
 addon.hsw:RegisterEvent("PLAYER_REGEN_ENABLED");
 addon.hsw:RegisterEvent("PLAYER_EQUIPMENT_CHANGED");
-addon.hsw:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED");
 addon.hsw:RegisterEvent("PLAYER_ENTERING_WORLD");
 addon.hsw:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED");
 addon.hsw:RegisterEvent("ENCOUNTER_START");
 addon.hsw:RegisterEvent("ENCOUNTER_END");
 addon.hsw:RegisterEvent("COMBAT_RATING_UPDATE");
 addon.hsw:RegisterEvent("GROUP_ROSTER_UPDATE");
-addon.hsw:RegisterEvent("CHALLENGE_MODE_COMPLETED");
-addon.hsw:RegisterEvent("CHALLENGE_MODE_RESET");
-addon.hsw:RegisterEvent("CHALLENGE_MODE_START");
+addon.hsw:RegisterEvent("CHARACTER_POINTS_CHANGED");
+-- Registering an event name the client does not know throws; PLAYER_TALENT_UPDATE is not guaranteed on a 1.x client.
+pcall(addon.hsw.RegisterEvent, addon.hsw, "PLAYER_TALENT_UPDATE");
