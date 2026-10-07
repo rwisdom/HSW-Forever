@@ -39,3 +39,9 @@ luac.out
 *.x86_64
 *.hex
 
+# Vendored library downloads staged for libs/
+download/
+
+# Local planning notes and data exports
+.claude/
+
