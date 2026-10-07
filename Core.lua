@@ -176,7 +176,7 @@ Options
 
 local _TEST=nil;
 local options = {
-	name = "Healer Stat Weights",
+	name = "Healer Stat Weights (Forever)",
 	handler = hsw,
 	childGroups = "tab",
 	type = "group",
@@ -438,7 +438,7 @@ local options = {
 	}
 }
 local BlizOptionsTable = {
-	name = "Healer Stat Weights",
+	name = "Healer Stat Weights (Forever)",
 	type = "group",
 	args = {
 		btn = {
@@ -1132,7 +1132,7 @@ function hsw:OpenOptions()
 	local AceGUI = LibStub("AceGUI-3.0")
 	local hsw_frame = AceGUI:Create("Frame");
 	hswOptionsFrame = hsw_frame;
-	hsw_frame:SetTitle("Healer Stat Weights");
+	hsw_frame:SetTitle("Healer Stat Weights (Forever)");
 	
 	local version = GetAddOnMetadata("HealerStatWeights","Version");
 	if ( version ) then
@@ -1171,7 +1171,7 @@ function hsw:OnInitialize()
 	LibStub("AceConfigRegistry-3.0"):RegisterOptionsTable("HealerStatWeights",BuildOptionsTable,true);
 	LibStub("AceConfigRegistry-3.0"):RegisterOptionsTable("HSW_Bliz",BlizOptionsTable);
 
-	self.optionsFrame = LibStub("AceConfigDialog-3.0"):AddToBlizOptions("HSW_Bliz", "Healer Stat Weights");
+	self.optionsFrame = LibStub("AceConfigDialog-3.0"):AddToBlizOptions("HSW_Bliz", "Healer Stat Weights (Forever)");
 	self:RegisterChatCommand("hsw","ChatCommand");
 end
 

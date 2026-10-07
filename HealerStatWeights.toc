@@ -1,13 +1,14 @@
-## Interface: 80300
-## Title: Healer Stat Weights
-## Author: Bastas#6681 (discord)
-## Version: 1.9.1
-## Notes: Computes statweights for healers in real-time! Additional Credits: Jundarer, Voulk, Manaleaf
+## Interface: 11507
+## Title: Healer Stat Weights (Forever)
+## Author: Bastas#6681 (discord); Forever port by rwisdom
+## Version: 1.0.0-forever
+## Notes: Computes live healer stat weights (+Healing, Crit, Haste, Intellect, Spirit, MP5) for World of Warcraft Forever.
 ## DefaultState: Enabled
-## SavedVariables: HSW_DB 
+## SavedVariables: HSW_DB
 
 embeds.xml
 
+Classes/Compat.lua
 Classes/Util.lua
 
 Classes/BuffTracker.lua
@@ -20,12 +21,13 @@ Classes/Queues.lua
 Classes/OptionsBuilder.lua
 
 Parsers/Spells.lua
+Parsers/Spells_Generated.lua
+Parsers/Spells_Manual.lua
 Parsers/HolyPriest.lua
 Parsers/DiscPriest.lua
 Parsers/RestoDruid.lua
 Parsers/RestoShaman.lua
 Parsers/HolyPaladin.lua
-Parsers/MistweaverMonk.lua
 
 DisplayPanel.lua
 Core.lua

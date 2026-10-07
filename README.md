@@ -1,13 +1,25 @@
-# HealerStatWeights
+# Healer Stat Weights (Forever)
 
-HSW (Healer Stat Weights) is an addon that automatically calculates your stat weights based on the content that you’re currently running. It’ll tell you what your strongest and weakest stats are and you can use that information for you enchants, gems and general gearing decisions. It does all the work for you so that you can avoid any complicated math. The weights that it calculates for you are based off your own playstyle, gear, talents, and so on. This addon gives you a lot more precision than any generic stat priorities that you may find on internet guides.
+Live healer stat weights for **World of Warcraft Forever**, computed from your own combat log.
+Shows the relative value of +Healing (always 1.00), Crit Rating, Haste, Intellect, Spirit and MP5
+for the current fight, the last few fights, and a running total, and exports a Pawn string.
 
-Are you a min-maxer? This isn't a replacement for your spec spreadsheets, but it’s an incredibly powerful and convenient tool to use alongside them.
+Supported specs: Holy Paladin, Restoration Shaman, Restoration Druid, Holy Priest, Discipline Priest.
 
-# Installation
+## Installation
 
-To install, either download the addon from [Curse](https://wow.curseforge.com/projects/healerstatweights) or your Twitch client (recommended, as this addon is still in Beta and will recieve updates as Blizzard updates Azerite Traits and spec ability interactions).
+Copy this folder into `{WoW_Directory}/Interface/AddOns/HealerStatWeights/`.
 
-Alternatively, copy the latest release into your `{WoW_Directory}/Interface/AddOns/` directory.
+In game, `/hsw` opens the options and history window. `/hsw show`, `/hsw hide`, `/hsw lock`,
+`/hsw unlock` control the panel. `/hsw regen` prints the current Spirit-regen calibration and
+`/hsw discover on` logs unknown healing spell IDs to chat.
 
-Once you’re in game type `/hsw` and configure options based on the type of content you want weights for. Avoid filling your history with information that isn’t useful to you by turning on only the highest level of dungeons and raids that you're interested in, leaving the others unticked.
+## How weights are computed
+
+Every effective (non-overheal) heal is decomposed into "how much of this heal did one point of each
+stat produce" using the spell's Forever coefficient. Mana stats (Intellect mana pool, Spirit regen
+inside and outside the five-second rule, MP5) are valued at the healing-per-mana of your filler spells
+over the fight. Crit includes mana returned by Illumination, Water Shield and Divine Aegis absorbs.
+
+This is a port of Bastas' retail HealerStatWeights (v1.9.1); spell and talent data come from the
+talentsforever.com beta export. Forever is in beta: numbers may lag live tuning.
