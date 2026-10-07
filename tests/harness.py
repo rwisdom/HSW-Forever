@@ -18,6 +18,8 @@ CORE_FILES = [
     "Classes/StatParser.lua",
     "Classes/UnitManager.lua",
     "Parsers/Spells.lua",
+    "Parsers/Spells_Generated.lua",
+    "Parsers/Spells_Manual.lua",
 ]
 
 
