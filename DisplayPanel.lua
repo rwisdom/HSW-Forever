@@ -39,6 +39,7 @@ local qelive_noname_pattern = "https://questionablyepic.com/live/?import=HSW&spe
     UpdateDisplayStats - update the display to show the given stats
 ------------------------------------------------------------------------------]]
 function addon:UpdateDisplayStats()
+    if not self.frame then return end
     local int,crt,hst,vrs,mst,lee = addon:GetStatsForDisplay();
     self.frame.textR:SetFormattedText(pattern_right,int,crt,hst,vrs,mst,lee);
 end
