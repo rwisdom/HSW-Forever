@@ -31,6 +31,9 @@ local aliases = {}; -- combat-log spell id -> spellbook id
 --    mana | manaPct      (absolute mana, or fraction of base mana resolved at cast time)
 --    cd                  (true = raid cooldown, excluded by the option and never a filler)
 --    canCrit             (default true; false for absorbs and Lay on Hands)
+--    duration, tick      (periodic part: seconds it lasts, seconds between ticks)
+--    targets             (direct heal that lands on this many units at once; default 1)
+--    party               (true: the periodic part ticks on every group member, not only the target)
 function Spells:Define(id, spellType, spellName, o)
 	o = o or {};
 	local cast = o.cast or 0;
@@ -46,6 +49,11 @@ function Spells:Define(id, spellType, spellName, o)
 		baseTick = o.baseTick or 0,
 		canCrit = o.canCrit ~= false,
 		hstHPCT = cast ~= 0,
+		castTime = cast,
+		duration = o.duration or 0,
+		tick = o.tick or 0,
+		targets = o.targets or 1,
+		party = o.party == true,
 		cd = cd,
 		manaCost = mana,
 		manaCostPctBase = o.manaPct,

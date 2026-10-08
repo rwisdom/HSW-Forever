@@ -28,6 +28,12 @@ TICK_INTERVAL = {"Rejuvenation": 3, "Regrowth": 3, "Renew": 3, "Riptide": 3, "Wi
                  "Tranquility": 2, "Penance": 1, "Healing Stream Totem": 2}
 RAID_COOLDOWN = {"Tranquility", "Lay on Hands", "Divine Grace", "Desperate Prayer"}   # excluded by the "raid cooldowns" option
 NO_CRIT = {"Power Word: Shield", "Lay on Hands"}
+# Seconds a periodic effect lasts when its tooltip does not say (totems stay until replaced; 5 min).
+HOT_DURATION = {"Healing Stream Totem": 300}
+# Direct heals that land on several units at once (Chain Heal bounces, party heals).
+MULTI_TARGET = {"Chain Heal": 3, "Prayer of Healing": 5, "Holy Nova": 5}
+# Periodic heals that tick on every group member, not only the cast target.
+PARTY_HOT = {"Wild Growth", "Tranquility", "Healing Stream Totem"}
 
 NUM = r"(\d[\d,]*)"
 RE_CO = re.compile(r"([\d.]+)% of spell power \((heal|per tick|direct)\)")
@@ -42,6 +48,8 @@ RE_SINGLE = [re.compile(p) for p in (
 )]
 RE_HOT = re.compile(r"(?:for|another|additional|of) " + NUM + r"(?: damage)? over (\d+) sec")   # "N over D sec"
 RE_EVERY = re.compile(r"for " + NUM + r" every (\d+) sec")                                      # "N every D sec(onds)"
+RE_EVERY_FOR = re.compile(r"every (\d+) sec(?:onds)? for (\d+) sec")                            # "every I sec for D sec"
+RE_EVERY_ONLY = re.compile(r"every (\d+) sec")                                                   # "every I sec(onds)" with no duration
 RE_MANA = re.compile(r"^([\d,]+) Mana$")
 RE_MANA_PCT = re.compile(r"^(\d+)% of base mana$")
 RE_CAST = re.compile(r"^([\d.]+) sec cast$")
@@ -89,6 +97,23 @@ def parse_desc(name, d):
     return base, tick
 
 
+def parse_hot(name, d):
+    """Periodic timing -> (duration, interval) in seconds; (None, None) when the text has no periodic part
+    or the interval for this spell is unknown."""
+    m = RE_HOT.search(d)
+    if m:
+        interval = TICK_INTERVAL.get(name)
+        return (int(m.group(2)), interval) if interval else (None, None)
+    m = RE_EVERY_FOR.search(d)
+    if m:
+        return int(m.group(2)), int(m.group(1))
+    m = RE_EVERY_ONLY.search(d)
+    if m:
+        duration = HOT_DURATION.get(name)
+        return (duration, int(m.group(1))) if duration else (None, None)
+    return None, None
+
+
 def parse_l(l):
     """Flattens the tooltip cell rows. Returns {mana, manaPct, cast} (cast -1 = channeled; absent = instant)."""
     out = {}
@@ -128,6 +153,14 @@ def build_entry(spell_type, name, rank, entry):
         opts["cd"] = True
     if name in NO_CRIT:
         opts["canCrit"] = False
+    duration, interval = parse_hot(name, entry.get("d") or "")
+    if duration and interval:
+        opts["duration"] = duration
+        opts["tick"] = interval
+    if name in MULTI_TARGET:
+        opts["targets"] = MULTI_TARGET[name]
+    if name in PARTY_HOT:
+        opts["party"] = True
     notes = []
     if not entry.get("co"):
         notes.append("no coefficient in JSON")
@@ -136,7 +169,7 @@ def build_entry(spell_type, name, rank, entry):
     return {"id": entry["id"], "type": spell_type, "name": name, "rank": rank, "opts": opts, "notes": notes}
 
 
-KEY_ORDER = ["coeff", "base", "coeffTick", "baseTick", "mana", "manaPct", "cast", "cd", "canCrit"]
+KEY_ORDER = ["coeff", "base", "coeffTick", "baseTick", "mana", "manaPct", "cast", "cd", "canCrit", "duration", "tick", "targets", "party"]
 
 
 def lua_value(v):

@@ -17,39 +17,39 @@ S:Define(9889, T.DRUID, "Healing Touch", { coeff = 1, base = 1946, mana = 755, c
 S:Define(25297, T.DRUID, "Healing Touch", { coeff = 1, base = 2332, mana = 840, cast = 3.5 }); -- Rank 11
 
 -- Rejuvenation
-S:Define(774, T.DRUID, "Rejuvenation", { coeffTick = 0.2, baseTick = 8, mana = 25 }); -- Rank 1
-S:Define(1058, T.DRUID, "Rejuvenation", { coeffTick = 0.2, baseTick = 12, mana = 40 }); -- Rank 2
-S:Define(1430, T.DRUID, "Rejuvenation", { coeffTick = 0.2, baseTick = 23, mana = 75 }); -- Rank 3
-S:Define(2090, T.DRUID, "Rejuvenation", { coeffTick = 0.2, baseTick = 32, mana = 105 }); -- Rank 4
-S:Define(2091, T.DRUID, "Rejuvenation", { coeffTick = 0.2, baseTick = 42, mana = 135 }); -- Rank 5
-S:Define(3627, T.DRUID, "Rejuvenation", { coeffTick = 0.2, baseTick = 51, mana = 160 }); -- Rank 6
-S:Define(8910, T.DRUID, "Rejuvenation", { coeffTick = 0.2, baseTick = 71, mana = 195 }); -- Rank 7
-S:Define(9839, T.DRUID, "Rejuvenation", { coeffTick = 0.2, baseTick = 94, mana = 235 }); -- Rank 8
-S:Define(9840, T.DRUID, "Rejuvenation", { coeffTick = 0.2, baseTick = 124, mana = 280 }); -- Rank 9
-S:Define(9841, T.DRUID, "Rejuvenation", { coeffTick = 0.2, baseTick = 161, mana = 335 }); -- Rank 10
-S:Define(25299, T.DRUID, "Rejuvenation", { coeffTick = 0.2, baseTick = 194, mana = 360 }); -- Rank 11
+S:Define(774, T.DRUID, "Rejuvenation", { coeffTick = 0.2, baseTick = 8, mana = 25, duration = 12, tick = 3 }); -- Rank 1
+S:Define(1058, T.DRUID, "Rejuvenation", { coeffTick = 0.2, baseTick = 12, mana = 40, duration = 12, tick = 3 }); -- Rank 2
+S:Define(1430, T.DRUID, "Rejuvenation", { coeffTick = 0.2, baseTick = 23, mana = 75, duration = 12, tick = 3 }); -- Rank 3
+S:Define(2090, T.DRUID, "Rejuvenation", { coeffTick = 0.2, baseTick = 32, mana = 105, duration = 12, tick = 3 }); -- Rank 4
+S:Define(2091, T.DRUID, "Rejuvenation", { coeffTick = 0.2, baseTick = 42, mana = 135, duration = 12, tick = 3 }); -- Rank 5
+S:Define(3627, T.DRUID, "Rejuvenation", { coeffTick = 0.2, baseTick = 51, mana = 160, duration = 12, tick = 3 }); -- Rank 6
+S:Define(8910, T.DRUID, "Rejuvenation", { coeffTick = 0.2, baseTick = 71, mana = 195, duration = 12, tick = 3 }); -- Rank 7
+S:Define(9839, T.DRUID, "Rejuvenation", { coeffTick = 0.2, baseTick = 94, mana = 235, duration = 12, tick = 3 }); -- Rank 8
+S:Define(9840, T.DRUID, "Rejuvenation", { coeffTick = 0.2, baseTick = 124, mana = 280, duration = 12, tick = 3 }); -- Rank 9
+S:Define(9841, T.DRUID, "Rejuvenation", { coeffTick = 0.2, baseTick = 161, mana = 335, duration = 12, tick = 3 }); -- Rank 10
+S:Define(25299, T.DRUID, "Rejuvenation", { coeffTick = 0.2, baseTick = 194, mana = 360, duration = 12, tick = 3 }); -- Rank 11
 
 -- Regrowth
-S:Define(8936, T.DRUID, "Regrowth", { coeff = 0.286, base = 96, coeffTick = 0.071, baseTick = 13, mana = 70, cast = 2 }); -- Rank 1
-S:Define(8938, T.DRUID, "Regrowth", { coeff = 0.286, base = 176, coeffTick = 0.071, baseTick = 22, mana = 125, cast = 2 }); -- Rank 2
-S:Define(8939, T.DRUID, "Regrowth", { coeff = 0.286, base = 250, coeffTick = 0.071, baseTick = 32, mana = 170, cast = 2 }); -- Rank 3
-S:Define(8940, T.DRUID, "Regrowth", { coeff = 0.286, base = 329, coeffTick = 0.071, baseTick = 42, mana = 210, cast = 2 }); -- Rank 4
-S:Define(8941, T.DRUID, "Regrowth", { coeff = 0.286, base = 414, coeffTick = 0.071, baseTick = 52, mana = 250, cast = 2 }); -- Rank 5
-S:Define(9750, T.DRUID, "Regrowth", { coeff = 0.286, base = 527, coeffTick = 0.071, baseTick = 68, mana = 305, cast = 2 }); -- Rank 6
-S:Define(9856, T.DRUID, "Regrowth", { coeff = 0.286, base = 671, coeffTick = 0.071, baseTick = 88, mana = 370, cast = 2 }); -- Rank 7
-S:Define(9857, T.DRUID, "Regrowth", { coeff = 0.286, base = 847, coeffTick = 0.071, baseTick = 113, mana = 445, cast = 2 }); -- Rank 8
-S:Define(9858, T.DRUID, "Regrowth", { coeff = 0.286, base = 1021, coeffTick = 0.071, baseTick = 142, mana = 525, cast = 2 }); -- Rank 9
+S:Define(8936, T.DRUID, "Regrowth", { coeff = 0.286, base = 96, coeffTick = 0.071, baseTick = 13, mana = 70, cast = 2, duration = 21, tick = 3 }); -- Rank 1
+S:Define(8938, T.DRUID, "Regrowth", { coeff = 0.286, base = 176, coeffTick = 0.071, baseTick = 22, mana = 125, cast = 2, duration = 21, tick = 3 }); -- Rank 2
+S:Define(8939, T.DRUID, "Regrowth", { coeff = 0.286, base = 250, coeffTick = 0.071, baseTick = 32, mana = 170, cast = 2, duration = 21, tick = 3 }); -- Rank 3
+S:Define(8940, T.DRUID, "Regrowth", { coeff = 0.286, base = 329, coeffTick = 0.071, baseTick = 42, mana = 210, cast = 2, duration = 21, tick = 3 }); -- Rank 4
+S:Define(8941, T.DRUID, "Regrowth", { coeff = 0.286, base = 414, coeffTick = 0.071, baseTick = 52, mana = 250, cast = 2, duration = 21, tick = 3 }); -- Rank 5
+S:Define(9750, T.DRUID, "Regrowth", { coeff = 0.286, base = 527, coeffTick = 0.071, baseTick = 68, mana = 305, cast = 2, duration = 21, tick = 3 }); -- Rank 6
+S:Define(9856, T.DRUID, "Regrowth", { coeff = 0.286, base = 671, coeffTick = 0.071, baseTick = 88, mana = 370, cast = 2, duration = 21, tick = 3 }); -- Rank 7
+S:Define(9857, T.DRUID, "Regrowth", { coeff = 0.286, base = 847, coeffTick = 0.071, baseTick = 113, mana = 445, cast = 2, duration = 21, tick = 3 }); -- Rank 8
+S:Define(9858, T.DRUID, "Regrowth", { coeff = 0.286, base = 1021, coeffTick = 0.071, baseTick = 142, mana = 525, cast = 2, duration = 21, tick = 3 }); -- Rank 9
 
 -- Wild Growth
-S:Define(408120, T.DRUID, "Wild Growth", { coeffTick = 0.033, baseTick = 48, mana = 550 }); -- Rank 1
-S:Define(1238214, T.DRUID, "Wild Growth", { coeffTick = 0.033, baseTick = 70, mana = 755 }); -- Rank 2
-S:Define(1238215, T.DRUID, "Wild Growth", { coeffTick = 0.033, baseTick = 97, mana = 1050 }); -- Rank 3
+S:Define(408120, T.DRUID, "Wild Growth", { coeffTick = 0.033, baseTick = 48, mana = 550, duration = 7, tick = 1, party = true }); -- Rank 1
+S:Define(1238214, T.DRUID, "Wild Growth", { coeffTick = 0.033, baseTick = 70, mana = 755, duration = 7, tick = 1, party = true }); -- Rank 2
+S:Define(1238215, T.DRUID, "Wild Growth", { coeffTick = 0.033, baseTick = 97, mana = 1050, duration = 7, tick = 1, party = true }); -- Rank 3
 
 -- Tranquility
-S:Define(740, T.DRUID, "Tranquility", { baseTick = 90, mana = 375, cast = -1, cd = true }); -- Rank 1 (no coefficient in JSON)
-S:Define(8918, T.DRUID, "Tranquility", { baseTick = 133, mana = 505, cast = -1, cd = true }); -- Rank 2 (no coefficient in JSON)
-S:Define(9862, T.DRUID, "Tranquility", { baseTick = 201, mana = 695, cast = -1, cd = true }); -- Rank 3 (no coefficient in JSON)
-S:Define(9863, T.DRUID, "Tranquility", { baseTick = 285, mana = 925, cast = -1, cd = true }); -- Rank 4 (no coefficient in JSON)
+S:Define(740, T.DRUID, "Tranquility", { baseTick = 90, mana = 375, cast = -1, cd = true, duration = 10, tick = 2, party = true }); -- Rank 1 (no coefficient in JSON)
+S:Define(8918, T.DRUID, "Tranquility", { baseTick = 133, mana = 505, cast = -1, cd = true, duration = 10, tick = 2, party = true }); -- Rank 2 (no coefficient in JSON)
+S:Define(9862, T.DRUID, "Tranquility", { baseTick = 201, mana = 695, cast = -1, cd = true, duration = 10, tick = 2, party = true }); -- Rank 3 (no coefficient in JSON)
+S:Define(9863, T.DRUID, "Tranquility", { baseTick = 285, mana = 925, cast = -1, cd = true, duration = 10, tick = 2, party = true }); -- Rank 4 (no coefficient in JSON)
 
 -- Swiftmend
 S:Define(18562, T.DRUID, "Swiftmend", { manaPct = 0.2 }); -- (no coefficient in JSON; tooltip not parsed)
@@ -117,31 +117,31 @@ S:Define(10916, T.PRIEST, "Flash Heal", { coeff = 0.429, base = 662, mana = 315,
 S:Define(10917, T.PRIEST, "Flash Heal", { coeff = 0.429, base = 841, mana = 380, cast = 1.5 }); -- Rank 7
 
 -- Renew
-S:Define(139, T.PRIEST, "Renew", { coeffTick = 0.2, baseTick = 9, mana = 30 }); -- Rank 1
-S:Define(6074, T.PRIEST, "Renew", { coeffTick = 0.2, baseTick = 15, mana = 65 }); -- Rank 2
-S:Define(6075, T.PRIEST, "Renew", { coeffTick = 0.2, baseTick = 25, mana = 105 }); -- Rank 3
-S:Define(6076, T.PRIEST, "Renew", { coeffTick = 0.2, baseTick = 32, mana = 140 }); -- Rank 4
-S:Define(6077, T.PRIEST, "Renew", { coeffTick = 0.2, baseTick = 41, mana = 170 }); -- Rank 5
-S:Define(6078, T.PRIEST, "Renew", { coeffTick = 0.2, baseTick = 54, mana = 205 }); -- Rank 6
-S:Define(10927, T.PRIEST, "Renew", { coeffTick = 0.2, baseTick = 74, mana = 250 }); -- Rank 7
-S:Define(10928, T.PRIEST, "Renew", { coeffTick = 0.2, baseTick = 102, mana = 305 }); -- Rank 8
-S:Define(10929, T.PRIEST, "Renew", { coeffTick = 0.2, baseTick = 134, mana = 365 }); -- Rank 9
-S:Define(25315, T.PRIEST, "Renew", { coeffTick = 0.2, baseTick = 166, mana = 410 }); -- Rank 10
+S:Define(139, T.PRIEST, "Renew", { coeffTick = 0.2, baseTick = 9, mana = 30, duration = 15, tick = 3 }); -- Rank 1
+S:Define(6074, T.PRIEST, "Renew", { coeffTick = 0.2, baseTick = 15, mana = 65, duration = 15, tick = 3 }); -- Rank 2
+S:Define(6075, T.PRIEST, "Renew", { coeffTick = 0.2, baseTick = 25, mana = 105, duration = 15, tick = 3 }); -- Rank 3
+S:Define(6076, T.PRIEST, "Renew", { coeffTick = 0.2, baseTick = 32, mana = 140, duration = 15, tick = 3 }); -- Rank 4
+S:Define(6077, T.PRIEST, "Renew", { coeffTick = 0.2, baseTick = 41, mana = 170, duration = 15, tick = 3 }); -- Rank 5
+S:Define(6078, T.PRIEST, "Renew", { coeffTick = 0.2, baseTick = 54, mana = 205, duration = 15, tick = 3 }); -- Rank 6
+S:Define(10927, T.PRIEST, "Renew", { coeffTick = 0.2, baseTick = 74, mana = 250, duration = 15, tick = 3 }); -- Rank 7
+S:Define(10928, T.PRIEST, "Renew", { coeffTick = 0.2, baseTick = 102, mana = 305, duration = 15, tick = 3 }); -- Rank 8
+S:Define(10929, T.PRIEST, "Renew", { coeffTick = 0.2, baseTick = 134, mana = 365, duration = 15, tick = 3 }); -- Rank 9
+S:Define(25315, T.PRIEST, "Renew", { coeffTick = 0.2, baseTick = 166, mana = 410, duration = 15, tick = 3 }); -- Rank 10
 
 -- Prayer of Healing
-S:Define(596, T.PRIEST, "Prayer of Healing", { coeff = 0.286, base = 185, mana = 410, cast = 3 }); -- Rank 1
-S:Define(996, T.PRIEST, "Prayer of Healing", { coeff = 0.286, base = 274, mana = 560, cast = 3 }); -- Rank 2
-S:Define(10960, T.PRIEST, "Prayer of Healing", { coeff = 0.286, base = 412, mana = 770, cast = 3 }); -- Rank 3
-S:Define(10961, T.PRIEST, "Prayer of Healing", { coeff = 0.286, base = 583, mana = 1030, cast = 3 }); -- Rank 4
-S:Define(25316, T.PRIEST, "Prayer of Healing", { coeff = 0.286, base = 649, mana = 1070, cast = 3 }); -- Rank 5
+S:Define(596, T.PRIEST, "Prayer of Healing", { coeff = 0.286, base = 185, mana = 410, cast = 3, targets = 5 }); -- Rank 1
+S:Define(996, T.PRIEST, "Prayer of Healing", { coeff = 0.286, base = 274, mana = 560, cast = 3, targets = 5 }); -- Rank 2
+S:Define(10960, T.PRIEST, "Prayer of Healing", { coeff = 0.286, base = 412, mana = 770, cast = 3, targets = 5 }); -- Rank 3
+S:Define(10961, T.PRIEST, "Prayer of Healing", { coeff = 0.286, base = 583, mana = 1030, cast = 3, targets = 5 }); -- Rank 4
+S:Define(25316, T.PRIEST, "Prayer of Healing", { coeff = 0.286, base = 649, mana = 1070, cast = 3, targets = 5 }); -- Rank 5
 
 -- Holy Nova
-S:Define(15237, T.PRIEST, "Holy Nova", { coeff = 0.107, base = 53, mana = 185 }); -- Rank 1
-S:Define(15430, T.PRIEST, "Holy Nova", { coeff = 0.107, base = 85, mana = 290 }); -- Rank 2
-S:Define(15431, T.PRIEST, "Holy Nova", { coeff = 0.107, base = 119, mana = 400 }); -- Rank 3
-S:Define(27799, T.PRIEST, "Holy Nova", { coeff = 0.107, base = 163, mana = 520 }); -- Rank 4
-S:Define(27800, T.PRIEST, "Holy Nova", { coeff = 0.107, base = 242, mana = 635 }); -- Rank 5
-S:Define(27801, T.PRIEST, "Holy Nova", { coeff = 0.107, base = 311, mana = 750 }); -- Rank 6
+S:Define(15237, T.PRIEST, "Holy Nova", { coeff = 0.107, base = 53, mana = 185, targets = 5 }); -- Rank 1
+S:Define(15430, T.PRIEST, "Holy Nova", { coeff = 0.107, base = 85, mana = 290, targets = 5 }); -- Rank 2
+S:Define(15431, T.PRIEST, "Holy Nova", { coeff = 0.107, base = 119, mana = 400, targets = 5 }); -- Rank 3
+S:Define(27799, T.PRIEST, "Holy Nova", { coeff = 0.107, base = 163, mana = 520, targets = 5 }); -- Rank 4
+S:Define(27800, T.PRIEST, "Holy Nova", { coeff = 0.107, base = 242, mana = 635, targets = 5 }); -- Rank 5
+S:Define(27801, T.PRIEST, "Holy Nova", { coeff = 0.107, base = 311, mana = 750, targets = 5 }); -- Rank 6
 
 -- Binding Heal
 S:Define(401937, T.PRIEST, "Binding Heal", { coeff = 0.429, base = 260, mana = 155, cast = 1.5 }); -- Rank 1
@@ -157,10 +157,10 @@ S:Define(1240826, T.PRIEST, "Prayer of Mending", { base = 298, mana = 305 }); --
 S:Define(1240827, T.PRIEST, "Prayer of Mending", { base = 413, mana = 390 }); -- Rank 3 (no coefficient in JSON)
 
 -- Penance
-S:Define(402174, T.PRIEST, "Penance", { coeff = 0.285, base = 184, coeffTick = 0.285, baseTick = 184, mana = 100, cast = -1 }); -- Rank 1
-S:Define(1240720, T.PRIEST, "Penance", { coeff = 0.285, base = 291, coeffTick = 0.285, baseTick = 291, mana = 185, cast = -1 }); -- Rank 2
-S:Define(1240721, T.PRIEST, "Penance", { coeff = 0.285, base = 482, coeffTick = 0.285, baseTick = 482, mana = 270, cast = -1 }); -- Rank 3
-S:Define(1316995, T.PRIEST, "Penance", { coeff = 0.285, base = 673, coeffTick = 0.285, baseTick = 673, mana = 355, cast = -1 }); -- Rank 4
+S:Define(402174, T.PRIEST, "Penance", { coeff = 0.285, base = 184, coeffTick = 0.285, baseTick = 184, mana = 100, cast = -1, duration = 2, tick = 1 }); -- Rank 1
+S:Define(1240720, T.PRIEST, "Penance", { coeff = 0.285, base = 291, coeffTick = 0.285, baseTick = 291, mana = 185, cast = -1, duration = 2, tick = 1 }); -- Rank 2
+S:Define(1240721, T.PRIEST, "Penance", { coeff = 0.285, base = 482, coeffTick = 0.285, baseTick = 482, mana = 270, cast = -1, duration = 2, tick = 1 }); -- Rank 3
+S:Define(1316995, T.PRIEST, "Penance", { coeff = 0.285, base = 673, coeffTick = 0.285, baseTick = 673, mana = 355, cast = -1, duration = 2, tick = 1 }); -- Rank 4
 
 -- Power Word: Shield
 S:Define(17, T.PRIEST, "Power Word: Shield", { base = 48, mana = 45, canCrit = false }); -- Rank 1 (no coefficient in JSON)
@@ -213,18 +213,18 @@ S:Define(10467, T.SHAMAN, "Lesser Healing Wave", { coeff = 0.429, base = 626, ma
 S:Define(10468, T.SHAMAN, "Lesser Healing Wave", { coeff = 0.429, base = 820, mana = 380, cast = 1.5 }); -- Rank 6
 
 -- Chain Heal
-S:Define(1064, T.SHAMAN, "Chain Heal", { coeff = 0.714, base = 263, mana = 260, cast = 2.5 }); -- Rank 1
-S:Define(10622, T.SHAMAN, "Chain Heal", { coeff = 0.714, base = 349, mana = 315, cast = 2.5 }); -- Rank 2
-S:Define(10623, T.SHAMAN, "Chain Heal", { coeff = 0.714, base = 506, mana = 405, cast = 2.5 }); -- Rank 3
+S:Define(1064, T.SHAMAN, "Chain Heal", { coeff = 0.714, base = 263, mana = 260, cast = 2.5, targets = 3 }); -- Rank 1
+S:Define(10622, T.SHAMAN, "Chain Heal", { coeff = 0.714, base = 349, mana = 315, cast = 2.5, targets = 3 }); -- Rank 2
+S:Define(10623, T.SHAMAN, "Chain Heal", { coeff = 0.714, base = 506, mana = 405, cast = 2.5, targets = 3 }); -- Rank 3
 
 -- Riptide
-S:Define(408521, T.SHAMAN, "Riptide", { coeff = 0.214, base = 509, coeffTick = 0.1, baseTick = 89, mana = 245 }); -- Rank 1
-S:Define(1239242, T.SHAMAN, "Riptide", { coeff = 0.214, base = 645, coeffTick = 0.1, baseTick = 115, mana = 300 }); -- Rank 2
-S:Define(1239243, T.SHAMAN, "Riptide", { coeff = 0.214, base = 841, coeffTick = 0.1, baseTick = 161, mana = 385 }); -- Rank 3
+S:Define(408521, T.SHAMAN, "Riptide", { coeff = 0.214, base = 509, coeffTick = 0.1, baseTick = 89, mana = 245, duration = 15, tick = 3 }); -- Rank 1
+S:Define(1239242, T.SHAMAN, "Riptide", { coeff = 0.214, base = 645, coeffTick = 0.1, baseTick = 115, mana = 300, duration = 15, tick = 3 }); -- Rank 2
+S:Define(1239243, T.SHAMAN, "Riptide", { coeff = 0.214, base = 841, coeffTick = 0.1, baseTick = 161, mana = 385, duration = 15, tick = 3 }); -- Rank 3
 
 -- Healing Stream Totem
-S:Define(5394, T.SHAMAN, "Healing Stream Totem", { baseTick = 5, mana = 40 }); -- Rank 1 (no coefficient in JSON)
-S:Define(6375, T.SHAMAN, "Healing Stream Totem", { baseTick = 6, mana = 50 }); -- Rank 2 (no coefficient in JSON)
-S:Define(6377, T.SHAMAN, "Healing Stream Totem", { baseTick = 7, mana = 60 }); -- Rank 3 (no coefficient in JSON)
-S:Define(10462, T.SHAMAN, "Healing Stream Totem", { baseTick = 9, mana = 70 }); -- Rank 4 (no coefficient in JSON)
-S:Define(10463, T.SHAMAN, "Healing Stream Totem", { baseTick = 11, mana = 80 }); -- Rank 5 (no coefficient in JSON)
+S:Define(5394, T.SHAMAN, "Healing Stream Totem", { baseTick = 5, mana = 40, duration = 300, tick = 2, party = true }); -- Rank 1 (no coefficient in JSON)
+S:Define(6375, T.SHAMAN, "Healing Stream Totem", { baseTick = 6, mana = 50, duration = 300, tick = 2, party = true }); -- Rank 2 (no coefficient in JSON)
+S:Define(6377, T.SHAMAN, "Healing Stream Totem", { baseTick = 7, mana = 60, duration = 300, tick = 2, party = true }); -- Rank 3 (no coefficient in JSON)
+S:Define(10462, T.SHAMAN, "Healing Stream Totem", { baseTick = 9, mana = 70, duration = 300, tick = 2, party = true }); -- Rank 4 (no coefficient in JSON)
+S:Define(10463, T.SHAMAN, "Healing Stream Totem", { baseTick = 11, mana = 80, duration = 300, tick = 2, party = true }); -- Rank 5 (no coefficient in JSON)
