@@ -17,6 +17,7 @@ CORE_FILES = [
     "Classes/SegmentManager.lua",
     "Classes/StatParser.lua",
     "Classes/UnitManager.lua",
+    "Classes/HealMatcher.lua",
     "Classes/Queues.lua",
     "Classes/OptionsBuilder.lua",
     "Parsers/Spells.lua",
