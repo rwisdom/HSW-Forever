@@ -5,16 +5,6 @@ local name, addon = ...;
 ------------------------------------------------------------------------------]]
 local Util = {};
 
--- True when `unit` carries aura `auraID` cast by the player. filter: "HELPFUL" (default) or "HARMFUL".
-function Util.HasAuraFromPlayer(unit, auraID, filter)
-	for i = 1, 40 do
-		local _, _, source, id, blocked = addon.Compat.UnitAura(unit, i, filter);
-		if blocked or not id then break end -- unreadable in combat counts as "not found"
-		if source == "player" and id == auraID then return true end
-	end
-	return false;
-end
-
 function Util.CopyTable(t)
 	local new_t = {};
 	local mt = getmetatable(t);

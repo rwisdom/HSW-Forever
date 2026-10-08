@@ -37,6 +37,23 @@ class BuffTrackerTests(unittest.TestCase):
         self.auras("{id=12345, count=4}")
         self.assertEqual(self.bt.Get(self.bt, 12345), 0)
 
+    def test_marks_from_own_casts_and_target_marks(self):
+        self.bt.MarkCast(self.bt, 14751, 60)                            # Inner Focus cast: up until spent
+        self.assertEqual(self.bt.Get(self.bt, 14751), 1)
+        self.bt.Consume(self.bt, 14751)
+        self.assertEqual(self.bt.Get(self.bt, 14751), 0)
+        self.bt.MarkCast(self.bt, 408510, 600)                          # Water Shield cast
+        self.assertEqual(self.bt.Get(self.bt, 408510), 1)
+        self.lua.execute("STUB.time = 601")
+        self.assertEqual(self.bt.Get(self.bt, 408510), 0)               # expired by time
+        self.bt.MarkTarget(self.bt, "Me", 6788, 15)                     # Weakened Soul on the unit named Me
+        self.assertTrue(self.bt.TargetHas(self.bt, "player", 6788))     # UnitName("player") == "Me" in the stub
+        self.assertFalse(self.bt.TargetHas(self.bt, "target", 6788))    # no such unit
+        self.lua.execute("STUB.time = 617")
+        self.assertFalse(self.bt.TargetHas(self.bt, "player", 6788))
+        self.bt.MarkCast(self.bt, 12345, 10)                            # untracked buff: ignored
+        self.assertEqual(self.bt.Get(self.bt, 12345), 0)
+
 
 class CastTrackerTests(unittest.TestCase):
     def setUp(self):

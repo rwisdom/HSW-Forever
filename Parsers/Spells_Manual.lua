@@ -33,9 +33,9 @@ S:Alias(25903, 20930); -- Holy Shock heal, Rank 4
 	Spec constants, lookup sets, tracked buffs
 ------------------------------------------------------------------------------]]
 addon.Paladin = { DivineFavor = 20216, Illumination = 20272 };
-addon.Priest  = { InnerFocus = 14751, WeakenedSoul = 6788 };
+addon.Priest  = { InnerFocus = 14751, InnerFocusDuration = 60, WeakenedSoul = 6788, WeakenedSoulDuration = 15 };
 addon.Druid   = { Clearcasting = 16870, Innervate = 29166 };
-addon.Shaman  = { WaterShield = 408510 }; -- VERIFY buff id in game
+addon.Shaman  = { WaterShield = 408510, WaterShieldDuration = 600 }; -- VERIFY the cast id in game: /hsw start, cast it, read "Spellcast Discovered"
 
 -- Casts made under these buffs cost no mana: they do not start the five-second rule.
 addon.FreeCastBuffs = { [addon.Priest.InnerFocus] = true, [addon.Druid.Clearcasting] = true };

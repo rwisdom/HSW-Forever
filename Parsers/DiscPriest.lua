@@ -28,7 +28,7 @@ local function CritChance(ev, s, destUnit, C)
 	C = addon.Priest.CritChance(ev, s, destUnit, C);
 	if renewedHopeSpells[s.name] and (ev ~= "SPELL_PERIODIC_HEAL" or s.name == "Penance") then
 		local rank = addon:GetTalentRank("Renewed Hope");
-		if rank > 0 and addon.Util.HasAuraFromPlayer(destUnit, addon.Priest.WeakenedSoul, "HARMFUL") then
+		if rank > 0 and addon.BuffTracker:TargetHas(destUnit, addon.Priest.WeakenedSoul) then
 			C = C + 0.02 * rank;
 		end
 	end

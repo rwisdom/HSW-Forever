@@ -50,11 +50,3 @@ class TalentCache(unittest.TestCase):
         lua.execute("STUB.talents[1].talents[1].rank = 1")
         addon.Util.RebuildTalentCache()
         self.assertEqual(snap[1].rank, 4)   # a history entry keeps the snapshot it was given
-
-
-class Auras(unittest.TestCase):
-    def test_has_aura_from_player(self):
-        _, addon = load(FILES, setup="STUB.auras = { {id=1}, {id=6788, source='player'}, {id=99, source='raid3'} }")
-        self.assertTrue(addon.Util.HasAuraFromPlayer("target", 6788, "HARMFUL"))
-        self.assertFalse(addon.Util.HasAuraFromPlayer("target", 99))
-        self.assertFalse(addon.Util.HasAuraFromPlayer("target", 12345))

@@ -26,13 +26,13 @@ class DiscPriestTests(unittest.TestCase):
         lua, addon, seg = start("PRIEST", DISC, FILES)           # Holy crit 10%
         heal(addon, "SPELL_HEAL", FH, 1000)
         self.assertAlmostEqual(seg.t.crit, crit_per_pct(1000, 0.10) / 14 + aegis(1000))
-        set_auras(lua, WEAKENED_SOUL)
+        addon.BuffTracker.MarkTarget(addon.BuffTracker, "Me", WEAKENED_SOUL, 15)
         heal(addon, "SPELL_HEAL", FH, 1000)
         self.assertAlmostEqual(seg.t.crit, (crit_per_pct(1000, 0.10) + crit_per_pct(1000, 0.20)) / 14 + 2 * aegis(1000))
 
     def test_penance_bolts_get_renewed_hope_renew_ticks_do_not(self):
         lua, addon, seg = start("PRIEST", DISC, FILES)
-        set_auras(lua, WEAKENED_SOUL)
+        addon.BuffTracker.MarkTarget(addon.BuffTracker, "Me", WEAKENED_SOUL, 15)
         heal(addon, "SPELL_PERIODIC_HEAL", PENANCE, 500)
         self.assertAlmostEqual(seg.t.crit, crit_per_pct(500, 0.20) / 14 + aegis(500))
         heal(addon, "SPELL_PERIODIC_HEAL", RENEW, 500)           # Aegis still applies: ticks crit
@@ -54,7 +54,7 @@ class DiscPriestTests(unittest.TestCase):
 
     def test_without_talents(self):
         lua, addon, seg = start("PRIEST", [("Discipline", [("Meditation", 3)]), ("Holy", [])], FILES)
-        set_auras(lua, WEAKENED_SOUL)
+        addon.BuffTracker.MarkTarget(addon.BuffTracker, "Me", WEAKENED_SOUL, 15)
         heal(addon, "SPELL_HEAL", FH, 1000)
         self.assertAlmostEqual(seg.t.crit, crit_per_pct(1000, 0.10) / 14)
         self.assertEqual(seg.t.spirit, 0)

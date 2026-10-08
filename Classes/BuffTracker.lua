@@ -59,4 +59,41 @@ function BuffTracker:Get(spellId)
 	return 0;
 end
 
+--[[----------------------------------------------------------------------------
+	Forever closes the aura API in combat, so buffs the player casts are marked
+	from UNIT_SPELLCAST_SUCCEEDED instead (UNIT_AURA still refreshes them out of
+	combat). Debuffs we put on others (Weakened Soul) are kept by unit name.
+------------------------------------------------------------------------------]]
+function BuffTracker:MarkCast(spellId, duration)
+	local t = self[spellId];
+	if not t then return end
+	local old = t.stacks;
+	t.stacks = 1;
+	t.expiration = GetTime() + duration;
+	if old == 0 and t.onApply then t.onApply(1, 0) end
+end
+
+function BuffTracker:Consume(spellId)
+	local t = self[spellId];
+	if not t or t.stacks == 0 then return end
+	local old = t.stacks;
+	t.stacks = 0;
+	t.expiration = 0;
+	if t.onExpires then t.onExpires(0, old) end
+end
+
+local targetMarks = {}; -- unit name -> { [spellId] = expiration }
+
+function BuffTracker:MarkTarget(unitName, spellId, duration)
+	targetMarks[unitName] = targetMarks[unitName] or {};
+	targetMarks[unitName][spellId] = GetTime() + duration;
+end
+
+function BuffTracker:TargetHas(unit, spellId)
+	local unitName = UnitName(unit);
+	local marks = unitName and targetMarks[unitName];
+	local expiration = marks and marks[spellId];
+	return (expiration ~= nil and GetTime() <= expiration) and true or false;
+end
+
 addon.BuffTracker = BuffTracker;
