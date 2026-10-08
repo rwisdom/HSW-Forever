@@ -23,3 +23,13 @@ over the fight. Crit includes mana returned by Illumination, Water Shield and Di
 
 This is a port of Bastas' retail HealerStatWeights (v1.9.1); spell and talent data come from the
 talentsforever.com beta export. Forever is in beta: numbers may lag live tuning.
+
+## How it measures on Forever
+
+The Forever client does not let addons read the combat log. HealerStatWeights instead watches your own casts (`UNIT_SPELLCAST_SENT` / `_SUCCEEDED`) and the heals that land on units (`UNIT_COMBAT`) and matches the two: a direct heal is matched to your cast on that target, HoT ticks to the HoT you put on them, Healing Stream Totem to any heal nothing else explains while it is down.
+
+Consequences:
+- Overheal is not visible. Every heal counts in full, so +Healing and Crit read a little high on overhealed targets.
+- A heal from another healer landing on your target within about a second of your cast can be counted as yours.
+- Power Word: Shield is credited at cast with its expected size; Illumination and Water Shield mana is credited on each crit.
+- In combat the client hides +Healing, crit chance and buffs: the last out-of-combat reading is used, Inner Focus and Water Shield are tracked from your own casts, Clearcasting procs are not seen.
