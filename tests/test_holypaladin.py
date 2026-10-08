@@ -47,3 +47,13 @@ class HolyPaladinTests(unittest.TestCase):
         seg.IncFillerCasts(seg, 660)
         heal(addon, "SPELL_HEAL", HL, 1000)
         self.assertAlmostEqual(seg.t.crit, crit_per_pct(1000, 0.12) / 14)
+
+    def test_illumination_mana_is_credited_on_crits(self):
+        _, addon, seg = start("PALADIN", HOLY, FILES)
+        heal(addon, "SPELL_HEAL", HL, 1500, crit=True)             # 5/5: 100% chance x 50% of 660
+        self.assertEqual(seg.manaRestore, 330)
+        heal(addon, "SPELL_HEAL", HL, 1000)                        # no crit: nothing
+        heal(addon, "SPELL_PERIODIC_HEAL", HL, 1500, crit=True)    # ticks never proc it
+        self.assertEqual(seg.manaRestore, 330)
+        ttl = addon.SegmentManager.Get(addon.SegmentManager, "Total")
+        self.assertEqual(ttl.manaRestore, 330)

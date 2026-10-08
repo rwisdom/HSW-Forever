@@ -133,9 +133,9 @@ class Derivatives(unittest.TestCase):
         self.assertEqual(seg.t.haste_hpct, 0)                     # instant: no HPCT value
         self.assertGreater(seg.t.crit, 0)                         # HoT ticks crit on Forever
 
-    def test_absorb_has_no_crit_value(self):
+    def test_shield_cast_has_no_crit_value(self):
         _, addon, seg = start("PRIEST")
-        addon.StatParser.DecompAbsorb(addon.StatParser, "Player-1", PWS, 928 + 0.10 * 200)
+        addon.StatParser.DecompShieldCast(addon.StatParser, "Player-1", PWS)     # expected size 928 + 0.10 * 200
         self.assertAlmostEqual(seg.t.heal, 0.10)
         self.assertEqual((seg.t.crit, seg.t.int, seg.t.haste_hpct), (0, 0, 0))
 

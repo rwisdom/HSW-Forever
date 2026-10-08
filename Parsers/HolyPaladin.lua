@@ -42,7 +42,15 @@ local function CriticalStrike(ev, s, heal, destUnit, C, CB, seg)
 	return 0.01 * (0.2 * rank) * 0.5 * s.manaCost * seg:GetFillerHPM() / addon.CritConv;
 end
 
+-- The mana an Illumination proc actually returns on this crit: (0.2 * rank) chance x 50% of the
+-- spell's base cost. There is no energize event on Forever, so it is credited here.
+local function ManaReturn(ev, s, heal, destUnit)
+	if ev == "SPELL_PERIODIC_HEAL" or not illuminationSpells[s.name] then return 0 end
+	return 0.2 * addon:GetTalentRank("Illumination") * 0.5 * s.manaCost;
+end
+
 addon.StatParser:Create(addon.SpellType.PALADIN, {
 	CritChance = CritChance,
 	CriticalStrike = CriticalStrike,
+	ManaReturn = ManaReturn,
 });

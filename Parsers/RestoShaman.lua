@@ -34,6 +34,12 @@ local function CriticalStrike(ev, s, heal, destUnit, C, CB, seg)
 	return 0.01 * 0.02 * (addon.ply_maxmana or 0) * seg:GetFillerHPM() / addon.CritConv;
 end
 
+-- The mana Water Shield actually returns on this crit while a globe remains (2% of max mana).
+local function ManaReturn(ev, s, heal, destUnit)
+	if not s.canCrit or addon.BuffTracker:Get(addon.Shaman.WaterShield) == 0 then return 0 end
+	return 0.02 * (addon.ply_maxmana or 0);
+end
+
 --[[----------------------------------------------------------------------------
 	Mental Quickness: 15% of Intellect per rank becomes +Healing.
 ------------------------------------------------------------------------------]]
@@ -45,4 +51,5 @@ addon.StatParser:Create(addon.SpellType.SHAMAN, {
 	CritChance = CritChance,
 	CriticalStrike = CriticalStrike,
 	Intellect = Intellect,
+	ManaReturn = ManaReturn,
 });

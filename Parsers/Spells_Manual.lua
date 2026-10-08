@@ -13,7 +13,7 @@ end
 	VERIFY in game (Task 17): /hsw debug should show _SP close to the coefficient.
 ------------------------------------------------------------------------------]]
 eachRank("Tranquility", function(s) s.coeffTick = 0.214 end);       -- Classic value
-eachRank("Power Word: Shield", function(s) s.coeff = 0.10 end);     -- Classic value; absorb logged via SPELL_ABSORBED
+eachRank("Power Word: Shield", function(s) s.coeff = 0.10 end);     -- Classic value; credited at cast (StatParser:DecompShieldCast)
 -- Swiftmend heals "the full duration" of the HoT; approximated as Rejuvenation R11 (4 ticks: coeff 4*0.20, base 776).
 S[18562].coeff = 0.80;
 S[18562].base = 776;
@@ -40,10 +40,7 @@ addon.Shaman  = { WaterShield = 408510, WaterShieldDuration = 600 }; -- VERIFY t
 -- Casts made under these buffs cost no mana: they do not start the five-second rule.
 addon.FreeCastBuffs = { [addon.Priest.InnerFocus] = true, [addon.Druid.Clearcasting] = true };
 
--- SPELL_ENERGIZE ids counted as restored mana. Add Water Shield / Litany of Light / Mana Tide ids once discovered.
-addon.ManaReturnSpells = { [addon.Paladin.Illumination] = true, [addon.Druid.Innervate] = true };
-
--- SPELL_ABSORBED ids credited as healing (all Power Word: Shield ranks).
+-- Spell ids credited as healing when cast (all Power Word: Shield ranks); never opens a heal expectation.
 addon.AbsorbSpells = {};
 eachRank("Power Word: Shield", function(_, id) addon.AbsorbSpells[id] = true end);
 

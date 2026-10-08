@@ -158,6 +158,7 @@ local StatParser = {};
 --   Intellect(ev, s, heal, destUnit, _SP, seg) -> extra Int value (Int -> +Healing talents)
 --   Spirit(ev, s, heal, destUnit, _SP, seg) -> extra Spirit value (Spirit -> +Healing talents)
 --   HealEvent(ev, s, heal, overhealing, destUnit, f, origHeal) -> true to skip allocation
+--   ManaReturn(ev, s, heal, destUnit) -> mana this crit returned (Illumination, Water Shield)
 function StatParser:Create(specId, overrides)
 	self[specId] = overrides or {};
 end
@@ -191,6 +192,12 @@ function StatParser:IncHealing(heal, updateFiller, updateTotal)
 		if updateFiller then ttl_seg:IncFillerHealing(heal) end
 		if updateTotal then ttl_seg:IncTotalHealing(heal) end
 	end
+end
+
+function StatParser:IncManaRestore(mana)
+	local cur_seg, ttl_seg = segments();
+	if cur_seg then cur_seg:IncManaRestore(mana) end
+	if ttl_seg then ttl_seg:IncManaRestore(mana) end
 end
 
 --[[----------------------------------------------------------------------------
@@ -256,14 +263,22 @@ function StatParser:DecompHealingForCurrentSpec(ev, destGUID, spellID, critFlag,
 	if addon.hsw.db.global.excludeRaidHealingCooldowns and s.cd then return end
 
 	self:IncHealing(origHeal, s.filler, true);
+	-- no energize events on Forever: mana returned by this crit is credited analytically
+	if critFlag and f.ManaReturn then
+		local mana = f.ManaReturn(ev, s, origHeal, destUnit);
+		if mana and mana > 0 then self:IncManaRestore(mana) end
+	end
 	if not skipAllocate then
 		self:Allocate(ev, s, heal, overhealing, destUnit, f, addon.ply_sp, addon.ply_crt, addon.ply_crtbonus, addon.ply_hst);
 	end
 end
 
--- Power Word: Shield absorbs (SPELL_ABSORBED) count as direct, non-crit healing.
-function StatParser:DecompAbsorb(destGUID, spellID, amount)
-	self:DecompHealingForCurrentSpec("SPELL_HEAL", destGUID, spellID, false, amount, 0);
+-- Power Word: Shield: absorbs are not observable on Forever, so the shield is credited at cast
+-- time with its expected size (base + coeff * +Healing) as direct, non-crit healing.
+function StatParser:DecompShieldCast(destGUID, spellID)
+	local s = addon.Spells:Get(spellID);
+	if not s then return end
+	self:DecompHealingForCurrentSpec("SPELL_HEAL", destGUID, spellID, false, s.base + s.coeff * (addon.ply_sp or 0), 0);
 end
 
 addon.StatParser = StatParser;

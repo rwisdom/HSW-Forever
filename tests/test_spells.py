@@ -96,7 +96,7 @@ class DataTests(unittest.TestCase):
     def test_lookup_tables_and_tracked_buffs(self):
         absorbs = self.addon.AbsorbSpells
         self.assertEqual(sorted(int(k) for k in absorbs.keys()), [17, 592, 600, 3747, 6065, 6066, 10898, 10899, 10900, 10901])
-        self.assertTrue(self.addon.ManaReturnSpells[20272])
+        self.assertIsNone(self.addon.ManaReturnSpells)      # mana returns are credited analytically on crits
         self.assertTrue(self.addon.FreeCastBuffs[14751] and self.addon.FreeCastBuffs[16870])
         self.assertEqual((self.addon.Priest.WeakenedSoul, self.addon.Paladin.DivineFavor), (6788, 20216))
         for buff in (14751, 16870, 408510):

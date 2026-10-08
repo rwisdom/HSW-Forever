@@ -40,3 +40,11 @@ class RestoShamanTests(unittest.TestCase):
         heal(addon, "SPELL_HEAL", HW, 1000)
         self.assertAlmostEqual(seg.t.crit, crit_per_pct(1000, 0.12) / 14)
         self.assertAlmostEqual(seg.t.int, crit_per_pct(1000, 0.12) / 28.2)
+
+    def test_water_shield_mana_is_credited_on_crits(self):
+        lua, addon, seg = start("SHAMAN", RESTO, FILES)         # max mana 3000
+        heal(addon, "SPELL_HEAL", HW, 1500, crit=True)
+        self.assertEqual(seg.manaRestore, 0)                    # no shield up
+        addon.BuffTracker.MarkCast(addon.BuffTracker, WATER_SHIELD, 600)
+        heal(addon, "SPELL_HEAL", HW, 1500, crit=True)
+        self.assertEqual(seg.manaRestore, 60)                   # 2% of 3000

@@ -46,11 +46,14 @@ class DiscPriestTests(unittest.TestCase):
         self.assertAlmostEqual(seg.t.spirit, 0.10 * 0.429)
         self.assertAlmostEqual(addon.ply_intmult, 1.15)
 
-    def test_absorbs_have_no_aegis(self):
+    def test_shield_credited_at_cast_has_no_aegis(self):
         _, addon, seg = start("PRIEST", DISC, FILES)
-        addon.StatParser.DecompAbsorb(addon.StatParser, "Player-1", PWS, 1000)
+        addon.StatParser.DecompShieldCast(addon.StatParser, "Player-1", PWS)
+        self.assertEqual(seg.totalHealing, 928 + 0.10 * 200)    # base + coeff x +Healing
         self.assertEqual(seg.t.crit, 0)
         self.assertGreater(seg.t.heal, 0)
+        addon.StatParser.DecompShieldCast(addon.StatParser, "Player-1", 424242)   # unknown: ignored
+        self.assertEqual(seg.totalHealing, 928 + 0.10 * 200)
 
     def test_without_talents(self):
         lua, addon, seg = start("PRIEST", [("Discipline", [("Meditation", 3)]), ("Holy", [])], FILES)
