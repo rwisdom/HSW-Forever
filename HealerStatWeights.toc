@@ -1,4 +1,4 @@
-## Interface: 11507
+## Interface: 16001
 ## Title: Healer Stat Weights (Forever)
 ## Author: Bastas#6681 (discord); Forever port by rwisdom
 ## Version: 1.0.0-forever
