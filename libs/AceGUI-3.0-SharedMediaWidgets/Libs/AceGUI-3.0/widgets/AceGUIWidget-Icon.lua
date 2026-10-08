@@ -1,7 +1,7 @@
 --[[-----------------------------------------------------------------------------
 Icon Widget
 -------------------------------------------------------------------------------]]
-local Type, Version = "Icon", 21
+local Type, Version = "Icon", 22
 local AceGUI = LibStub and LibStub("AceGUI-3.0", true)
 if not AceGUI or (AceGUI:GetWidgetVersion(Type) or 0) >= Version then return end
 
@@ -56,7 +56,7 @@ local methods = {
 	["SetImage"] = function(self, path, ...)
 		local image = self.image
 		image:SetTexture(path)
-		
+
 		if image:GetTexture() then
 			local n = select("#", ...)
 			if n == 4 or n == 8 then
@@ -65,6 +65,11 @@ local methods = {
 				image:SetTexCoord(0, 1, 0, 1)
 			end
 		end
+	end,
+
+	["SetImageByAtlas"] = function(self, atlasString)
+		local image = self.image
+		image:SetAtlas(atlasString)
 	end,
 
 	["SetImageSize"] = function(self, width, height)
@@ -118,7 +123,7 @@ local function Constructor()
 
 	local highlight = frame:CreateTexture(nil, "HIGHLIGHT")
 	highlight:SetAllPoints(image)
-	highlight:SetTexture("Interface\\PaperDollInfoFrame\\UI-Character-Tab-Highlight")
+	highlight:SetTexture(136580) -- Interface\\PaperDollInfoFrame\\UI-Character-Tab-Highlight
 	highlight:SetTexCoord(0, 1, 0.23, 0.77)
 	highlight:SetBlendMode("ADD")
 
