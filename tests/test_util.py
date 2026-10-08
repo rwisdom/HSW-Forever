@@ -1,7 +1,7 @@
 import unittest
 from harness import load
 
-FILES = ["Classes/Compat.lua", "Classes/Util.lua"]
+FILES = ["Classes/Compat.lua", "Classes/Util.lua", "Parsers/Talents_Generated.lua"]
 
 
 def talents(cls, tabs):
@@ -35,16 +35,21 @@ class SpecDetection(unittest.TestCase):
 
 class TalentCache(unittest.TestCase):
     def test_rank_lookup_and_snapshot(self):
-        _, addon = load(FILES, setup=talents("PALADIN", [("Holy", [("Illumination", 5), ("Holy Power", 0)]), ("Protection", [("Toughness", 2)])]))
-        self.assertEqual(addon.GetTalentRank(addon, "Illumination"), 0)  # cache not built yet
+        lua, addon = load(FILES, setup=talents("PALADIN", [("Holy", [("Illumination", 5), ("Holy Power", 0)]), ("Protection", [("Toughness", 2)])]))
+        self.assertEqual(addon.GetTalentRank(addon, "Illumination"), 5)  # first lookup builds the cache
+        lua.execute("STUB.talents[1].talents[1].rank = 4")
+        self.assertEqual(addon.GetTalentRank(addon, "Illumination"), 5)  # cached until a talent event rebuilds it
         addon.Util.RebuildTalentCache()
-        self.assertEqual(addon.GetTalentRank(addon, "Illumination"), 5)
+        self.assertEqual(addon.GetTalentRank(addon, "Illumination"), 4)
         self.assertEqual(addon.GetTalentRank(addon, "Toughness"), 2)
         self.assertEqual(addon.GetTalentRank(addon, "Holy Power"), 0)
         self.assertEqual(addon.GetTalentRank(addon, "Nope"), 0)
         snap = addon.Util.GetTalentSnapshot()
-        self.assertEqual([(snap[i].name, snap[i].rank) for i in range(1, len(snap) + 1)], [("Illumination", 5), ("Toughness", 2)])
+        self.assertEqual([(snap[i].name, snap[i].rank) for i in range(1, len(snap) + 1)], [("Illumination", 4), ("Toughness", 2)])
         self.assertEqual(snap[1].icon, "icon_Illumination")
+        lua.execute("STUB.talents[1].talents[1].rank = 1")
+        addon.Util.RebuildTalentCache()
+        self.assertEqual(snap[1].rank, 4)   # a history entry keeps the snapshot it was given
 
 
 class Auras(unittest.TestCase):

@@ -95,16 +95,21 @@ local IntTalents = {
 
 function addon:UpdatePlayerStats()
 	local _, class = UnitClass("player");
-	self.ply_sp = GetSpellBonusHealing() or 0;
-	self.ply_crt = (GetSpellCritChance(CritSchool[class] or 2) or 0) / 100;
+	-- In combat the client hides +Healing and crit (at least) behind secret values: keep the last
+	-- readable value then. Gear cannot change in combat, so only procs are missed.
+	local P = self.Compat.PlainNumber;
+	self.ply_sp = P(GetSpellBonusHealing()) or self.ply_sp or 0;
+	local crit = P(GetSpellCritChance(CritSchool[class] or 2));
+	self.ply_crt = crit and crit / 100 or self.ply_crt or 0;
 	self.ply_crtbonus = self.CritBonus;
-	self.ply_hst = (self.Compat.GetSpellHaste() or 0) / 100;
-	self.ply_int = select(2, UnitStat("player", 4)) or 0;   -- effective (buffed) Intellect
-	self.ply_spi = select(2, UnitStat("player", 5)) or 0;
-	self.ply_maxmana = UnitPowerMax("player", 0) or 0;
+	local hst = P(self.Compat.GetSpellHaste());
+	self.ply_hst = hst and hst / 100 or self.ply_hst or 0;
+	self.ply_int = P(select(2, UnitStat("player", 4))) or self.ply_int or 0;   -- effective (buffed) Intellect
+	self.ply_spi = P(select(2, UnitStat("player", 5))) or self.ply_spi or 0;
+	self.ply_maxmana = P(UnitPowerMax("player", 0)) or self.ply_maxmana or 0;
 	local base, casting = GetManaRegen();                    -- per-second rates; ratio includes regen talents and Innervate
-	self.ply_regen_base = base or 0;
-	self.ply_regen_cast = casting or 0;
+	self.ply_regen_base = P(base) or self.ply_regen_base or 0;
+	self.ply_regen_cast = P(casting) or self.ply_regen_cast or 0;
 	self.ply_castpct = self.ply_regen_base > 0 and math.min(self.ply_regen_cast / self.ply_regen_base, 1) or 0;
 	local intmult = 1;
 	for talent, perRank in pairs(IntTalents) do

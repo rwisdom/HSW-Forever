@@ -3,7 +3,7 @@ from harness import load
 
 FILES = ["Classes/Compat.lua", "Classes/Util.lua", "Classes/BuffTracker.lua", "Classes/Segment.lua",
          "Classes/SegmentManager.lua", "Classes/StatParser.lua", "Classes/UnitManager.lua",
-         "Parsers/Spells.lua", "Parsers/Spells_Generated.lua", "Parsers/Spells_Manual.lua"]
+         "Parsers/Spells.lua", "Parsers/Spells_Generated.lua", "Parsers/Spells_Manual.lua", "Parsers/Talents_Generated.lua"]
 
 TALENTS = {
     "PALADIN": 'STUB.class = "PALADIN"; STUB.talents = { {name="Holy", talents={ {name="Divine Intellect", rank=5, max=5} }}, {name="Protection", talents={}}, {name="Retribution", talents={}} }',
@@ -72,6 +72,14 @@ class PlayerStats(unittest.TestCase):
         lua.execute("STUB.regen = { base = 0, cast = 0 }")
         addon.UpdatePlayerStats(addon)
         self.assertEqual(addon.ply_castpct, 0)
+
+    def test_secret_values_in_combat_keep_last_reading(self):
+        # Forever hides +Healing and crit behind secret numbers in combat; the stub marks -777 as secret.
+        lua, addon, _ = start("PALADIN")
+        lua.execute("issecretvalue = function(v) return v == -777 end; STUB.sp = -777; STUB.critPct[2] = -777; STUB.haste = -777; STUB.stats[4][2] = 150")
+        addon.UpdatePlayerStats(addon)
+        self.assertEqual((addon.ply_sp, addon.ply_crt, addon.ply_hst), (200, 0.10, 0))   # kept
+        self.assertEqual(addon.ply_int, 150)                                               # still readable: updated
 
 
 class RegenCalibration(unittest.TestCase):

@@ -155,6 +155,9 @@ class Handlers(unittest.TestCase):
         addon.hsw.CHARACTER_POINTS_CHANGED(addon.hsw)
         self.assertEqual((addon.GetTalentRank(addon, "Illumination"), addon.IntPerCrit), (1, 50))
         addon.hsw.PLAYER_TALENT_UPDATE(addon.hsw)
+        lua.execute("STUB.talents[1].talents[1].rank = 2")
+        addon.hsw.TRAIT_TREE_CURRENCY_INFO_UPDATED(addon.hsw, "TRAIT_TREE_CURRENCY_INFO_UPDATED", 1082)   # the event Forever fires on a point spend
+        self.assertEqual(addon.GetTalentRank(addon, "Illumination"), 2)
         addon.hsw.PLAYER_EQUIPMENT_CHANGED(addon.hsw)
         addon.hsw.COMBAT_RATING_UPDATE(addon.hsw)
         self.assertEqual(addon.ply_sp, 200)

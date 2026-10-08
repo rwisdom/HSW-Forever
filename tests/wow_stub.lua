@@ -22,17 +22,30 @@ function GetSpellCritChance(school) return STUB.critPct[school] or 0 end
 function UnitSpellHaste() return STUB.haste end
 function UnitPowerMax() return STUB.maxMana end
 function GetManaRegen() return STUB.regen.base, STUB.regen.cast end
-function GetNumTalentTabs() return #STUB.talents end
-function GetTalentTabInfo(i)
-	local tab = STUB.talents[i]; if not tab then return nil end
-	local pts = 0; for _, t in ipairs(tab.talents) do pts = pts + (t.rank or 0) end
-	return tab.name, "tabicon", pts
+-- Forever talents: one C_Traits tree per class, no tree tag on the nodes. Node n is the n-th talent of
+-- STUB.talents in tab order; its synthetic spell id is TALENT_SPELL_BASE + n (resolved by GetSpellInfo below).
+local TALENT_SPELL_BASE = 900000
+local function stubTalent(n)
+	for _, tab in ipairs(STUB.talents) do
+		if n <= #tab.talents then return tab.talents[n] end
+		n = n - #tab.talents
+	end
 end
-function GetNumTalents(i) return STUB.talents[i] and #STUB.talents[i].talents or 0 end
-function GetTalentInfo(tab, i)
-	local t = STUB.talents[tab] and STUB.talents[tab].talents[i]; if not t then return nil end
-	return t.name, "icon_" .. t.name, 1, 1, t.rank or 0, t.max or 5
-end
+C_ClassTalents = { GetActiveConfigID = function() return 1 end }
+C_Traits = {
+	GetConfigInfo = function() return { treeIDs = { 1 } } end,
+	GetTreeNodes = function()
+		local ids = {}
+		for _, tab in ipairs(STUB.talents) do for _ in ipairs(tab.talents) do ids[#ids + 1] = #ids + 1 end end
+		return ids
+	end,
+	GetNodeInfo = function(_, n)
+		local t = stubTalent(n); if not t then return nil end
+		return { activeRank = t.rank or 0, maxRanks = t.max or 5, entryIDs = { n }, activeEntry = { entryID = n, rank = t.rank or 0 } }
+	end,
+	GetEntryInfo = function(_, n) return { definitionID = n } end,
+	GetDefinitionInfo = function(n) return { spellID = TALENT_SPELL_BASE + n } end,
+}
 function UnitAura(_, i)
 	local a = STUB.auras[i]; if not a then return nil end
 	return "aura", "icon", a.count or 1, nil, nil, a.expiration or 0, a.source or "player", nil, nil, a.id
@@ -40,7 +53,11 @@ end
 function UnitHealth() return 1000 end
 function UnitHealthMax() return 1000 end
 function GetSpellPowerCost(id) local c = STUB.spellCost[id]; if c == nil then return nil end; return { { type = 0, cost = c } } end
-function GetSpellInfo(id) return "spell" .. tostring(id), nil, "icon" .. tostring(id) end
+function GetSpellInfo(id)
+	local t = type(id) == "number" and id > TALENT_SPELL_BASE and stubTalent(id - TALENT_SPELL_BASE)
+	if t then return t.name, nil, "icon_" .. t.name end
+	return "spell" .. tostring(id), nil, "icon" .. tostring(id)
+end
 function GetSpellCooldown(id) local c = STUB.cooldowns[id]; if c then return c.start, c.duration end; return 0, 0 end
 function GetInstanceInfo() return STUB.instance.name, STUB.instance.type, STUB.instance.difficultyId end
 function IsInInstance() return STUB.instance.type ~= "none", STUB.instance.type end
@@ -91,7 +108,7 @@ function AceStub:New(_, defaults)
 	return db;
 end
 function AceStub:RegisterOptionsTable() end
-function AceStub:AddToBlizOptions() return {} end
+function AceStub:AddToBlizOptions() return {}, "HSW_TEST_CATEGORY" end   -- frame, Settings category id
 function AceStub:Fetch() return "font" end
 function LibStub() return AceStub end
 function HSW_TEST_ADDON.hsw:RegisterChatCommand() end

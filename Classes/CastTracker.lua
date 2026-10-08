@@ -22,6 +22,8 @@ function CastTracker:StartCast(unit)
 	if not addon.inCombat then return end
 	local _, _, _, startTimeMS, endTimeMS, _, _, _, spellID = UnitCastingInfo("player");
 	if not addon.Spells:Get(spellID) then return end
+	startTimeMS, endTimeMS = addon.Compat.PlainNumber(startTimeMS), addon.Compat.PlainNumber(endTimeMS);
+	if not (startTimeMS and endTimeMS) then return end -- cast timing hidden from addons: no chain-cast credit
 	if addon.BuffTracker:CompareTimestamps(startTimeMS / 1000, endcast, leniancy) then
 		castedSpellID = spellID;
 	end
@@ -46,12 +48,12 @@ function CastTracker:FinishCast(unit, castGUID, spellID)
 		self:IncChainCasts();            -- cast-time spell chained onto the previous cast
 		endcast = curTime;
 	else
-		local start, dur = addon.Compat.GetSpellCooldown(spellID);
+		local start, dur = addon.Compat.GetSpellCooldown(spellID); -- nil, nil when the client hides cooldown timing
 		if start and start > 0 then      -- instant with a cooldown, used right as a cast landed
 			if addon.BuffTracker:CompareTimestamps(curTime, endcast, leniancy) then
 				self:IncChainCasts();
 			end
-			endcast = start + dur;
+			endcast = start + (dur or 0);
 		else
 			endcast = curTime;
 		end

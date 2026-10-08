@@ -27,7 +27,8 @@ end
 function BuffTracker:UpdatePlayerBuffs()
 	local found = {};
 	for i = 1, 40 do
-		local count, expiration, _, id = addon.Compat.UnitAura("player", i);
+		local count, expiration, _, id, blocked = addon.Compat.UnitAura("player", i);
+		if blocked then return end -- auras unreadable in combat: keep the last known state
 		if not id then break end
 		local t = self[id];
 		if t then

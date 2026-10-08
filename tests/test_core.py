@@ -38,6 +38,7 @@ class Database(unittest.TestCase):
         self.assertEqual((g.hasteRatingPerPct, g.intPerCritOverride.PALADIN, g.maxSegments, g.neverShow), (1, 0, 10, False))
         for gone in ("useHPMoverHPCT", "useVersDR", "useCritResurg", "enabledInMythicPlusDungeons", "enabledInLfrRaids"):
             self.assertIsNone(g[gone])
+        self.assertEqual(addon.hsw.optionsFrame.settingsCategoryID, "HSW_TEST_CATEGORY")   # Configure button → Settings.OpenToCategory(id)
 
     def test_old_history_is_wiped_once(self):
         _, addon = start(extra='HSW_TEST_SAVED = { history = { [1] = { Int = 1, Vrs = 0.5 } }, front = 1, back = 0 }')

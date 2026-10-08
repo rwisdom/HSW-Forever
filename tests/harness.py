@@ -22,6 +22,7 @@ CORE_FILES = [
     "Parsers/Spells.lua",
     "Parsers/Spells_Generated.lua",
     "Parsers/Spells_Manual.lua",
+    "Parsers/Talents_Generated.lua",
 ]
 
 

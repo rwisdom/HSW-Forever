@@ -23,6 +23,7 @@ Classes/OptionsBuilder.lua
 Parsers/Spells.lua
 Parsers/Spells_Generated.lua
 Parsers/Spells_Manual.lua
+Parsers/Talents_Generated.lua
 Parsers/HolyPriest.lua
 Parsers/DiscPriest.lua
 Parsers/RestoDruid.lua

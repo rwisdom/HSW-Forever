@@ -63,6 +63,7 @@ end
 
 function addon.hsw:CHARACTER_POINTS_CHANGED() RefreshCharacter() end
 function addon.hsw:PLAYER_TALENT_UPDATE() RefreshCharacter() end
+function addon.hsw:TRAIT_TREE_CURRENCY_INFO_UPDATED() RefreshCharacter() end
 function addon.hsw:COMBAT_RATING_UPDATE() addon:UpdatePlayerStats() end
 function addon.hsw:PLAYER_EQUIPMENT_CHANGED() addon:UpdatePlayerStats() end
 
@@ -206,5 +207,7 @@ addon.hsw:RegisterEvent("ENCOUNTER_END");
 addon.hsw:RegisterEvent("COMBAT_RATING_UPDATE");
 addon.hsw:RegisterEvent("GROUP_ROSTER_UPDATE");
 addon.hsw:RegisterEvent("CHARACTER_POINTS_CHANGED");
--- Registering an event name the client does not know throws; PLAYER_TALENT_UPDATE is not guaranteed on a 1.x client.
+-- Registering an event name the client does not know throws. On Forever a talent point spend fires only
+-- TRAIT_TREE_CURRENCY_INFO_UPDATED (probe 2026-10-07); the other two stay for respec / login paths.
 pcall(addon.hsw.RegisterEvent, addon.hsw, "PLAYER_TALENT_UPDATE");
+pcall(addon.hsw.RegisterEvent, addon.hsw, "TRAIT_TREE_CURRENCY_INFO_UPDATED");

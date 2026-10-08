@@ -663,7 +663,9 @@ function hsw:OnInitialize()
 
 	LibStub("AceConfigRegistry-3.0"):RegisterOptionsTable("HealerStatWeights", BuildOptionsTable, true);
 	LibStub("AceConfigRegistry-3.0"):RegisterOptionsTable("HSW_Bliz", BlizOptionsTable);
-	self.optionsFrame = LibStub("AceConfigDialog-3.0"):AddToBlizOptions("HSW_Bliz", "Healer Stat Weights (Forever)");
+	local optionsFrame, categoryID = LibStub("AceConfigDialog-3.0"):AddToBlizOptions("HSW_Bliz", "Healer Stat Weights (Forever)");
+	optionsFrame.settingsCategoryID = categoryID; -- Settings.OpenToCategory wants the id, not the frame (Compat.OpenOptionsCategory)
+	self.optionsFrame = optionsFrame;
 	self:RegisterChatCommand("hsw", "ChatCommand");
 end
 

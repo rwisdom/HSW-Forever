@@ -272,7 +272,7 @@ local function makeButton(parent, title, description, tex, clickfunc)
 	btn:SetHeight(btn_size);
 	btn:SetWidth(btn_size);
 	btn:SetNormalTexture(tex);
-	btn:SetHighlightTexture(tex, 1.0);
+	btn:SetHighlightTexture(tex, "ADD");
 	btn:SetAlpha(0.35);
 	btn:RegisterForClicks("LeftButtonUp", "RightButtonUp");
 	btn:SetScript("OnClick", clickfunc);
@@ -354,7 +354,7 @@ function addon:SetupFrame()
 		db.frameY = f:GetBottom();
 	end);
 
-	local text = frame:CreateFontString(nil, "OVERLAY", GameFontNormal);
+	local text = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal");
 	text:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -btn_size);
 	text:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0, 0);
 	text:SetJustifyH("LEFT");
@@ -366,7 +366,7 @@ function addon:SetupFrame()
 	text:SetFont(p, db.fontSize, "OUTLINE");
 	frame.textL = text;
 
-	text = frame:CreateFontString(nil, "OVERLAY", GameFontNormal);
+	text = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal");
 	text:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -btn_size);
 	text:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0, 0);
 	text:SetJustifyH("RIGHT");
@@ -394,7 +394,7 @@ function addon:SetupFrame()
 		self:SegmentMenu();
 	end);
 
-	text = frame:CreateFontString(nil, "OVERLAY", GameFontNormal);
+	text = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal");
 	text:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0);
 	text:SetJustifyH("LEFT");
 	text:SetFontObject(GameFontWhite);
