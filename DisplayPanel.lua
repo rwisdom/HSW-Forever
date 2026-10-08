@@ -233,6 +233,7 @@ function addon:StartFight(id)
 	if self.inCombat or not self:Enabled() then return end
 	self:UpdatePlayerStats();
 	self.UnitManager:Cache();
+	self.HealMatcher:Reset();
 	self.SegmentManager:Enqueue(id);
 
 	-- the Total segment is live for the duration of every fight

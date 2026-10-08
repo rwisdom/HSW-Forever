@@ -25,6 +25,10 @@ end
 ------------------------------------------------------------------------------]]
 function addon.hsw:PLAYER_REGEN_DISABLED()
 	addon:StartFight(nil);
+	-- no combat log to name the fight from: use the hostile target we have, if any
+	if addon.inCombat and UnitExists("target") and UnitCanAttack("player", "target") then
+		addon.SegmentManager:SetCurrentId(UnitName("target"));
+	end
 end
 
 function addon.hsw:PLAYER_REGEN_ENABLED()
@@ -74,93 +78,55 @@ function addon.hsw:GROUP_ROSTER_UPDATE()
 end
 
 --[[----------------------------------------------------------------------------
-	COMBAT_LOG_EVENT_UNFILTERED
-------------------------------------------------------------------------------]]
-local summons = {};
-local reportedEnergize = {};
-
-function addon.hsw:COMBAT_LOG_EVENT_UNFILTERED()
-	if not addon.inCombat then return end
-	local _, ev, _, sourceGUID, sourceName, _, _, destGUID, destName, _, _, spellID, _, _, amount, overhealing, _, critFlag, arg19, _, _, arg22 = CombatLogGetCurrentEventInfo();
-	local playerGUID = UnitGUID("player");
-
-	if sourceGUID == playerGUID then
-		if ev == "SPELL_CAST_SUCCESS" then
-			local s = addon.Spells:Get(spellID);
-			if s and s.filler then
-				local cost = SpellManaCost(spellID, s);
-				if cost > 0 then
-					forEachSegment(function(seg) seg:IncFillerCasts(cost) end);
-				end
-			end
-		elseif ev == "SPELL_SUMMON" then
-			summons[destGUID] = true; -- totems heal from their own GUID
-		end
-	end
-
-	if ev == "SPELL_HEAL" or ev == "SPELL_PERIODIC_HEAL" then
-		if sourceGUID == playerGUID or summons[sourceGUID] then
-			addon.StatParser:DecompHealingForCurrentSpec(ev, destGUID, spellID, critFlag, amount - overhealing, overhealing);
-		end
-	elseif ev == "SPELL_ENERGIZE" then
-		if destGUID == playerGUID then
-			if addon.ManaReturnSpells[spellID] then
-				forEachSegment(function(seg) seg:IncManaRestore(amount) end);
-			elseif addon.discoverSpells and not reportedEnergize[spellID] then
-				-- "/hsw discover on": find Water Shield / Mana Tide / Litany of Light energize ids (Task 17)
-				reportedEnergize[spellID] = true;
-				addon:Msg("[HealerStatWeights]: mana return " .. tostring(spellID) .. " (" .. tostring(addon.Compat.GetSpellInfo(spellID)) .. ") is not tracked; +" .. tostring(amount) .. " mana.");
-			end
-		end
-	elseif ev == "SPELL_ABSORBED" then
-		local absorberGUID, absorbSpellID, absorbAmount;
-		if type(spellID) == "number" then
-			-- absorbed a spell: args 12-14 are that spell; absorber GUID 15, absorb spell 19, amount 22
-			absorberGUID, absorbSpellID, absorbAmount = amount, arg19, arg22;
-		else
-			-- absorbed a melee swing: absorber GUID 12, absorb spell 16, amount 19
-			absorberGUID, absorbSpellID, absorbAmount = spellID, overhealing, arg19;
-		end
-		if absorberGUID == playerGUID and addon.AbsorbSpells[absorbSpellID] then
-			addon.StatParser:DecompAbsorb(destGUID, absorbSpellID, absorbAmount);
-		end
-	elseif ev == "SWING_DAMAGE" or ev == "SPELL_DAMAGE" or ev == "SPELL_PERIODIC_DAMAGE" then
-		-- name the segment after the first enemy that hits us or that we hit
-		local segment = addon.SegmentManager:Get(0);
-		if segment and not segment.nameSet and sourceGUID and destGUID then
-			local src_str, dest_str = string.lower(sourceGUID), string.lower(destGUID);
-			local srcIsUs = src_str:find("player") or src_str:find("pet");
-			local destIsUs = dest_str:find("player") or dest_str:find("pet");
-			if srcIsUs and not destIsUs then
-				addon.SegmentManager:SetCurrentId(destName);
-			elseif destIsUs and not srcIsUs then
-				addon.SegmentManager:SetCurrentId(sourceName);
-			end
-		end
-	end
-end
-
---[[----------------------------------------------------------------------------
-	Five-second rule: every successful cast that cost mana restarts it.
-	Time up to now is credited with the previous spend first.
-	Approximation: a free-cast buff (Inner Focus, Clearcasting) consumed by this
-	very cast may already be gone when UNIT_SPELLCAST_SUCCEEDED fires; the cost
-	API (when present) still reports 0 in that case.
+	Player casts (UNIT_SPELLCAST_SUCCEEDED). Forever gives addons no combat log,
+	so this is where self-cast buffs, shields, the heal matcher, filler mana and
+	the five-second rule are fed.
+	Five-second rule: every successful cast that cost mana restarts it; time up
+	to now is credited with the previous spend first. Clearcasting procs are not
+	visible in combat, so only Inner Focus (our own cast) marks a free cast.
 ------------------------------------------------------------------------------]]
 function addon:OnPlayerSpellcast(spellID)
 	if not self.inCombat then return end
-	local cost = SpellManaCost(spellID, self.Spells:Get(spellID));
+	local s = self.Spells:Get(spellID);
+	local now = GetTime();
+
+	-- buffs we cast ourselves are the only ones visible in combat
+	if spellID == self.Shaman.WaterShield then
+		self.BuffTracker:MarkCast(spellID, self.Shaman.WaterShieldDuration);
+	elseif spellID == self.Priest.InnerFocus then
+		self.BuffTracker:MarkCast(spellID, self.Priest.InnerFocusDuration);
+	end
+
+	-- shields are credited at cast time (absorbs are not observable)
+	if self.AbsorbSpells[spellID] then
+		local targetName = self.HealMatcher:SentTarget(spellID);
+		local unit = self.UnitManager:FindByName(targetName);
+		if unit then
+			self.StatParser:DecompShieldCast(UnitGUID(unit), spellID);
+			self.BuffTracker:MarkTarget(targetName, self.Priest.WeakenedSoul, self.Priest.WeakenedSoulDuration);
+		end
+	end
+
+	self.HealMatcher:OnCastSucceeded(spellID, now);
+
+	-- mana: free casts, filler accounting, five-second rule
+	local cost = SpellManaCost(spellID, s);
 	if cost <= 0 then return end
 	for buffId in pairs(self.FreeCastBuffs) do
-		if self.BuffTracker:Get(buffId) > 0 then return end
+		if self.BuffTracker:Get(buffId) > 0 then
+			self.BuffTracker:Consume(buffId); -- spent by this cast
+			return;
+		end
 	end
-	local now = GetTime();
+	if s and s.filler then
+		forEachSegment(function(seg) seg:IncFillerCasts(cost) end);
+	end
 	forEachSegment(function(seg) seg:AccumulateFSR(now) end);
 	self.lastManaSpend = now;
 end
 
 --[[----------------------------------------------------------------------------
-	Unit events (player only)
+	Unit events. Player-only except UNIT_COMBAT, which reports heals on any unit.
 ------------------------------------------------------------------------------]]
 local function AccumulateNow()
 	if addon.inCombat then
@@ -177,6 +143,15 @@ local function UnitEventHandler(_, e, ...)
 	elseif e == "UNIT_STATS" then
 		AccumulateNow();
 		addon:UpdatePlayerStats();
+	elseif e == "UNIT_COMBAT" then
+		local unit, action, flag, amount = ...;
+		addon.HealMatcher:OnUnitCombat(unit, action, flag, amount);
+	elseif e == "UNIT_SPELLCAST_SENT" then
+		local _, target, _, spellID = ...;
+		addon.HealMatcher:OnCastSent(spellID, target);
+	elseif e == "UNIT_SPELLCAST_FAILED" or e == "UNIT_SPELLCAST_INTERRUPTED" then
+		local _, _, spellID = ...;
+		addon.HealMatcher:OnCastFailed(spellID);
 	elseif e == "UNIT_SPELLCAST_START" then
 		addon.CastTracker:StartCast(...);
 	elseif e == "UNIT_SPELLCAST_SUCCEEDED" then
@@ -190,18 +165,22 @@ function addon:SetupUnitEvents()
 	self.frame:RegisterUnitEvent("UNIT_AURA", "player");
 	self.frame:RegisterUnitEvent("UNIT_STATS", "player");
 	self.frame:RegisterUnitEvent("UNIT_SPELLCAST_START", "player");
+	self.frame:RegisterUnitEvent("UNIT_SPELLCAST_SENT", "player");
+	self.frame:RegisterUnitEvent("UNIT_SPELLCAST_FAILED", "player");
+	self.frame:RegisterUnitEvent("UNIT_SPELLCAST_INTERRUPTED", "player");
 	self.frame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player");
+	self.frame:RegisterEvent("UNIT_COMBAT"); -- every unit: our heals land on anyone
 	self.frame:SetScript("OnEvent", UnitEventHandler);
 end
 
 --[[----------------------------------------------------------------------------
-	Registration
+	Registration. COMBAT_LOG_EVENT_UNFILTERED is a protected action on Forever
+	(ADDON_ACTION_BLOCKED) and is not registered.
 ------------------------------------------------------------------------------]]
 addon.hsw:RegisterEvent("PLAYER_REGEN_DISABLED");
 addon.hsw:RegisterEvent("PLAYER_REGEN_ENABLED");
 addon.hsw:RegisterEvent("PLAYER_EQUIPMENT_CHANGED");
 addon.hsw:RegisterEvent("PLAYER_ENTERING_WORLD");
-addon.hsw:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED");
 addon.hsw:RegisterEvent("ENCOUNTER_START");
 addon.hsw:RegisterEvent("ENCOUNTER_END");
 addon.hsw:RegisterEvent("COMBAT_RATING_UPDATE");

@@ -77,9 +77,11 @@ function CreateFrame()
 	local f = {};
 	function f:RegisterUnitEvent() end
 	function f:RegisterEvent() end
-	function f:SetScript() end
+	function f:SetScript(handler, fn) self[handler] = fn end   -- tests fire events through f.OnEvent
 	return f
 end
+function UnitExists() return false end
+function UnitCanAttack() return false end
 -- Deliberately absent, as on Classic-family clients: MAX_TALENT_TIERS, NUM_TALENT_COLUMNS, C_ChallengeMode, GetSpecialization.
 
 -- STUB.casting = { startMS=, endMS=, spellID= } while a cast is in progress

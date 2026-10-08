@@ -4,110 +4,105 @@ from harness import load, CORE_FILES
 FILES = CORE_FILES + ["Events.lua"]
 PALADIN = 'STUB.class = "PALADIN"; STUB.talents = { {name="Holy", talents={ {name="Illumination", rank=5, max=5} }}, {name="Protection", talents={}}, {name="Retribution", talents={}} }'
 PRIEST = 'STUB.class = "PRIEST"; STUB.talents = { {name="Discipline", talents={ {name="Meditation", rank=3, max=3} }}, {name="Holy", talents={}} }'
-HL = 25292     # Holy Light R9, 660 mana, filler
+SHAMAN = 'STUB.class = "SHAMAN"; STUB.talents = { {name="Elemental", talents={}}, {name="Enhancement", talents={}}, {name="Restoration", talents={ {name="Tidal Mastery", rank=1, max=5} }} }'
+PARTY = 'STUB.group = "party"; STUB.groupSize = 1; STUB.guids.party1 = "Player-2"; STUB.names.party1 = "Bob"'
+HL = 25292     # Holy Light R9, 660 mana, filler, 2.5 s cast
+FH = 10917     # Flash Heal R7, filler
 PWS = 10901    # Power Word: Shield R10
+INNER_FOCUS, WEAKENED_SOUL, WATER_SHIELD = 14751, 6788, 408510
 
 
 def start(setup=PALADIN, spec=65, extra=""):
-    """In combat, parser registered for `spec`, one unnamed live segment, player GUID cached."""
+    """In combat, parser registered for `spec`, unit events wired to a stub frame, one unnamed live segment."""
     lua, addon = load(FILES, setup=setup + "\n" + extra)
     lua.execute(f"""
         local a = HSW_TEST_ADDON
         a.StatParser:Create({spec}, {{}})
         a.Util.RebuildTalentCache(); a:SetupConversionFactors(); a:UpdatePlayerStats()
-        a.SegmentManager:Enqueue(); a.UnitManager.units["Player-1"] = "player"
+        a.frame = CreateFrame(); a:SetupUnitEvents()
+        a.SegmentManager:Enqueue(); a.UnitManager:Cache()
         a.inCombat = true
     """)
     return lua, addon, addon.SegmentManager.Get(addon.SegmentManager, 0)
 
 
-def fire(lua, addon, payload):
-    """`payload` is the Lua list CombatLogGetCurrentEventInfo() should return (22 slots, trailing nils allowed)."""
-    lua.execute(f"CLEU = {{ {payload} }}; function CombatLogGetCurrentEventInfo() return unpack(CLEU, 1, 22) end")
-    addon.hsw.COMBAT_LOG_EVENT_UNFILTERED(addon.hsw)
+def fire(addon, event, *args):
+    """Delivers a unit event the way the client would: through the frame's OnEvent script."""
+    addon.frame.OnEvent(addon.frame, event, *args)
 
 
-SRC = '0, "%s", false, "Player-1", "Me", 0, 0, '                       # timestamp, event, hideCaster, source
-HEAL = SRC % "SPELL_HEAL" + '"Player-1", "Me", 0, 0, %d, "x", 2, %d, %d, 0, %s'   # dest..., spellID, amount, overhealing, critFlag
+def cast(addon, spell, target=""):
+    fire(addon, "UNIT_SPELLCAST_SENT", "player", target, "cast-guid", spell)
+    fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "cast-guid", spell)
 
 
-class CombatLog(unittest.TestCase):
+class UnitEvents(unittest.TestCase):
     def test_heal_and_crit_heal_are_decomposed(self):
         lua, addon, seg = start()
-        fire(lua, addon, HEAL % (HL, 1000, 0, "false"))
+        cast(addon, HL)
+        fire(addon, "UNIT_COMBAT", "player", "HEAL", "", 1000, 2)
         self.assertGreater(seg.t.heal, 0)
         self.assertEqual((seg.totalHealing, seg.fillerHealing), (1000, 1000))
         before = seg.t.crit
-        fire(lua, addon, HEAL % (HL, 1500, 0, "true"))          # crit for 1500 == non-crit 1000
+        cast(addon, HL)
+        fire(addon, "UNIT_COMBAT", "player", "HEAL", "CRITICAL", 1500, 2)   # crit for 1500 == non-crit 1000
         self.assertAlmostEqual(seg.t.crit, before * 2)
 
-    def test_overheal_is_subtracted_from_amount(self):
-        lua, addon, seg = start()
-        fire(lua, addon, HEAL % (HL, 1000, 200, "false"))       # effective 800, overheal 200 -> no derivatives
-        self.assertEqual((seg.t.heal, seg.totalHealing), (0, 800))
-
-    def test_summon_heals_count_other_sources_do_not(self):
-        lua, addon, seg = start()
-        other = '0, "SPELL_HEAL", false, "Creature-5", "Totem", 0, 0, "Player-1", "Me", 0, 0, %d, "x", 2, %d, %d, 0, %s'
-        fire(lua, addon, other % (HL, 1000, 0, "false"))
+    def test_heals_on_others_need_a_cast_on_them(self):
+        lua, addon, seg = start(extra=PARTY)
+        fire(addon, "UNIT_COMBAT", "party1", "HEAL", "", 1000, 2)           # not ours
         self.assertEqual(seg.totalHealing, 0)
-        fire(lua, addon, SRC % "SPELL_SUMMON" + '"Creature-5", "Totem", 0, 0, 5394, "Healing Stream Totem", 8')
-        fire(lua, addon, other % (HL, 1000, 0, "false"))
+        cast(addon, HL, "Bob")
+        fire(addon, "UNIT_COMBAT", "party1", "HEAL", "", 1000, 2)
         self.assertEqual(seg.totalHealing, 1000)
 
     def test_filler_cast_records_mana(self):
         lua, addon, seg = start()
-        cast = SRC % "SPELL_CAST_SUCCESS" + '"", "", 0, 0, %d, "x", 2'
-        fire(lua, addon, cast % HL)                              # no cost API in stub -> table cost 660
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", HL)          # no cost API in stub -> table cost 660
         self.assertEqual((seg.fillerCasts, seg.fillerManaSpent), (1, 660))
-        lua.execute(f"STUB.spellCost[{HL}] = 500")               # cost API wins (talent reductions, downranks)
-        fire(lua, addon, cast % HL)
+        lua.execute(f"STUB.spellCost[{HL}] = 500")                           # cost API wins (talent reductions, downranks)
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", HL)
         self.assertEqual((seg.fillerCasts, seg.fillerManaSpent), (2, 1160))
-        fire(lua, addon, cast % 633)                             # Lay on Hands: not a filler
-        fire(lua, addon, cast % 424242)                          # unknown spell
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", 633)         # Lay on Hands: not a filler
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", 424242)      # unknown spell
         self.assertEqual(seg.fillerCasts, 2)
         ttl = addon.SegmentManager.Get(addon.SegmentManager, "Total")
         self.assertEqual(ttl.fillerManaSpent, 1160)
 
-    def test_energize_from_mana_return_spells(self):
-        lua, addon, seg = start()
-        energize = SRC % "SPELL_ENERGIZE" + '"Player-1", "Me", 0, 0, %d, "x", 2, 330, 0'
-        fire(lua, addon, energize % 20272)                       # Illumination
-        self.assertEqual(seg.manaRestore, 330)
-        fire(lua, addon, energize % 424242)                      # not a tracked mana return
-        self.assertEqual(seg.manaRestore, 330)
-        innervate = '0, "SPELL_ENERGIZE", false, "Player-7", "Druid", 0, 0, "Player-1", "Me", 0, 0, 29166, "Innervate", 8, 100, 0'
-        fire(lua, addon, innervate)                              # from someone else, to the player
-        self.assertEqual(seg.manaRestore, 430)
-        lua.execute('MSGS = {}; function HSW_TEST_ADDON:Msg(s) table.insert(MSGS, tostring(s)) end; HSW_TEST_ADDON.discoverSpells = true')
-        fire(lua, addon, energize % 424242)                      # discovery mode reports an untracked mana return once
-        fire(lua, addon, energize % 424242)
-        self.assertEqual(len(list(lua.globals().MSGS.keys())), 1)
-        self.assertIn("424242", lua.globals().MSGS[1])
-
-    def test_absorbs_both_layouts(self):
+    def test_shield_cast_is_credited_at_cast_with_weakened_soul(self):
         lua, addon, seg = start(PRIEST, 256)
-        spell_layout = '0, "SPELL_ABSORBED", false, "Creature-9", "Mob", 0, 0, "Player-1", "Me", 0, 0, 100, "Fireball", 4, "Player-1", "Me", 0, 0, %d, "Power Word: Shield", 2, 300'
-        swing_layout = '0, "SPELL_ABSORBED", false, "Creature-9", "Mob", 0, 0, "Player-1", "Me", 0, 0, "Player-1", "Me", 0, 0, %d, "Power Word: Shield", 2, 300'
-        fire(lua, addon, spell_layout % PWS)
-        self.assertEqual(seg.totalHealing, 300)
-        fire(lua, addon, swing_layout % PWS)
-        self.assertEqual(seg.totalHealing, 600)
+        cast(addon, PWS)
+        self.assertEqual(seg.totalHealing, 928 + 0.10 * 200)
         self.assertGreater(seg.t.heal, 0)
-        fire(lua, addon, swing_layout % 424242)                  # some other absorb
-        self.assertEqual(seg.totalHealing, 600)
+        self.assertTrue(addon.BuffTracker.TargetHas(addon.BuffTracker, "player", WEAKENED_SOUL))
+        fire(addon, "UNIT_COMBAT", "player", "HEAL", "", 500, 1)             # no expectation was opened for the shield
+        self.assertEqual(seg.totalHealing, 928 + 0.10 * 200)
 
-    def test_segment_named_from_first_enemy(self):
+    def test_self_cast_buffs_are_marked_and_inner_focus_consumed(self):
+        lua, addon, seg = start(PRIEST, 256)
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", INNER_FOCUS)
+        self.assertEqual(addon.BuffTracker.Get(addon.BuffTracker, INNER_FOCUS), 1)
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", FH)          # free cast: spends Inner Focus, no FSR
+        self.assertIsNone(addon.lastManaSpend)
+        self.assertEqual(addon.BuffTracker.Get(addon.BuffTracker, INNER_FOCUS), 0)
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", FH)
+        self.assertEqual(addon.lastManaSpend, 0)
+        lua, addon, seg = start(SHAMAN, 264)
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", WATER_SHIELD)
+        self.assertEqual(addon.BuffTracker.Get(addon.BuffTracker, WATER_SHIELD), 1)
+
+    def test_failed_cast_opens_no_heal(self):
         lua, addon, seg = start()
-        fire(lua, addon, '0, "SWING_DAMAGE", false, "Creature-9", "Scarlet Monk", 0, 0, "Player-1", "Me", 0, 0, 50')
-        self.assertEqual(seg.id, "Scarlet Monk")
-        fire(lua, addon, '0, "SPELL_DAMAGE", false, "Player-1", "Me", 0, 0, "Creature-10", "Other", 0, 0, 100, "x", 2, 50')
-        self.assertEqual(seg.id, "Scarlet Monk")                 # first name sticks
+        fire(addon, "UNIT_SPELLCAST_SENT", "player", "", "g", HL)
+        fire(addon, "UNIT_SPELLCAST_FAILED", "player", "g", HL)
+        fire(addon, "UNIT_COMBAT", "player", "HEAL", "", 1000, 2)
+        self.assertEqual(seg.totalHealing, 0)
 
     def test_ignored_out_of_combat(self):
         lua, addon, seg = start()
         addon.inCombat = False
-        fire(lua, addon, HEAL % (HL, 1000, 0, "false"))
+        cast(addon, HL)
+        fire(addon, "UNIT_COMBAT", "player", "HEAL", "", 1000, 2)
         self.assertEqual(seg.totalHealing, 0)
 
 
@@ -162,7 +157,7 @@ class Handlers(unittest.TestCase):
         addon.hsw.COMBAT_RATING_UPDATE(addon.hsw)
         self.assertEqual(addon.ply_sp, 200)
 
-    def test_retail_handlers_are_gone(self):
+    def test_combat_log_and_retail_handlers_are_gone(self):
         _, addon, _ = start()
-        for name in ("CHALLENGE_MODE_START", "CHALLENGE_MODE_COMPLETED", "CHALLENGE_MODE_RESET", "PLAYER_SPECIALIZATION_CHANGED"):
+        for name in ("COMBAT_LOG_EVENT_UNFILTERED", "CHALLENGE_MODE_START", "CHALLENGE_MODE_COMPLETED", "CHALLENGE_MODE_RESET", "PLAYER_SPECIALIZATION_CHANGED"):
             self.assertIsNone(addon.hsw[name])
