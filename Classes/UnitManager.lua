@@ -22,57 +22,52 @@ end
 
 
 --[[----------------------------------------------------------------------------
-	Cache() - Setup a mapping of Guid to UnitIDs
+	Cache() - GUID -> unit token, unit name -> unit token, and the group's names.
+	Names matter on Forever: UNIT_SPELLCAST_SENT reports the cast target by name.
 ------------------------------------------------------------------------------]]
 function UnitManager:Cache()
 	self.units = {};
-	
-	if ( UnitInRaid(ply) ) then
-		local n = GetNumGroupMembers();
-		for i=1,n,1 do
-			local g = UnitGUID(raid[i]);
-			if g then
-				self.units[g] = raid[i];
-			end
-		end	
-	elseif ( UnitInParty(ply) ) then
-		local n = GetNumGroupMembers();
-		for i=1,n,1 do
-			local g = UnitGUID(party[i]);
-			if g then
-				self.units[g] = party[i];
-			end
+	self.names = {};
+	self.groupNames = {};
+	local function add(token, inGroup)
+		local g = UnitGUID(token);
+		if not g or self.units[g] then return end -- the player also appears as raidN
+		self.units[g] = token;
+		local n = UnitName(token);
+		if n then
+			self.names[n] = token;
+			if inGroup then table.insert(self.groupNames, n) end
 		end
 	end
-
-	for i=1,10,1 do 
-		local g = UnitGUID(boss[i]);
-		if ( g ) then
-			self.units[g] = boss[i];
-			print(g,"=",boss[i]);
-
-		end
+	if UnitInRaid(ply) then
+		for i = 1, GetNumGroupMembers() do add(raid[i], true) end
+	elseif UnitInParty(ply) then
+		for i = 1, GetNumGroupMembers() do add(party[i], true) end
 	end
-
-	local g = UnitGUID(ply);
-	if ( g ) then
-		self.units[g] = ply;
-	end		
+	for i = 1, 10 do add(boss[i], false) end
+	add(ply, true);
 end
 
-
-
 --[[----------------------------------------------------------------------------
-	Find(guid) - Retrieve UnitID corresponding to the given Guid.
+	Find(guid) - unit token for a GUID. FindByName(name) - unit token for a name.
+	GroupNames() - names of the player and every group member (party-wide HoTs).
 ------------------------------------------------------------------------------]]
 function UnitManager:Find(guid)
-	if ( not self.units[guid] ) then
+	if not self.units[guid] then
 		local boss1guid = UnitGUID("boss1");
-		if ( guid == boss1guid ) then
+		if guid == boss1guid then
 			self.units[guid] = "boss1";
 		end
 	end
 	return self.units[guid];
+end
+
+function UnitManager:FindByName(unitName)
+	return self.names and self.names[unitName] or nil;
+end
+
+function UnitManager:GroupNames()
+	return self.groupNames or {};
 end
 
 

@@ -9,10 +9,14 @@ STUB = {
 	cooldowns = {}, -- [spellID] = {start=, duration=}
 	spellCost = {}, -- [spellID] = mana cost; nil → GetSpellPowerCost returns nil
 	instance = { name = "Nowhere", type = "none", difficultyId = 0 },
+	guids = { player = "Player-1" },   -- unit token -> GUID; tests add party1, target, ...
+	names = { player = "Me" },         -- unit token -> unit name
+	group = nil, groupSize = 0,        -- "party" | "raid" | nil
 };
 
 function GetTime() return STUB.time end
-function UnitGUID(u) if u == "player" or u == "Player" then return STUB.guid end return nil end
+function UnitGUID(u) if u == "Player" then return STUB.guid end return STUB.guids[u] end
+function UnitName(u) return STUB.names[u] end
 function UnitLevel() return STUB.level end
 function UnitClass() return STUB.class, STUB.class end
 function UnitRace() return STUB.race end
@@ -63,9 +67,9 @@ function GetInstanceInfo() return STUB.instance.name, STUB.instance.type, STUB.i
 function IsInInstance() return STUB.instance.type ~= "none", STUB.instance.type end
 function GetInventoryItemLink() return nil end
 function GetItemInfo() return nil end
-function UnitInRaid() return false end
-function UnitInParty() return false end
-function GetNumGroupMembers() return 0 end
+function UnitInRaid() return STUB.group == "raid" end
+function UnitInParty() return STUB.group == "party" end
+function GetNumGroupMembers() return STUB.groupSize or 0 end
 function IsEquippedItem() return false end
 function date() return "Jan 01, 12:00 AM" end
 function wipe(t) for k in pairs(t) do t[k] = nil end return t end
