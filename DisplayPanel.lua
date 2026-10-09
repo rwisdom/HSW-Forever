@@ -234,6 +234,21 @@ StaticPopupDialogs[clearsegments_dialog_name] = {
 --[[----------------------------------------------------------------------------
 	StartFight / EndFight
 ------------------------------------------------------------------------------]]
+local fight_button_idle = { tex = "Interface\\COMMON\\Indicator-Green", title = "Start segment",
+	desc = "Start a manual segment. Works anywhere the spec is supported." };
+local fight_button_live = { tex = "Interface\\COMMON\\Indicator-Red", title = "End segment",
+	desc = "End the live segment and save it to history." };
+
+-- Repaint the start/end icon from inCombat. Every segment boundary ends here.
+function addon:UpdateFightButton()
+	local btn = self.frame and self.frame.fightButton;
+	if not btn then return end
+	local s = self.inCombat and fight_button_live or fight_button_idle;
+	btn:SetNormalTexture(s.tex);
+	btn:SetHighlightTexture(s.tex, "ADD");
+	btn.title, btn.description = s.title, s.desc;
+end
+
 function addon:StartFight(id)
 	if self.inCombat or not self:Enabled() then return end
 	self:UpdatePlayerStats();
@@ -251,6 +266,7 @@ function addon:StartFight(id)
 
 	self.inCombat = true;
 	self:AdjustVisibility();
+	self:UpdateFightButton();
 end
 
 function addon:EndFight()
@@ -265,6 +281,7 @@ function addon:EndFight()
 	if ttl_seg then
 		ttl_seg:End();
 	end
+	self:UpdateFightButton();
 end
 
 --[[----------------------------------------------------------------------------

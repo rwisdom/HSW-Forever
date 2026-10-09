@@ -131,3 +131,38 @@ class Display(unittest.TestCase):
         addon.SegmentMenu(addon)                                                 # EasyMenu stub: must not error
         addon.hsw.ChatCommand(addon.hsw, "end")
         self.assertFalse(addon.inCombat)
+
+
+FAKE_FRAME = """
+    local noop = function() end
+    FB = { textures = {} }
+    function FB:SetNormalTexture(t) self.textures.normal = t end
+    function FB:SetHighlightTexture(t) self.textures.highlight = t end
+    HSW_TEST_ADDON.frame = { fightButton = FB, Show = noop, Hide = noop,
+        textL = { SetText = noop }, textR = { SetFormattedText = noop }, textTitle = { SetFormattedText = noop } }
+"""
+GREEN = "Interface\\COMMON\\Indicator-Green"
+RED = "Interface\\COMMON\\Indicator-Red"
+
+
+def button(addon):
+    b = addon.frame.fightButton
+    return b.title, b.textures.normal, b.textures.highlight
+
+
+class FightButton(unittest.TestCase):
+    def test_no_frame_is_a_noop(self):
+        lua, addon = start()
+        addon.UpdateFightButton(addon)                                           # addon.frame is nil here
+        self.assertIsNone(addon.frame)
+
+    def test_auto_segment_flips_the_button(self):
+        lua, addon = start(extra=ALWAYS)
+        lua.execute(FAKE_FRAME)
+        addon.UpdateFightButton(addon)
+        self.assertEqual(button(addon), ("Start segment", GREEN, GREEN))
+        addon.StartFight(addon, "Boss")                                          # regen/encounter path
+        self.assertEqual(button(addon), ("End segment", RED, RED))
+        self.assertIsNone(addon.manualFight)
+        addon.EndFight(addon)
+        self.assertEqual(button(addon), ("Start segment", GREEN, GREEN))
