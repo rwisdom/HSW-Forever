@@ -305,6 +305,7 @@ end
 local function makeButton(parent, title, description, tex, clickfunc)
 	local btn = CreateFrame("Button", nil, parent);
 	btn.title = title;
+	btn.description = description;
 	btn:SetFrameLevel(5);
 	btn:ClearAllPoints();
 	btn:SetHeight(btn_size);
@@ -316,13 +317,14 @@ local function makeButton(parent, title, description, tex, clickfunc)
 	btn:SetScript("OnClick", clickfunc);
 	btn:SetScript("OnEnter", function(this)
 		GameTooltip_SetDefaultAnchor(GameTooltip, this);
-		GameTooltip:SetText(title);
-		GameTooltip:AddLine(description, 1, 1, 1, true);
+		GameTooltip:SetText(this.title);
+		GameTooltip:AddLine(this.description, 1, 1, 1, true);
 		GameTooltip:Show();
 	end);
 	btn:SetScript("OnLeave", function() GameTooltip:Hide() end);
 	btn:Show();
 	table.insert(parent.buttons, btn);
+	return btn;
 end
 
 function addon:AdjustFontSizes()
@@ -344,7 +346,7 @@ end
 
 function addon:AdjustWidth(newWidth)
 	self.frame:SetWidth(newWidth);
-	self.frame.textTitle:SetWidth(newWidth - btn_size * 4);
+	self.frame.textTitle:SetWidth(newWidth - btn_size * 5);
 end
 
 function addon:AdjustFonts()
@@ -431,6 +433,9 @@ function addon:SetupFrame()
 	makeButton(frame, "Segment", "Select a segment", "Interface\\Buttons\\UI-GuildButton-PublicNote-Up", function()
 		self:SegmentMenu();
 	end);
+	frame.fightButton = makeButton(frame, "Start segment", "", "Interface\\COMMON\\Indicator-Green", function()
+		addon:ToggleFight();
+	end);
 
 	text = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal");
 	text:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0);
@@ -438,7 +443,7 @@ function addon:SetupFrame()
 	text:SetFontObject(GameFontWhite);
 	p = text:GetFont();
 	text:SetFont(p, db.fontSize + 2, "OUTLINE");
-	text:SetWidth(W - btn_size * 4);
+	text:SetWidth(W - btn_size * 5);
 	text:SetHeight(16);
 	frame.textTitle = text;
 
@@ -447,6 +452,7 @@ function addon:SetupFrame()
 	end
 	self.frame = frame;
 
+	self:UpdateFightButton();
 	self:AdjustFontColor();
 	self:AdjustFonts();
 	self:SetupUnitEvents();
