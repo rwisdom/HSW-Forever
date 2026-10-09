@@ -497,7 +497,9 @@ function hsw:ChatCommand(input)
 	elseif cmd == "end" then
 		addon:EndFight();
 	elseif cmd == "spec" then
-		addon:Msg("Spec id: " .. tostring(addon:GetSpecId()) .. " (" .. tostring(spec_labels[addon:GetSpecId() or 0]) .. "), supported: " .. tostring(addon.StatParser:IsCurrentSpecSupported()));
+		local specId = addon:GetSpecId();
+		local label = specId and ("id " .. specId .. " (" .. tostring(spec_labels[specId]) .. ")") or "none (this class has no healing spec)";
+		addon:Msg("Spec: " .. label .. ", supported: " .. tostring(addon.StatParser:IsCurrentSpecSupported()));
 	elseif cmd == "stats" then
 		addon:PrintPlayerStats();
 	elseif cmd == "regen" then

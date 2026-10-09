@@ -145,3 +145,8 @@ class Chat(unittest.TestCase):
         self.assertIn("65", m[0])
         self.assertTrue(any("castpct=0.30" in s for s in m), m)
         self.assertTrue(any("IntPerCrit=31.9" in s for s in m), m)
+
+    def test_spec_on_a_class_without_a_healing_spec(self):
+        self.lua.execute("function HSW_TEST_ADDON:GetSpecId() return nil end")
+        self.chat("spec")
+        self.assertEqual(self.msgs(), ["Spec: none (this class has no healing spec), supported: false"])
