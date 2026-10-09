@@ -118,7 +118,7 @@ end
 function addon:Enabled()
 	if not self.StatParser:IsCurrentSpecSupported() then return false end
 	local db = self.hsw.db.global;
-	if HSW_ENABLE_FOR_TESTING or db.alwaysEnabled then return true end
+	if HSW_ENABLE_FOR_TESTING or db.alwaysEnabled or self.manualFight then return true end
 	local _, instType = IsInInstance();
 	if instType == "party" then return db.enabledInDungeons and true or false end
 	if instType == "raid" then return db.enabledInRaids and true or false end
@@ -272,6 +272,7 @@ end
 function addon:EndFight()
 	if not self.inCombat then return end
 	self.inCombat = false;
+	self.manualFight = nil;
 	local cur_seg = self.SegmentManager:Get(0);
 	local ttl_seg = self.SegmentManager:Get("Total");
 	if cur_seg then
@@ -282,6 +283,20 @@ function addon:EndFight()
 		ttl_seg:End();
 	end
 	self:UpdateFightButton();
+end
+
+-- The window's start/end button. manualFight lets StartFight through the instance gate.
+function addon:ToggleFight()
+	if self.inCombat then
+		self:EndFight();
+		return;
+	end
+	self.manualFight = true;
+	self:StartFight("Manual");
+	if not self.inCombat then
+		self.manualFight = nil;
+		self:Msg("Current spec is not supported.");
+	end
 end
 
 --[[----------------------------------------------------------------------------

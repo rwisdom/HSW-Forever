@@ -166,3 +166,39 @@ class FightButton(unittest.TestCase):
         self.assertIsNone(addon.manualFight)
         addon.EndFight(addon)
         self.assertEqual(button(addon), ("Start segment", GREEN, GREEN))
+
+    def test_toggle_starts_and_ends_a_manual_segment(self):
+        lua, addon = start()                                                     # open world, alwaysEnabled off
+        lua.execute(FAKE_FRAME)
+        addon.ToggleFight(addon)
+        self.assertTrue(addon.inCombat)
+        self.assertTrue(addon.manualFight)
+        self.assertEqual(seg(addon).id, "Manual")
+        self.assertEqual(button(addon), ("End segment", RED, RED))
+        lua.execute(HEAL)                                                        # unhealed segments are not stored
+        lua.execute("STUB.time = 50")
+        addon.ToggleFight(addon)
+        self.assertFalse(addon.inCombat)
+        self.assertIsNone(addon.manualFight)
+        self.assertEqual(button(addon), ("Start segment", GREEN, GREEN))
+        self.assertEqual(addon.History.Size(addon.History), 1)
+
+    def test_manual_segment_passes_the_instance_gate_only_while_live(self):
+        lua, addon = start()
+        self.assertFalse(addon.Enabled(addon))
+        addon.ToggleFight(addon)
+        self.assertTrue(addon.Enabled(addon))
+        addon.ToggleFight(addon)
+        self.assertFalse(addon.Enabled(addon))
+
+    def test_unsupported_spec_refuses_with_a_message(self):
+        lua, addon = start()
+        lua.execute("""
+            MSGS = {}
+            function HSW_TEST_ADDON:Msg(s) table.insert(MSGS, tostring(s)) end
+            function HSW_TEST_ADDON.StatParser:IsCurrentSpecSupported() return false end
+        """)
+        addon.ToggleFight(addon)
+        self.assertFalse(addon.inCombat)
+        self.assertIsNone(addon.manualFight)
+        self.assertEqual(list(lua.globals().MSGS.values()), ["Current spec is not supported."])
