@@ -147,11 +147,11 @@ local function UnitEventHandler(_, e, ...)
 		local unit, action, flag, amount = ...;
 		addon.HealMatcher:OnUnitCombat(unit, action, flag, amount);
 	elseif e == "UNIT_SPELLCAST_SENT" then
-		local _, target, _, spellID = ...;
-		addon.HealMatcher:OnCastSent(spellID, target);
+		local _, target, castGUID, spellID = ...;
+		addon.HealMatcher:OnCastSent(spellID, target, nil, castGUID);
 	elseif e == "UNIT_SPELLCAST_FAILED" or e == "UNIT_SPELLCAST_INTERRUPTED" then
-		local _, _, spellID = ...;
-		addon.HealMatcher:OnCastFailed(spellID);
+		local _, castGUID, spellID = ...;
+		addon.HealMatcher:OnCastFailed(spellID, castGUID);
 	elseif e == "UNIT_SPELLCAST_START" then
 		addon.CastTracker:StartCast(...);
 	elseif e == "UNIT_SPELLCAST_SUCCEEDED" then

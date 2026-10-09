@@ -49,6 +49,25 @@ class DirectHeals(unittest.TestCase):
         hm.OnUnitCombat(hm, "party1", "HEAL", "CRITICAL", 900, 0.1)
         self.assertEqual(heals(lua), [("SPELL_HEAL", "Player-2", HS, True, 900)])
 
+    def test_sent_target_with_suffix_matches_bare_unit_name(self):
+        lua, addon, hm = start(PARTY)
+        hm.OnCastSent(hm, HL, "Me Bam", 0)                             # Forever: "Hop Bam" for the player "Hop"
+        hm.OnUnitCombat(hm, "player", "HEAL", "", 1000, 2.5)
+        hm.OnCastSent(hm, HS, "Bob-Realm", 3)
+        hm.OnUnitCombat(hm, "party1", "HEAL", "", 500, 3.1)
+        self.assertEqual(heals(lua), [("SPELL_HEAL", "Player-1", HL, False, 1000), ("SPELL_HEAL", "Player-2", HS, False, 500)])
+        self.assertEqual(hm.SentTarget(hm, HS), "Bob")
+
+    def test_repeated_interrupt_drops_only_that_cast(self):
+        lua, addon, hm = start(PARTY)
+        hm.OnCastSent(hm, HS, "Bob", 0, "cast-A")
+        hm.OnCastSent(hm, HS, "Cat", 0, "cast-B")
+        for _ in range(4):                                             # Forever fires INTERRUPTED several times per cast
+            hm.OnCastFailed(hm, HS, "cast-B")
+        hm.OnUnitCombat(hm, "party2", "HEAL", "", 500, 0.1)            # Cat: the interrupted cast, not ours
+        hm.OnUnitCombat(hm, "party1", "HEAL", "", 500, 0.1)            # Bob: still expected
+        self.assertEqual(heals(lua), [("SPELL_HEAL", "Player-2", HS, False, 500)])
+
     def test_expectation_expires_after_cast_time_plus_window(self):
         lua, addon, hm = start()
         hm.OnCastSent(hm, HL, "", 0)                                   # 2.5 s cast: landing window closes at 3.5

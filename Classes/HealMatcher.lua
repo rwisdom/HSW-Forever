@@ -26,6 +26,14 @@ local seen = {};         -- "guid:amount" -> time of the last heal attributed wi
 
 local function playerName() return UnitName("player") end
 
+-- Every Forever character has a surname: UNIT_SPELLCAST_SENT names the target "Hop Bam" where
+-- UnitName gives "Hop". First names never contain a space or hyphen, so the first word is the
+-- name UnitName reports.
+local function bareName(n)
+	n = n and n:match("^[^%s%-]+");
+	return n ~= "" and n or nil;
+end
+
 function HealMatcher:Reset()
 	wipe(expectations); wipe(sentTarget); wipe(hots); wipe(seen);
 	totem = nil;
@@ -37,9 +45,9 @@ function HealMatcher:SentTarget(spellID)
 end
 
 -- UNIT_SPELLCAST_SENT: targetName is "" for self casts and totems.
-function HealMatcher:OnCastSent(spellID, targetName, now)
+function HealMatcher:OnCastSent(spellID, targetName, now, castGUID)
 	if not addon.inCombat then return end
-	targetName = (targetName and targetName ~= "") and targetName or playerName();
+	targetName = bareName(targetName) or playerName();
 	sentTarget[spellID] = targetName;
 	local s = addon.Spells:Get(spellID);
 	if not s or addon.AbsorbSpells[spellID] then return end -- shields are credited at cast (Events.lua)
@@ -47,16 +55,18 @@ function HealMatcher:OnCastSent(spellID, targetName, now)
 	local direct = (s.coeff > 0 or s.base > 0 or s.tick == 0) and s.name ~= TOTEM;
 	if direct then
 		table.insert(expectations, {
-			spellID = spellID, target = targetName, remaining = s.targets,
+			spellID = spellID, target = targetName, remaining = s.targets, castGUID = castGUID,
 			expires = now + math.max(s.castTime, 0) + LANDING_WINDOW,
 		});
 	end
 end
 
--- UNIT_SPELLCAST_FAILED / UNIT_SPELLCAST_INTERRUPTED: the newest expectation for that spell goes.
-function HealMatcher:OnCastFailed(spellID)
+-- UNIT_SPELLCAST_FAILED / UNIT_SPELLCAST_INTERRUPTED: that cast's expectation goes (the newest
+-- for the spell when no cast GUID is given). Forever repeats INTERRUPTED for one cast.
+function HealMatcher:OnCastFailed(spellID, castGUID)
 	for i = #expectations, 1, -1 do
-		if expectations[i].spellID == spellID then
+		local e = expectations[i];
+		if castGUID and e.castGUID == castGUID or not castGUID and e.spellID == spellID then
 			table.remove(expectations, i);
 			return;
 		end
