@@ -172,6 +172,11 @@ function addon:GetPawnString()
 	return self:GetPawnStringRaw(title, class, specIndex, self:GetStatsForDisplay());
 end
 
+-- Forever's GameDialog popups expose the edit box as EditBox; older clients as editBox.
+local function popupEditBox(popup)
+	return popup.EditBox or popup.editBox;
+end
+
 addon.PawnHistoryDialogName = pawn_dialog_name .. "_HISTORY";
 StaticPopupDialogs[addon.PawnHistoryDialogName] = {
 	text = pawn_title,
@@ -183,7 +188,7 @@ StaticPopupDialogs[addon.PawnHistoryDialogName] = {
 	OnShow = function(self, data)
 		local s = addon:GetPawnStringFromHistory();
 		print(s);
-		self.editBox:SetText(s);
+		popupEditBox(self):SetText(s);
 	end,
 	timeout = 0,
 	exclusive = 1,
@@ -201,7 +206,7 @@ StaticPopupDialogs[pawn_dialog_name] = {
 	OnShow = function(self, data)
 		local s = addon:GetPawnString();
 		print(s);
-		self.editBox:SetText(s);
+		popupEditBox(self):SetText(s);
 	end,
 	timeout = 0,
 	exclusive = 1,

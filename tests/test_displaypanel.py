@@ -102,6 +102,26 @@ class Display(unittest.TestCase):
         self.assertIsNone(addon.GetQELiveStringRaw)
         self.assertIsNone(addon.QELiveDialogName)
 
+    def test_pawn_dialogs_fill_the_popup_edit_box(self):
+        lua, addon = start(extra=ALWAYS)
+        addon.StartFight(addon, "Boss")
+        lua.execute(HEAL)
+        lua.execute("STUB.time = 50")
+        addon.EndFight(addon)
+        addon.SetCurrentSegment(addon, 0)
+        lua.execute("""
+            local a = HSW_TEST_ADDON
+            local box = { SetText = function(self, s) self.text = s end }
+            SHOWN = {}
+            StaticPopupDialogs[a.PawnHistoryDialogName].OnShow({ EditBox = box })      -- Forever: GameDialog names it EditBox
+            SHOWN[1] = box.text; box.text = nil
+            StaticPopupDialogs["HSW_GETPAWNSTRING"].OnShow({ editBox = box })          -- older clients
+            SHOWN[2] = box.text
+        """)
+        shown = lua.globals().SHOWN
+        self.assertTrue(shown[1].startswith('( Pawn: v1: "Boss"'), shown[1])
+        self.assertTrue(shown[2].startswith('( Pawn: v1: "PALADIN-HSW-Boss"'), shown[2])
+
     def test_chat_start_end_and_segment_menu(self):
         lua, addon = start()
         addon.hsw.ChatCommand(addon.hsw, "start")
