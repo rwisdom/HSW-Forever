@@ -316,7 +316,7 @@ local function makeButton(parent, title, description, tex, clickfunc)
 	btn:RegisterForClicks("LeftButtonUp", "RightButtonUp");
 	btn:SetScript("OnClick", clickfunc);
 	btn:SetScript("OnEnter", function(this)
-		GameTooltip_SetDefaultAnchor(GameTooltip, this);
+		GameTooltip:SetOwner(this, "ANCHOR_RIGHT");
 		GameTooltip:SetText(this.title);
 		GameTooltip:AddLine(this.description, 1, 1, 1, true);
 		GameTooltip:Show();
