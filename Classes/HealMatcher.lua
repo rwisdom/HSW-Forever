@@ -44,10 +44,26 @@ function HealMatcher:SentTarget(spellID)
 	return sentTarget[spellID] or playerName();
 end
 
--- UNIT_SPELLCAST_SENT: targetName is "" for self casts and totems.
+-- The group member the player has selected, by name; nil for no target, a hostile one or a stranger.
+local function selectedGroupMember()
+	local guid = addon.Compat.PlainString(UnitGUID("target"));
+	local token = guid and addon.UnitManager:Find(guid);
+	return token and addon.Compat.PlainString(UnitName(token)) or nil;
+end
+
+-- UNIT_SPELLCAST_SENT: targetName is "" for self casts and totems. In a dungeon the client hands
+-- it over as a secret string that cannot be read: then the selected group member, else the player.
 function HealMatcher:OnCastSent(spellID, targetName, now, castGUID)
 	if not addon.inCombat then return end
-	targetName = bareName(targetName) or playerName();
+	local plain = addon.Compat.PlainString(targetName);
+	if plain or targetName == nil then
+		targetName = bareName(plain) or playerName();
+	else
+		targetName = selectedGroupMember() or playerName();
+		if addon.discoverSpells then
+			addon:Msg("[HealerStatWeights]: secret cast target for spell " .. tostring(spellID) .. ", using " .. targetName .. ".");
+		end
+	end
 	sentTarget[spellID] = targetName;
 	local s = addon.Spells:Get(spellID);
 	if not s or addon.AbsorbSpells[spellID] then return end -- shields are credited at cast (Events.lua)
@@ -146,7 +162,10 @@ function HealMatcher:OnUnitCombat(unitToken, action, flag, amount, now)
 	if action ~= "HEAL" or not addon.inCombat then return end
 	amount = addon.Compat.PlainNumber(amount);
 	if not amount or amount <= 0 then return end
-	local guid, unitName = UnitGUID(unitToken), UnitName(unitToken);
+	-- secret in combat for a unit reached through a hostile one ("targettarget"): drop it, the
+	-- same heal also arrives on the unit's own group token.
+	local P = addon.Compat.PlainString;
+	local guid, unitName = P(UnitGUID(unitToken)), P(UnitName(unitToken));
 	if not guid or not unitName then return end
 	now = now or GetTime();
 

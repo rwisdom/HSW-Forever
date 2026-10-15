@@ -37,6 +37,17 @@ def cast(addon, spell, target=""):
 
 
 class UnitEvents(unittest.TestCase):
+    def test_secret_hostile_target_name_leaves_the_fight_unnamed(self):
+        # In combat the hostile target's name is a secret string: comparing it throws, so the segment stays "Unknown".
+        lua, addon, seg = start(extra='issecretvalue = function(v) return v == "SECRET" end; STUB.names.target = "SECRET"'
+                                      '; function UnitExists() return true end; function UnitCanAttack() return true end')
+        lua.execute("function HSW_TEST_ADDON:StartFight() end")   # DisplayPanel.lua is not loaded here; the segment already exists
+        addon.hsw.PLAYER_REGEN_DISABLED(addon.hsw)
+        self.assertEqual(seg.id, "Unknown")
+        lua.execute('STUB.names.target = "Mr. Smite"')
+        addon.hsw.PLAYER_REGEN_DISABLED(addon.hsw)
+        self.assertEqual(seg.id, "Mr. Smite")
+
     def test_heal_and_crit_heal_are_decomposed(self):
         lua, addon, seg = start()
         cast(addon, HL)

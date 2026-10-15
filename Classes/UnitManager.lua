@@ -29,11 +29,12 @@ function UnitManager:Cache()
 	self.units = {};
 	self.names = {};
 	self.groupNames = {};
+	local P = addon.Compat.PlainString;
 	local function add(token, inGroup)
-		local g = UnitGUID(token);
+		local g = P(UnitGUID(token)); -- secret in combat for non-player units (bossN): unusable as a key
 		if not g or self.units[g] then return end -- the player also appears as raidN
 		self.units[g] = token;
-		local n = UnitName(token);
+		local n = P(UnitName(token));
 		if n then
 			self.names[n] = token;
 			if inGroup then table.insert(self.groupNames, n) end
@@ -54,7 +55,7 @@ end
 ------------------------------------------------------------------------------]]
 function UnitManager:Find(guid)
 	if not self.units[guid] then
-		local boss1guid = UnitGUID("boss1");
+		local boss1guid = addon.Compat.PlainString(UnitGUID("boss1")); -- secret in combat: no match
 		if guid == boss1guid then
 			self.units[guid] = "boss1";
 		end

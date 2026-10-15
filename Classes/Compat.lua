@@ -19,6 +19,15 @@ function Compat.PlainNumber(v)
 	return ok and v or nil;
 end
 
+-- Same for strings: in combat the names and GUIDs of non-player units, and of anything reached
+-- through one (the hostile target's target), are secret. Indexing, comparing or keying a table
+-- with one throws; only concatenation is allowed. Returns v when plain, nil when secret.
+function Compat.PlainString(v)
+	if type(v) ~= "string" then return nil end
+	if issecretvalue and issecretvalue(v) then return nil end
+	return v;
+end
+
 function Compat.GetSpellInfo(spellID)
 	if C_Spell and C_Spell.GetSpellInfo then
 		local info = C_Spell.GetSpellInfo(spellID);

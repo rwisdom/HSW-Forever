@@ -44,6 +44,17 @@ class CompatTests(unittest.TestCase):
         self.assertIsNone(addon.Compat.GetSpellManaCost(635))             # caller falls back to the table cost
         self.assertEqual(addon.Compat.UnitAura("player", 1), (None, None, "player", 16870))
 
+    def test_secret_strings_become_nil(self):
+        # In combat the client hands secret strings for unit names and GUIDs reached through a hostile unit.
+        lua, addon = load(["Classes/Compat.lua"], setup='issecretvalue = function(v) return v == "SECRET" end')
+        self.assertEqual(addon.Compat.PlainString("Bob"), "Bob")
+        self.assertEqual(addon.Compat.PlainString(""), "")
+        self.assertIsNone(addon.Compat.PlainString("SECRET"))
+        self.assertIsNone(addon.Compat.PlainString(None))
+        self.assertIsNone(addon.Compat.PlainString(5))
+        lua, addon = load(["Classes/Compat.lua"])                             # no issecretvalue: every string is plain
+        self.assertEqual(addon.Compat.PlainString("SECRET"), "SECRET")
+
     def test_aura_read_refused_in_combat(self):
         # Forever throws from the aura API in combat; the 5th return flags "unreadable", not "empty".
         setup = 'C_UnitAuras = { GetAuraDataByIndex = function() error("Auras cannot be accessed when secret") end }'

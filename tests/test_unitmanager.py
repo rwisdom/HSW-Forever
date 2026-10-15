@@ -1,7 +1,7 @@
 import unittest
 from harness import load
 
-FILES = ["Classes/UnitManager.lua"]
+FILES = ["Classes/Compat.lua", "Classes/UnitManager.lua"]
 
 
 class UnitManagerTests(unittest.TestCase):
@@ -21,6 +21,17 @@ class UnitManagerTests(unittest.TestCase):
         um.Cache(um)
         self.assertEqual((um.Find(um, "Player-2"), um.FindByName(um, "Cat")), ("party1", "party2"))
         self.assertEqual(sorted(um.GroupNames(um).values()), ["Bob", "Cat", "Me"])
+
+    def test_secret_unit_identity_is_skipped(self):
+        # In combat non-player units (boss tokens, a hostile target) have secret GUIDs and names: unusable as table keys.
+        setup = 'issecretvalue = function(v) return v == "SECRET" end; STUB.guids.boss1 = "SECRET"; STUB.names.boss1 = "SECRET"'
+        _, addon = load(FILES, setup=setup)
+        um = addon.UnitManager
+        um.Cache(um)
+        self.assertEqual(um.Find(um, "Player-1"), "player")
+        self.assertIsNone(um.Find(um, "SECRET"))
+        self.assertIsNone(um.FindByName(um, "SECRET"))
+        self.assertEqual(list(um.GroupNames(um).values()), ["Me"])
 
     def test_raid_does_not_list_the_player_twice(self):
         setup = 'STUB.group = "raid"; STUB.groupSize = 2; STUB.guids.raid1 = "Player-1"; STUB.names.raid1 = "Me"; STUB.guids.raid2 = "Player-2"; STUB.names.raid2 = "Bob"'

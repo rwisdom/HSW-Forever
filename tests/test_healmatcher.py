@@ -105,6 +105,34 @@ class DirectHeals(unittest.TestCase):
         self.assertEqual(heals(lua), [("SPELL_HEAL", "Player-2", HS, False, 1000)])
 
 
+SECRET = 'issecretvalue = function(v) return v == "SECRET" end'   # the stub's stand-in for a secret string
+
+
+class SecretValues(unittest.TestCase):
+    """In a dungeon the client hands secret strings for the cast target and for units reached through a hostile one."""
+
+    def test_secret_cast_target_falls_back_to_the_selected_group_member(self):
+        lua, addon, hm = start(PARTY + "; " + SECRET + '; STUB.guids.target = "Player-2"; STUB.names.target = "Bob"')
+        hm.OnCastSent(hm, HS, "SECRET", 0)
+        hm.OnUnitCombat(hm, "party1", "HEAL", "", 500, 0.1)
+        self.assertEqual(heals(lua), [("SPELL_HEAL", "Player-2", HS, False, 500)])
+        self.assertEqual(hm.SentTarget(hm, HS), "Bob")
+
+    def test_secret_cast_target_without_a_friendly_target_means_self(self):
+        lua, addon, hm = start(PARTY + "; " + SECRET + '; STUB.guids.target = "SECRET"; STUB.names.target = "SECRET"')   # hostile target
+        hm.OnCastSent(hm, HS, "SECRET", 0)
+        hm.OnUnitCombat(hm, "player", "HEAL", "", 500, 0.1)
+        self.assertEqual(heals(lua), [("SPELL_HEAL", "Player-1", HS, False, 500)])
+
+    def test_heal_on_a_secret_unit_is_dropped(self):
+        # the player seen through the hostile target's target: secret GUID and name; the "player" token delivers the same heal
+        lua, addon, hm = start(SECRET + '; STUB.guids.targettarget = "SECRET"; STUB.names.targettarget = "SECRET"')
+        hm.OnCastSent(hm, HS, "", 0)
+        hm.OnUnitCombat(hm, "targettarget", "HEAL", "", 500, 0.1)
+        hm.OnUnitCombat(hm, "player", "HEAL", "", 500, 0.1)
+        self.assertEqual(heals(lua), [("SPELL_HEAL", "Player-1", HS, False, 500)])
+
+
 class PeriodicHeals(unittest.TestCase):
     def test_hot_ticks_until_duration_ends(self):
         lua, addon, hm = start()
