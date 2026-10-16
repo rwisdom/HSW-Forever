@@ -14,7 +14,7 @@ addon.SpecInfo[addon.SpellType.DPRIEST] = {
 	},
 	{
 		key = "Discipline Priest\nNotes:",
-		value = "Power Word: Shield absorbs count as healing (coefficient is an estimate until measured). Crit includes Divine Aegis absorbs and Renewed Hope on Weakened Soul targets. Penance bolts are treated as direct heals for Renewed Hope. Mental Strength and Meditation are read from talents/client.",
+		value = "Power Word: Shield absorbs count as healing (coefficient is an estimate until measured). Crit includes Divine Aegis absorbs (direct heals only, capped at 1,200) and Renewed Hope on Weakened Soul targets. Penance bolts are treated as direct heals for both. Mental Strength and Meditation are read from talents/client.",
 	},
 };
 
@@ -36,14 +36,17 @@ local function CritChance(ev, s, destUnit, C)
 end
 
 --[[----------------------------------------------------------------------------
-	Divine Aegis: a crit heal also absorbs 5% per rank of the crit amount.
-	Value per 1% crit = 0.01 * 0.05 * rank * heal * (1 + CB). Any heal that can crit, ticks included.
+	Divine Aegis: a non-periodic crit heal also absorbs 5% per rank of the crit amount, up to 1,200.
+	Value per 1% crit = 0.01 * min(0.05 * rank * heal * (1 + CB), 1200). HoT ticks do not proc it;
+	Penance bolts count as direct heals (same as Renewed Hope).
 ------------------------------------------------------------------------------]]
+local DIVINE_AEGIS_CAP = 1200;
+
 local function CriticalStrike(ev, s, heal, destUnit, C, CB, seg)
-	if not s.canCrit then return 0 end
+	if not s.canCrit or (ev == "SPELL_PERIODIC_HEAL" and s.name ~= "Penance") then return 0 end
 	local rank = addon:GetTalentRank("Divine Aegis");
 	if rank == 0 then return 0 end
-	return 0.01 * 0.05 * rank * heal * (1 + CB) / addon.CritConv;
+	return 0.01 * math.min(0.05 * rank * heal * (1 + CB), DIVINE_AEGIS_CAP) / addon.CritConv;
 end
 
 addon.StatParser:Create(addon.SpellType.DPRIEST, {

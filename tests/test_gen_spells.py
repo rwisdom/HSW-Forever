@@ -84,9 +84,9 @@ class RealData(unittest.TestCase):
             'S:Define(10623, T.SHAMAN, "Chain Heal", { coeff = 0.714, base = 506, mana = 405, cast = 2.5, targets = 3 }); -- Rank 3',
             'S:Define(740, T.DRUID, "Tranquility", { baseTick = 90, mana = 375, cast = -1, cd = true, duration = 10, tick = 2, party = true }); -- Rank 1 (no coefficient in JSON)',
             'S:Define(10901, T.PRIEST, "Power Word: Shield", { base = 928, mana = 500, canCrit = false }); -- Rank 10 (no coefficient in JSON)',
-            'S:Define(402174, T.PRIEST, "Penance", { coeff = 0.285, base = 184, coeffTick = 0.285, baseTick = 184, mana = 100, cast = -1, duration = 2, tick = 1 }); -- Rank 1',
+            'S:Define(402174, T.PRIEST, "Penance", { coeff = 0.19, base = 133, coeffTick = 0.19, baseTick = 133, mana = 150, cast = -1, duration = 2, tick = 1 }); -- Rank 1',
             'S:Define(5394, T.SHAMAN, "Healing Stream Totem", { baseTick = 5, mana = 40, duration = 300, tick = 2, party = true }); -- Rank 1 (no coefficient in JSON)',
         ]:
             self.assertIn(line, text)
-        self.assertGreaterEqual(text.count("S:Define("), 160)   # 168 rank entries at export 2026-10-06
+        self.assertGreaterEqual(text.count("S:Define("), 160)   # 168 rank entries at export 2026-10-15
         self.assertTrue(text.startswith("-- GENERATED"))

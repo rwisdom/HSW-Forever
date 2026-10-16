@@ -17,4 +17,4 @@ class RealData(unittest.TestCase):
             self.assertIn(line, text)
         self.assertNotIn("Nature's Grasp", text)   # listed under `removed`: not in Forever
         self.assertTrue(text.startswith("-- GENERATED"))
-        self.assertGreaterEqual(text.count("] = "), 190)   # 205 talents at export 2026-10-06
+        self.assertGreaterEqual(text.count("] = "), 190)   # 204 talents at export 2026-10-15

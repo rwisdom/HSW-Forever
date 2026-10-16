@@ -88,7 +88,7 @@ end
 local CritSchool = { PALADIN = 2, PRIEST = 2, DRUID = 4, SHAMAN = 4 }; -- Holy / Nature
 local IntTalents = {
 	["Divine Intellect"]    = 0.02,
-	["Mental Strength"]     = 0.03,
+	["Mental Strength"]     = 0.02,
 	["Heart of the Wild"]   = 0.02,
 	["Ancestral Knowledge"] = 0.02,
 };
