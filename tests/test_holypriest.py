@@ -35,6 +35,13 @@ class HolyPriestTests(unittest.TestCase):
         heal(addon, "SPELL_HEAL", FH, 1000)
         self.assertAlmostEqual(seg.t.crit, (crit_per_pct(1000, 0.35) + crit_per_pct(500, 0.10) + crit_per_pct(1000, 0.10)) / 14)
 
+    def test_holy_specialization_adds_crit_on_every_holy_heal(self):
+        _, addon, seg = start("PRIEST", [("Discipline", []), ("Holy", [("Holy Specialization", 5)])], FILES)   # Holy crit 10% on the sheet
+        heal(addon, "SPELL_HEAL", FH, 1000)
+        self.assertAlmostEqual(seg.t.crit, crit_per_pct(1000, 0.15) / 14)
+        heal(addon, "SPELL_PERIODIC_HEAL", RENEW, 500)
+        self.assertAlmostEqual(seg.t.crit, (crit_per_pct(1000, 0.15) + crit_per_pct(500, 0.15)) / 14)
+
     def test_without_spiritual_guidance(self):
         _, addon, seg = start("PRIEST", [("Discipline", []), ("Holy", [("Spiritual Healing", 3)])], FILES)
         heal(addon, "SPELL_HEAL", FH, 1000)

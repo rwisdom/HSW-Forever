@@ -23,8 +23,11 @@ addon.SpecInfo[addon.SpellType.HPRIEST] = {
 ------------------------------------------------------------------------------]]
 addon.Priest = addon.Priest or {};
 
+-- Holy Specialization: +1% crit per rank on Holy spells. Verified in game 2026-10-21: not in
+-- GetSpellCritChance(2) (5/5 ranks, Holy == Nature == Frost), so it is added here.
 -- Inner Focus: +25% crit on the next non-periodic spell while the buff is up.
 function addon.Priest.CritChance(ev, s, destUnit, C)
+	C = C + 0.01 * addon:GetTalentRank("Holy Specialization");
 	if ev ~= "SPELL_PERIODIC_HEAL" and addon.BuffTracker:Get(addon.Priest.InnerFocus) > 0 then
 		C = C + 0.25;
 	end
