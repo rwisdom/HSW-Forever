@@ -20,6 +20,7 @@ addon.SpecInfo[addon.SpellType.SHAMAN] = {
 
 --[[----------------------------------------------------------------------------
 	Tidal Mastery: +1% crit per rank on healing spells.
+	Verified in game 2026-10-21: not in GetSpellCritChance(4) (5/5 ranks, Nature == Frost == Holy), so it is added here.
 ------------------------------------------------------------------------------]]
 local function CritChance(ev, s, destUnit, C)
 	return C + 0.01 * addon:GetTalentRank("Tidal Mastery");
