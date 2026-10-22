@@ -151,7 +151,7 @@ local function UnitEventHandler(_, e, ...)
 	elseif e == "UNIT_SPELLCAST_SENT" then
 		local _, target, castGUID, spellID = ...;
 		addon.HealMatcher:OnCastSent(spellID, target, nil, castGUID);
-	elseif e == "UNIT_SPELLCAST_FAILED" or e == "UNIT_SPELLCAST_INTERRUPTED" then
+	elseif e == "UNIT_SPELLCAST_FAILED" or e == "UNIT_SPELLCAST_FAILED_QUIET" or e == "UNIT_SPELLCAST_INTERRUPTED" then
 		local _, castGUID, spellID = ...;
 		addon.HealMatcher:OnCastFailed(spellID, castGUID);
 	elseif e == "UNIT_SPELLCAST_START" then
@@ -169,6 +169,7 @@ function addon:SetupUnitEvents()
 	self.frame:RegisterUnitEvent("UNIT_SPELLCAST_START", "player");
 	self.frame:RegisterUnitEvent("UNIT_SPELLCAST_SENT", "player");
 	self.frame:RegisterUnitEvent("UNIT_SPELLCAST_FAILED", "player");
+	self.frame:RegisterUnitEvent("UNIT_SPELLCAST_FAILED_QUIET", "player"); -- Forever: a queued cast sends twice, one copy fails quietly
 	self.frame:RegisterUnitEvent("UNIT_SPELLCAST_INTERRUPTED", "player");
 	self.frame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player");
 	self.frame:RegisterEvent("UNIT_COMBAT"); -- every unit: our heals land on anyone

@@ -67,6 +67,16 @@ class UnitEvents(unittest.TestCase):
         fire(addon, "UNIT_COMBAT", "party1", "HEAL", "", 1000, 2)
         self.assertEqual(seg.totalHealing, 1000)
 
+    def test_quiet_failure_of_a_duplicate_sent_leaves_one_expectation(self):
+        # Forever sends a queued cast twice and fails one copy quietly
+        lua, addon, seg = start(extra=PARTY)
+        fire(addon, "UNIT_SPELLCAST_SENT", "player", "Bob", "cast-A", HL)
+        fire(addon, "UNIT_SPELLCAST_SENT", "player", "Bob", "cast-B", HL)
+        fire(addon, "UNIT_SPELLCAST_FAILED_QUIET", "player", "cast-B", HL)
+        fire(addon, "UNIT_COMBAT", "party1", "HEAL", "", 1000, 2)
+        fire(addon, "UNIT_COMBAT", "party1", "HEAL", "", 900, 2)            # someone else's heal on Bob
+        self.assertEqual(seg.totalHealing, 1000)
+
     def test_filler_cast_records_mana(self):
         lua, addon, seg = start()
         fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", HL)          # no cost API in stub -> table cost 660
