@@ -130,18 +130,20 @@ local function expire(now)
 	end
 end
 
--- Newest expectation that can land on unitName (multi-target spells land anywhere).
+-- The expectation due soonest that can land on unitName (multi-target spells land anywhere).
+-- A queued cast is sent before the previous one lands, so the newest is rarely the one landing.
 local function takeExpectation(unitName)
-	for i = #expectations, 1, -1 do
-		local e = expectations[i];
+	local best, bestIdx;
+	for i, e in ipairs(expectations) do
 		local s = addon.Spells:Get(e.spellID);
-		if e.target == unitName or (s and s.targets > 1) then
-			e.remaining = e.remaining - 1;
-			if e.remaining <= 0 then table.remove(expectations, i) end
-			return e.spellID;
+		if (e.target == unitName or (s and s.targets > 1)) and (not best or e.expires < best.expires) then
+			best, bestIdx = e, i;
 		end
 	end
-	return nil;
+	if not best then return nil end
+	best.remaining = best.remaining - 1;
+	if best.remaining <= 0 then table.remove(expectations, bestIdx) end
+	return best.spellID;
 end
 
 -- Our HoT on unitName whose tick is nearest to now; its next tick moves one interval on.

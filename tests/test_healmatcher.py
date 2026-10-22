@@ -74,6 +74,24 @@ class DirectHeals(unittest.TestCase):
         hm.OnUnitCombat(hm, "player", "HEAL", "", 1000, 3.6)
         self.assertEqual(heals(lua), [])
 
+    def test_queued_cast_does_not_steal_the_landing_heal(self):
+        lua, addon, hm = start()
+        hm.OnCastSent(hm, HL, "", 0)
+        hm.OnCastSent(hm, HL, "", 2.4)                                 # queued before the first lands
+        hm.OnUnitCombat(hm, "player", "HEAL", "", 1000, 2.5)
+        hm.OnCastSent(hm, HL, "", 4.9)
+        hm.OnUnitCombat(hm, "player", "HEAL", "", 1000, 5.0)
+        hm.OnUnitCombat(hm, "player", "HEAL", "", 1000, 7.5)           # last of the chain
+        self.assertEqual(len(heals(lua)), 3)
+
+    def test_instant_sent_during_a_cast_lands_first(self):
+        lua, addon, hm = start()
+        hm.OnCastSent(hm, HL, "", 0)
+        hm.OnCastSent(hm, HS, "", 1)
+        hm.OnUnitCombat(hm, "player", "HEAL", "", 500, 1)
+        hm.OnUnitCombat(hm, "player", "HEAL", "", 1000, 2.5)
+        self.assertEqual([h[2] for h in heals(lua)], [HS, HL])
+
     def test_failed_cast_drops_expectation(self):
         lua, addon, hm = start()
         hm.OnCastSent(hm, HS, "", 0)
