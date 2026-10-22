@@ -92,6 +92,26 @@ class DirectHeals(unittest.TestCase):
         hm.OnUnitCombat(hm, "player", "HEAL", "", 1000, 2.5)
         self.assertEqual([h[2] for h in heals(lua)], [HS, HL])
 
+    def test_a_small_tick_on_the_target_does_not_take_the_expectation(self):
+        lua, addon, hm = start(PARTY)
+        hm.OnCastSent(hm, HL, "Bob", 0)                                # Holy Light R9: base 2000ish
+        hm.OnUnitCombat(hm, "party1", "HEAL", "", 12, 1.3)             # someone's HoT tick on Bob
+        hm.OnUnitCombat(hm, "party1", "HEAL", "", 2500, 2.5)
+        self.assertEqual(heals(lua), [("SPELL_HEAL", "Player-2", HL, False, 2500)])
+
+    def test_a_weak_heal_above_a_third_of_base_still_matches(self):
+        lua, addon, hm = start(PARTY)
+        hm.OnCastSent(hm, HL, "Bob", 0)
+        hm.OnUnitCombat(hm, "party1", "HEAL", "", 900, 2.5)            # halved by a healing debuff
+        self.assertEqual([h[4] for h in heals(lua)], [900])
+
+    def test_chain_heal_bounces_skip_the_band(self):
+        lua, addon, hm = start(PARTY)
+        hm.OnCastSent(hm, CHAIN, "Bob", 0)
+        for token, amount in (("party1", 500), ("party2", 250), ("player", 125)):
+            hm.OnUnitCombat(hm, token, "HEAL", "", amount, 2.5)
+        self.assertEqual([h[4] for h in heals(lua)], [500, 250, 125])
+
     def test_failed_cast_drops_expectation(self):
         lua, addon, hm = start()
         hm.OnCastSent(hm, HS, "", 0)

@@ -132,11 +132,14 @@ end
 
 -- The expectation due soonest that can land on unitName (multi-target spells land anywhere).
 -- A queued cast is sent before the previous one lands, so the newest is rarely the one landing.
-local function takeExpectation(unitName)
+-- A single-target heal under a third of the spell's base is someone's tick, not our cast; the
+-- amount includes overheal, so a weak heal is a debuff, never a full-health target.
+local function takeExpectation(unitName, amount)
 	local best, bestIdx;
 	for i, e in ipairs(expectations) do
 		local s = addon.Spells:Get(e.spellID);
-		if (e.target == unitName or (s and s.targets > 1)) and (not best or e.expires < best.expires) then
+		local fits = s and (s.targets > 1 or (e.target == unitName and amount * 3 >= s.base));
+		if fits and (not best or e.expires < best.expires) then
 			best, bestIdx = e, i;
 		end
 	end
@@ -177,7 +180,7 @@ function HealMatcher:OnUnitCombat(unitToken, action, flag, amount, now)
 	if seen[key] == now then return end
 	expire(now);
 
-	local ev, spellID = "SPELL_HEAL", takeExpectation(unitName);
+	local ev, spellID = "SPELL_HEAL", takeExpectation(unitName, amount);
 	if not spellID then
 		ev, spellID = "SPELL_PERIODIC_HEAL", takeHotTick(unitName, now);
 	end
