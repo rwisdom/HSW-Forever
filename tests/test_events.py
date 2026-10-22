@@ -48,6 +48,29 @@ class UnitEvents(unittest.TestCase):
         addon.hsw.PLAYER_REGEN_DISABLED(addon.hsw)
         self.assertEqual(seg.id, "Mr. Smite")
 
+    def test_fight_ends_when_nobody_is_in_combat(self):
+        lua, addon, seg = start(extra=PARTY)
+        lua.execute("function HSW_TEST_ADDON:EndFight() self.inCombat = false end")   # DisplayPanel.lua is not loaded here
+        addon.hsw.PLAYER_REGEN_ENABLED(addon.hsw)
+        self.assertFalse(addon.inCombat)
+
+    def test_fight_outlives_the_players_combat_while_the_group_fights(self):
+        lua, addon, seg = start(extra=PARTY)
+        lua.execute("function HSW_TEST_ADDON:EndFight() self.inCombat = false end; STUB.combat.party1 = true")
+        addon.hsw.PLAYER_REGEN_ENABLED(addon.hsw)
+        self.assertTrue(addon.inCombat)                                    # Bob still fights: the healer only flickered out
+        lua.execute("STUB.tick()")
+        self.assertTrue(addon.inCombat)
+        lua.execute("STUB.combat.party1 = false; STUB.tick()")
+        self.assertFalse(addon.inCombat)
+        self.assertEqual(len(list(lua.globals().STUB.tickers.keys())), 0)   # the poll stopped with the fight
+
+    def test_secret_combat_flag_counts_as_out_of_combat(self):
+        lua, addon, seg = start(extra=PARTY + '; issecretvalue = function(v) return v == "SECRET" end')
+        lua.execute('function HSW_TEST_ADDON:EndFight() self.inCombat = false end; STUB.combat.party1 = "SECRET"')
+        addon.hsw.PLAYER_REGEN_ENABLED(addon.hsw)
+        self.assertFalse(addon.inCombat)
+
     def test_heal_and_crit_heal_are_decomposed(self):
         lua, addon, seg = start()
         cast(addon, HL)

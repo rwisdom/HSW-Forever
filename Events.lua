@@ -23,7 +23,32 @@ end
 --[[----------------------------------------------------------------------------
 	Combat / encounter boundaries
 ------------------------------------------------------------------------------]]
+-- A combat flag is secret on Forever for a unit reached through a hostile one: not in combat then.
+local function inCombat(token)
+	local v = UnitAffectingCombat(token);
+	if issecretvalue and issecretvalue(v) then return false end
+	return v and true or false;
+end
+
+-- True while the player or any group member is in combat.
+local function groupInCombat()
+	if inCombat("player") then return true end
+	local prefix = UnitInRaid("player") and "raid" or "party";
+	for i = 1, GetNumGroupMembers() do
+		if inCombat(prefix .. i) then return true end
+	end
+	return false;
+end
+
+-- A healer drops combat between packs while the group fights on, and the matcher drops every
+-- heal outside a fight: the fight ends only once the whole group is out of combat.
+local combatPoll;
+local function stopCombatPoll()
+	if combatPoll then combatPoll:Cancel(); combatPoll = nil end
+end
+
 function addon.hsw:PLAYER_REGEN_DISABLED()
+	stopCombatPoll(); -- back in combat: the fight is still open, nothing to end
 	addon:StartFight(nil);
 	-- no combat log to name the fight from: use the hostile target we have, if any. Its name is
 	-- a secret string once combat has started (then the fight stays "Unknown").
@@ -34,8 +59,16 @@ function addon.hsw:PLAYER_REGEN_DISABLED()
 end
 
 function addon.hsw:PLAYER_REGEN_ENABLED()
-	if not addon.inBossFight then
+	if addon.inBossFight then return end
+	if not groupInCombat() then
 		addon:EndFight();
+	elseif not combatPoll then
+		combatPoll = C_Timer.NewTicker(1, function()
+			if not groupInCombat() then
+				stopCombatPoll();
+				addon:EndFight();
+			end
+		end);
 	end
 end
 

@@ -12,6 +12,8 @@ STUB = {
 	guids = { player = "Player-1" },   -- unit token -> GUID; tests add party1, target, ...
 	names = { player = "Me" },         -- unit token -> unit name
 	group = nil, groupSize = 0,        -- "party" | "raid" | nil
+	combat = {},                       -- unit token -> UnitAffectingCombat
+	tickers = {},                      -- C_Timer.NewTicker callbacks, run by STUB.tick()
 };
 
 function GetTime() return STUB.time end
@@ -82,6 +84,16 @@ function CreateFrame()
 end
 function UnitExists() return false end
 function UnitCanAttack() return false end
+function UnitAffectingCombat(u) return STUB.combat[u] end
+C_Timer = {
+	NewTicker = function(_, fn)
+		local t = { fn = fn };
+		function t:Cancel() STUB.tickers[self] = nil end
+		STUB.tickers[t] = true;
+		return t;
+	end,
+};
+function STUB.tick() for t in pairs(STUB.tickers) do t.fn() end end
 -- Deliberately absent, as on Classic-family clients: MAX_TALENT_TIERS, NUM_TALENT_COLUMNS, C_ChallengeMode, GetSpecialization.
 
 -- STUB.casting = { startMS=, endMS=, spellID= } while a cast is in progress
