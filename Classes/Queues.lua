@@ -25,6 +25,12 @@ function Queue.CreateHistoryQueue()
 			g.history[g.back] = nil;
 		end
 	end
+	t.Clear = function(self)
+		local g = addon.hsw.db.global;
+		wipe(g.history);
+		g.front, g.back = 0, 0;
+		self.Dirty = true;
+	end
 	t.ClearDirty = function(self) self.Dirty = false end
 	t.GetDirty = function(self) return self.Dirty end
 	t.Size = function(self)

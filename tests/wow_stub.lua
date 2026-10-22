@@ -125,7 +125,8 @@ function AceStub:New(_, defaults)
 	for k, v in pairs(HSW_TEST_SAVED or {}) do db.global[k] = v end
 	return db;
 end
-function AceStub:RegisterOptionsTable() end
+HSW_TEST_OPTIONS = {};   -- app name -> options table or builder, as registered
+function AceStub:RegisterOptionsTable(appName, tbl) HSW_TEST_OPTIONS[appName] = tbl end
 function AceStub:AddToBlizOptions() return {}, "HSW_TEST_CATEGORY" end   -- frame, Settings category id
 function AceStub:Fetch() return "font" end
 function LibStub() return AceStub end

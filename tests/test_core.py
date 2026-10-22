@@ -106,6 +106,19 @@ class History(unittest.TestCase):
         self.assertEqual(addon.History.Size(addon.History), 1)
         self.assertIn("Example Segment!", names[0])
 
+    def test_history_tab_clear_button_wipes_the_log(self):
+        lua, addon = start()
+        addon.AddHistoricalSegment(addon, fought_segment(lua, addon))
+        build = lua.globals().HSW_TEST_OPTIONS.HealerStatWeights          # the options builder AceConfig calls
+        tab = build().args.historyTab.args
+        self.assertIn("ctrl0", tab.HistorySelection.args.keys())
+        self.assertEqual((tab.clearHistory.type, tab.clearHistory.confirm), ("execute", True))
+        tab.clearHistory.func()
+        self.assertEqual(addon.History.Size(addon.History), 0)
+        tab = build().args.historyTab.args                                 # AceConfig refetches after an execute
+        self.assertIn("Example Segment!", tab.HistorySelection.args.ctrl0.name)
+        self.assertNotIn("ctrl1", tab.HistorySelection.args.keys())
+
     def test_history_options_table_uses_new_labels(self):
         lua, addon = start()
         addon.AddHistoricalSegment(addon, fought_segment(lua, addon))

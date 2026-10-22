@@ -107,3 +107,19 @@ class HistoryQueueTests(unittest.TestCase):
         self.assertEqual((H.Get(H, 0).n, H.Get(H, 1).n), (3, 2))
         self.assertIsNone(H.Get(H, 2))
         self.assertTrue(H.GetDirty(H))
+
+    def test_clear_empties_the_queue_and_marks_it_dirty(self):
+        lua, addon = load(CORE_FILES)
+        lua.execute("""
+            H = HSW_TEST_ADDON.Queue.CreateHistoryQueue()
+            H:Enqueue({n=1}); H:Enqueue({n=2}); H:ClearDirty()
+            H:Clear()
+        """)
+        H = lua.globals().H
+        self.assertEqual(H.Size(H), 0)
+        self.assertIsNone(H.Get(H, 0))
+        self.assertTrue(H.GetDirty(H))
+        g = lua.globals().HSW_TEST_ADDON.hsw.db["global"]
+        self.assertEqual((g.front, g.back, len(list(g.history.keys()))), (0, 0, 0))
+        lua.execute("H:Enqueue({n=3})")
+        self.assertEqual((H.Size(H), H.Get(H, 0).n), (1, 3))                # usable again after a clear

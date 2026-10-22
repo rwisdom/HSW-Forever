@@ -434,6 +434,15 @@ local function TryBuildHistoryList()
 	end
 	addon.History:ClearDirty();
 	return {
+		clearHistory = {
+			name = "Clear history",
+			desc = "Delete every logged segment. Live segments are not touched.",
+			type = "execute",
+			order = 0,
+			confirm = true,
+			confirmText = "Delete all logged segments?",
+			func = function() addon.History:Clear() end, -- the dialog refetches this table afterwards
+		},
 		HistorySelection = { name = "Logged Encounters", type = "group", order = 1, args = historyArgs },
 	};
 end
