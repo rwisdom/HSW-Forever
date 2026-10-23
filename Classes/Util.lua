@@ -86,6 +86,12 @@ function Util.GetSpecId()
 	return bestTab and map[bestTab] or nil;
 end
 
+-- True for the four classes with a healing tree, points spent or not.
+function Util.ClassHasHealingSpec()
+	local _, class = UnitClass("player");
+	return SPEC_BY_CLASS_TAB[class] ~= nil;
+end
+
 function Util.GetTalentRank(talentName)
 	EnsureCache();
 	return talentRanks[talentName] or 0;

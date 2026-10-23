@@ -508,7 +508,14 @@ function hsw:ChatCommand(input)
 		addon:EndFight();
 	elseif cmd == "spec" then
 		local specId = addon:GetSpecId();
-		local label = specId and ("id " .. specId .. " (" .. tostring(spec_labels[specId]) .. ")") or "none (this class has no healing spec)";
+		local label;
+		if specId then
+			label = "id " .. specId .. " (" .. tostring(spec_labels[specId]) .. ")";
+		elseif addon.Util.ClassHasHealingSpec() then
+			label = "none (no talent points spent yet)";
+		else
+			label = "none (this class has no healing spec)";
+		end
 		addon:Msg("Spec: " .. label .. ", supported: " .. tostring(addon.StatParser:IsCurrentSpecSupported()));
 	elseif cmd == "stats" then
 		addon:PrintPlayerStats();

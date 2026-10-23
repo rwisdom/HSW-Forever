@@ -160,6 +160,12 @@ class Chat(unittest.TestCase):
         self.assertTrue(any("IntPerCrit=31.9" in s for s in m), m)
 
     def test_spec_on_a_class_without_a_healing_spec(self):
-        self.lua.execute("function HSW_TEST_ADDON:GetSpecId() return nil end")
+        self.lua.execute('STUB.class = "WARRIOR"; STUB.talents = {}; HSW_TEST_ADDON.Util.RebuildTalentCache()')
         self.chat("spec")
         self.assertEqual(self.msgs(), ["Spec: none (this class has no healing spec), supported: false"])
+
+    def test_spec_on_a_healer_with_no_points_yet(self):
+        # In game 2026-10-23: a level-10 paladin before its first point read "this class has no healing spec"
+        self.lua.execute('STUB.talents[1].talents[1].rank = 0; HSW_TEST_ADDON.Util.RebuildTalentCache()')
+        self.chat("spec")
+        self.assertEqual(self.msgs(), ["Spec: none (no talent points spent yet), supported: false"])
