@@ -66,6 +66,13 @@ function Compat.GetItemInfo(link)
 	return f(link);
 end
 
+-- Item stat table ({ ITEM_MOD_MANA_REGENERATION_SHORT = 3, ... }); Forever has only the C_Item form.
+function Compat.GetItemStats(link)
+	local f = (C_Item and C_Item.GetItemStats) or GetItemStats;
+	if not f then return nil end
+	return f(link);
+end
+
 function Compat.GetAddOnMetadata(addonName, field)
 	local f = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata;
 	if not f then return nil end

@@ -476,8 +476,8 @@ end
 function addon:PrintPlayerStats()
 	self:Msg(string.format("sp=%s crt=%.4f hst=%.4f int=%s spi=%s maxmana=%s",
 		tostring(self.ply_sp), self.ply_crt or 0, self.ply_hst or 0, tostring(self.ply_int), tostring(self.ply_spi), tostring(self.ply_maxmana)));
-	self:Msg(string.format("regen base=%.2f cast=%.2f castpct=%.2f intmult=%.3f spiritmult=%.3f",
-		self.ply_regen_base or 0, self.ply_regen_cast or 0, self.ply_castpct or 0, self.ply_intmult or 1, self.ply_spiritmult or 1));
+	self:Msg(string.format("regen base=%.2f cast=%.2f castpct=%.2f (gear mp5 %s taken out) intmult=%.3f spiritmult=%.3f",
+		self.ply_regen_base or 0, self.ply_regen_cast or 0, self.ply_castpct or 0, tostring(self.ply_mp5 or 0), self.ply_intmult or 1, self.ply_spiritmult or 1));
 	self:Msg(string.format("CritConv=%s HasteConv=%s IntPerCrit=%s RegenPerSpirit=%.4f",
 		tostring(self.CritConv), tostring(self.HasteConv), tostring(self.IntPerCrit), self.RegenPerSpirit or 0));
 end

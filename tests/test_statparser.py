@@ -118,6 +118,23 @@ class RegenCalibration(unittest.TestCase):
             addon.SampleRegen(addon, 100 + i, 14 + i * 0.1)
         self.assertEqual(len(list(cal.keys())), 20)
 
+    def test_gear_mp5_is_taken_off_both_regen_rates(self):
+        # Forever folds gear MP5 into both GetManaRegen rates; C_Item.GetItemStats reports it per item (probe 2026-10-22)
+        gear = ('STUB.regen = { base = 11, cast = 4 }'                       # 10 / 3 from Spirit plus 5 MP5 = 1 mana/s
+                '; function GetInventoryItemLink(_, slot) return slot <= 2 and ("item" .. slot) or nil end'
+                '; C_Item = { GetItemStats = function(link) return ({ item1 = { ITEM_MOD_MANA_REGENERATION_SHORT = 3 },'
+                ' item2 = { ITEM_MOD_MANA_REGENERATION_SHORT = 2, ITEM_MOD_SPIRIT_SHORT = 6 } })[link] end }')
+        lua, addon, _ = start("PALADIN", extra=gear)
+        self.assertEqual(addon.ply_mp5, 5)
+        self.assertEqual((addon.ply_regen_base, addon.ply_regen_cast), (10, 3))
+        self.assertAlmostEqual(addon.ply_castpct, 0.3)
+        cal = addon.hsw.db["global"].regenCal["PALADIN:30"]
+        self.assertEqual((cal[1][1], cal[1][2]), (60, 10))        # the Spirit-only rate is what gets sampled
+        lua.execute("HSW_TEST_ADDON.inCombat = true; STUB.regen = { base = 21, cast = 9 }")   # Mana Spring in combat: gear MP5 stays cached
+        addon.UpdatePlayerStats(addon)
+        self.assertEqual(addon.ply_mp5, 5)
+        self.assertEqual((addon.ply_regen_base, addon.ply_regen_cast), (20, 8))
+
     def test_gear_swap_calibrates_the_rate_in_use(self):
         lua, addon, _ = start("PALADIN")                          # sampled (60, 10) at start
         lua.execute("STUB.stats[5] = {120, 136, 16, 0}; STUB.regen.base = 20.5")   # +76 Spirit on gear: slope 10.5/76

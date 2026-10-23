@@ -35,8 +35,8 @@ end
 	Spirit value. The slope pairs the newest reading with the newest earlier one >= 20 Spirit
 	away, so a piece-by-piece swap (each step under 20) still ends on a clean pair and a stale
 	reading ages out. Forever: 0.125 mana/s per Spirit on a level-28 shaman (2026-10-22).
-	Known limitation: MP5 counts in full in both regen rates, so a swap that changes MP5
-	together with Spirit skews the slope until two MP5-equal readings replace it.
+	Gear MP5 is taken off the sampled rate (UpdatePlayerStats). Known limitation: MP5 from
+	buffs (Mana Spring Totem, Blessing of Wisdom) still counts as Spirit regen in a sample.
 ------------------------------------------------------------------------------]]
 local REGEN_SAMPLES = 20;
 local REGEN_SPIRIT_GAP = 20;
@@ -128,9 +128,17 @@ function addon:UpdatePlayerStats()
 	self.ply_int = P(select(2, UnitStat("player", 4))) or self.ply_int or 0;   -- effective (buffed) Intellect
 	self.ply_spi = P(select(2, UnitStat("player", 5))) or self.ply_spi or 0;
 	self.ply_maxmana = P(UnitPowerMax("player", 0)) or self.ply_maxmana or 0;
-	local base, casting = GetManaRegen();                    -- per-second rates; ratio includes regen talents and Innervate
-	self.ply_regen_base = P(base) or self.ply_regen_base or 0;
-	self.ply_regen_cast = P(casting) or self.ply_regen_cast or 0;
+	if not self.inCombat then -- item data may be secret in combat; gear cannot change there
+		self.ply_mp5 = self:EquippedMP5();
+		if self.Shaman then self.ply_earthfury = self:EquippedPieces(self.Shaman.Earthfury.pieces) end
+	end
+	-- per-second rates; the ratio includes regen talents and Innervate. Gear MP5 sits in full in both
+	-- (verified 2026-10-22): taken out, what is left is Spirit regen. Buff MP5 (Mana Spring, Wisdom) is not.
+	local base, casting = GetManaRegen();
+	local gear = (self.ply_mp5 or 0) / 5;
+	base, casting = P(base), P(casting);
+	self.ply_regen_base = base and math.max(base - gear, 0) or self.ply_regen_base or 0;
+	self.ply_regen_cast = casting and math.max(casting - gear, 0) or self.ply_regen_cast or 0;
 	self.ply_castpct = self.ply_regen_base > 0 and math.min(self.ply_regen_cast / self.ply_regen_base, 1) or 0;
 	local intmult = 1;
 	for talent, perRank in pairs(IntTalents) do
@@ -138,10 +146,18 @@ function addon:UpdatePlayerStats()
 	end
 	self.ply_intmult = intmult;
 	self.ply_spiritmult = 1 + 0.05 * self:GetTalentRank("Living Spirit") + (UnitRace("player") == "Human" and 0.05 or 0);
-	if not self.inCombat and self.Shaman then -- item names may be secret in combat; gear cannot change there
-		self.ply_earthfury = self:EquippedPieces(self.Shaman.Earthfury.pieces);
-	end
 	self:SampleRegen(self.ply_spi, self.ply_regen_base);
+end
+
+-- Mana per 5 s on the equipped items.
+function addon:EquippedMP5()
+	local n = 0;
+	for slot = 1, 19 do
+		local link = GetInventoryItemLink("player", slot);
+		local stats = link and self.Compat.GetItemStats(link);
+		n = n + (stats and self.Compat.PlainNumber(stats.ITEM_MOD_MANA_REGENERATION_SHORT) or 0);
+	end
+	return n;
 end
 
 -- How many of the named items the player wears.
