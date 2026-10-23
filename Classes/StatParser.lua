@@ -31,23 +31,37 @@ end
 
 --[[----------------------------------------------------------------------------
 	Spirit regen calibration
-	db.regenCal["CLASS:level"] = { spirit1, regen1, spirit2, regen2 }, newest first
-	Slope of base regen vs Spirit over the two most recent readings >= 20 Spirit apart;
-	a reading within 20 of the newest refreshes it. Forever reads 0.125 mana/s per Spirit on a
-	level-28 shaman (2026-10-22).
+	db.regenCal["CLASS:level"] = { {spirit, regen}, ... }, newest first, one entry per distinct
+	Spirit value. The slope pairs the newest reading with the newest earlier one >= 20 Spirit
+	away, so a piece-by-piece swap (each step under 20) still ends on a clean pair and a stale
+	reading ages out. Forever: 0.125 mana/s per Spirit on a level-28 shaman (2026-10-22).
 	Known limitation: MP5 counts in full in both regen rates, so a swap that changes MP5
 	together with Spirit skews the slope until two MP5-equal readings replace it.
 ------------------------------------------------------------------------------]]
+local REGEN_SAMPLES = 20;
+local REGEN_SPIRIT_GAP = 20;
+
 local function regenCalKey()
 	local _, class = UnitClass("player");
 	return class .. ":" .. tostring(UnitLevel("player"));
 end
 
-function addon:GetRegenPerSpirit()
+-- The newest reading and the newest earlier one far enough away; the second is nil until one exists.
+function addon:RegenSamplePair()
 	local cals = self.hsw.db.global.regenCal;
 	local cal = cals and cals[regenCalKey()];
-	if cal and cal[3] and math.abs(cal[3] - cal[1]) >= 20 then
-		local slope = (cal[4] - cal[2]) / (cal[3] - cal[1]);
+	local newest = cal and cal[1];
+	if type(newest) ~= "table" then return nil end -- none yet, or the old four-number format
+	for i = 2, #cal do
+		if math.abs(cal[i][1] - newest[1]) >= REGEN_SPIRIT_GAP then return newest, cal[i] end
+	end
+	return newest, nil;
+end
+
+function addon:GetRegenPerSpirit()
+	local a, b = self:RegenSamplePair();
+	if b then
+		local slope = (b[2] - a[2]) / (b[1] - a[1]);
 		if slope > 0 then return slope end
 	end
 	return self.DefaultRegenPerSpirit;
@@ -58,13 +72,15 @@ function addon:SampleRegen(spirit, baseRegen)
 	db.regenCal = db.regenCal or {};
 	local key = regenCalKey();
 	local cal = db.regenCal[key];
-	if not cal then
-		db.regenCal[key] = { spirit, baseRegen };
-	elseif math.abs(spirit - cal[1]) >= 20 then
-		cal[3], cal[4] = cal[1], cal[2]; -- the newest reading becomes the anchor, the oldest goes
-		cal[1], cal[2] = spirit, baseRegen;
+	if not cal or type(cal[1]) ~= "table" then -- none yet, or the old four-number format
+		cal = {};
+		db.regenCal[key] = cal;
+	end
+	if cal[1] and cal[1][1] == spirit then
+		cal[1][2] = baseRegen; -- same Spirit: refresh (an MP5 piece may have moved)
 	else
-		cal[1], cal[2] = spirit, baseRegen; -- refresh the anchor sample
+		table.insert(cal, 1, { spirit, baseRegen });
+		if #cal > REGEN_SAMPLES then table.remove(cal) end
 	end
 	self.RegenPerSpirit = self:GetRegenPerSpirit();
 end

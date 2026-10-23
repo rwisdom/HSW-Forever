@@ -94,18 +94,29 @@ class RegenCalibration(unittest.TestCase):
         addon.SampleRegen(addon, 110, 20)                         # 40 apart: slope 8/40
         self.assertAlmostEqual(addon.GetRegenPerSpirit(addon), 0.2)
         cal = addon.hsw.db["global"].regenCal["PALADIN:30"]     # "global" is a Python keyword
-        self.assertEqual((cal[1], cal[2], cal[3], cal[4]), (110, 20, 70, 12))   # newest first
+        self.assertEqual([(cal[i][1], cal[i][2]) for i in (1, 2, 3)], [(110, 20), (70, 12), (60, 10)])   # newest first
         self.assertAlmostEqual(addon.RegenPerSpirit, 0.2)        # in use at once: a gear swap is not a talent change
 
-    def test_a_far_reading_ages_the_oldest_sample_out(self):
-        # In game 2026-10-22: an MP5-tainted anchor at Spirit 146 survived two clean readings 20+ away
+    def test_piecewise_swap_pairs_the_newest_reading_with_the_newest_far_one(self):
+        # In game 2026-10-22: an MP5-tainted reading at Spirit 146 survived clean swaps because each piece
+        # moved Spirit under 20 and kept refreshing the anchor
         _, addon, _ = start("PALADIN")
-        addon.SampleRegen(addon, 146, 26.5)                       # anchor with 10 MP5 in it
-        addon.SampleRegen(addon, 79, 16.13)
-        addon.SampleRegen(addon, 54, 13.0)                        # the two clean readings are now the pair
-        self.assertAlmostEqual(addon.RegenPerSpirit, 0.125, places=3)
-        addon.SampleRegen(addon, 50, 12.5)                        # within 20 of the newest: refreshes it only
-        self.assertAlmostEqual(addon.RegenPerSpirit, (16.13 - 12.5) / 29, places=3)
+        addon.SampleRegen(addon, 146, 26.5)                       # 10 MP5 in it
+        for spirit, regen in ((79, 16.13), (72, 15.25), (65, 14.375), (54, 13.0)):   # one piece at a time
+            addon.SampleRegen(addon, spirit, regen)
+        self.assertAlmostEqual(addon.RegenPerSpirit, 0.125, places=3)   # 54 paired with 79, not 146
+        addon.SampleRegen(addon, 54, 13.8)                        # same Spirit, an MP5 piece on: refreshes the reading
+        self.assertAlmostEqual(addon.RegenPerSpirit, (16.13 - 13.8) / 25, places=3)
+        cal = addon.hsw.db["global"].regenCal["PALADIN:30"]
+        self.assertEqual(len(list(cal.keys())), 6)                # 60 at start, 146, 79, 72, 65, 54
+
+    def test_readings_are_capped_and_the_old_four_number_format_is_dropped(self):
+        lua, addon, _ = start("PALADIN", extra='HSW_TEST_ADDON.hsw.db.global.regenCal = { ["PALADIN:30"] = { 146, 26.5, 92, 18.75 } }')
+        cal = addon.hsw.db["global"].regenCal["PALADIN:30"]
+        self.assertEqual((cal[1][1], cal[1][2]), (60, 10))        # the old flat samples were discarded
+        for i in range(30):
+            addon.SampleRegen(addon, 100 + i, 14 + i * 0.1)
+        self.assertEqual(len(list(cal.keys())), 20)
 
     def test_gear_swap_calibrates_the_rate_in_use(self):
         lua, addon, _ = start("PALADIN")                          # sampled (60, 10) at start

@@ -461,10 +461,10 @@ end
 function addon:PrintRegenCalibration()
 	local _, class = UnitClass("player");
 	local key = class .. ":" .. tostring(UnitLevel("player"));
-	local cal = self.hsw.db.global.regenCal and self.hsw.db.global.regenCal[key];
-	if cal then
+	local a, b = self:RegenSamplePair();
+	if a then
 		self:Msg(string.format("Regen samples %s: Spirit %s -> %.2f mana/s, Spirit %s -> %s mana/s",
-			key, tostring(cal[1]), cal[2], tostring(cal[3] or "?"), cal[4] and string.format("%.2f", cal[4]) or "?"));
+			key, tostring(a[1]), a[2], b and tostring(b[1]) or "?", b and string.format("%.2f", b[2]) or "? (need a reading 20+ Spirit away)"));
 	else
 		self:Msg("No regen samples yet for " .. key);
 	end
