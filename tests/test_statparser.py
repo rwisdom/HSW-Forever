@@ -37,7 +37,7 @@ def heal(addon, ev, spell, amount, crit=False, overheal=0, dest="Player-1"):
 class Conversions(unittest.TestCase):
     def test_defaults_at_level_30(self):
         _, addon, _ = start("PALADIN")
-        self.assertEqual((addon.CritConv, addon.HasteConv, addon.IntPerCrit, addon.RegenPerSpirit), (14, 100, 31.9, 0.1))
+        self.assertEqual((addon.CritConv, addon.HasteConv, addon.IntPerCrit, addon.RegenPerSpirit), (14, 100, 31.9, 0.125))
 
     def test_int_per_crit_level_lookup_and_overrides(self):
         lua, addon, _ = start("DRUID", extra="STUB.level = 60")
@@ -88,9 +88,9 @@ class PlayerStats(unittest.TestCase):
 class RegenCalibration(unittest.TestCase):
     def test_slope_needs_two_samples_20_spirit_apart(self):
         _, addon, _ = start("PALADIN")                            # UpdatePlayerStats sampled (60, 10)
-        self.assertAlmostEqual(addon.GetRegenPerSpirit(addon), 0.1)
-        addon.SampleRegen(addon, 70, 12)                          # < 20 apart: replaces the anchor
-        self.assertAlmostEqual(addon.GetRegenPerSpirit(addon), 0.1)
+        self.assertAlmostEqual(addon.GetRegenPerSpirit(addon), 0.125)   # the default until two readings 20 apart exist
+        addon.SampleRegen(addon, 70, 12)
+        self.assertAlmostEqual(addon.GetRegenPerSpirit(addon), 0.125)
         addon.SampleRegen(addon, 110, 20)                         # 40 apart: slope 8/40
         self.assertAlmostEqual(addon.GetRegenPerSpirit(addon), 0.2)
         cal = addon.hsw.db["global"].regenCal["PALADIN:30"]     # "global" is a Python keyword

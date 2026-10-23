@@ -7,7 +7,7 @@ addon.CritBonus = 0.5;              -- heals crit for +50%
 addon.CritRatingPerPct = 14;        -- 14 crit rating = 1% crit at every level
 addon.ManaPerInt = 15;
 addon.FSR_SECONDS = 5;              -- five-second rule
-addon.DefaultRegenPerSpirit = 0.1;  -- mana per second per Spirit until calibrated
+addon.DefaultRegenPerSpirit = 0.125; -- mana per second per Spirit until calibrated: Forever reads 6.25 + Spirit / 8 (shaman 28, paladin 10, 2026-10-22/23)
 
 -- Intellect per 1% spell crit (foreverdb.net/stats, level 30). Keyed by level so
 -- level-60 values can be added later; lookup uses the nearest keyed level <= player level.

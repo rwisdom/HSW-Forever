@@ -58,7 +58,7 @@ class StatsForSegment(unittest.TestCase):
         self.assertAlmostEqual(crt, seg.t.crit / seg.t.heal)
         self.assertEqual(hst, 0)                    # no chain casts
         self.assertAlmostEqual(int_, (seg.t.int + 15 * 1.0 * 1000 / 660) / seg.t.heal)
-        self.assertAlmostEqual(spi, 0.1 * 1.05 * 100 * (1000 / 660) / seg.t.heal)
+        self.assertAlmostEqual(spi, 0.125 * 1.05 * 100 * (1000 / 660) / seg.t.heal)   # default regen per Spirit
         self.assertAlmostEqual(mp5, 100 / 5 * (1000 / 660) / seg.t.heal)
 
     def test_empty_segment(self):
@@ -149,7 +149,7 @@ class Chat(unittest.TestCase):
         self.chat("regen")
         m = self.msgs()
         self.assertIn("Spirit 60 -> 10.00", m[2])
-        self.assertIn("0.1000", m[3])
+        self.assertIn("0.1250", m[3])
 
     def test_spec_and_stats(self):
         self.chat("spec")
