@@ -9,6 +9,7 @@ TALENTS = {
     "PALADIN": 'STUB.class = "PALADIN"; STUB.talents = { {name="Holy", talents={ {name="Divine Intellect", rank=5, max=5} }}, {name="Protection", talents={}}, {name="Retribution", talents={}} }',
     "DRUID": 'STUB.class = "DRUID"; STUB.talents = { {name="Balance", talents={}}, {name="Feral Combat", talents={}}, {name="Restoration", talents={ {name="Living Spirit", rank=3, max=3} }} }',
     "PRIEST": 'STUB.class = "PRIEST"; STUB.talents = { {name="Discipline", talents={ {name="Mental Strength", rank=5, max=5} }}, {name="Holy", talents={}} }',
+    "SHAMAN": 'STUB.class = "SHAMAN"; STUB.talents = { {name="Elemental", talents={}}, {name="Enhancement", talents={}}, {name="Restoration", talents={ {name="Tidal Mastery", rank=5, max=5} }} }',
 }
 
 HL = 25292      # Holy Light R9: coeff .714, base 1580, 660 mana, 2.5s cast
@@ -47,6 +48,8 @@ class Conversions(unittest.TestCase):
         lua.execute("HSW_TEST_ADDON.hsw.db.global.intPerCritOverride.DRUID = 40; HSW_TEST_ADDON.hsw.db.global.hasteRatingPerPct = 10")
         addon.SetupConversionFactors(addon)
         self.assertEqual((addon.IntPerCrit, addon.HasteConv), (40, 1000))
+        _, addon, _ = start("SHAMAN", extra="STUB.level = 29")
+        self.assertEqual(addon.IntPerCrit, 26.3)                 # the level-28 measurement until 30
 
     def test_unsupported_class_has_no_parser(self):
         _, addon = load(FILES, setup='STUB.class = "WARRIOR"; STUB.talents = { {name="Arms", talents={ {name="Deflection", rank=5, max=5} }} }')

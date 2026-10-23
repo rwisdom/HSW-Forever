@@ -14,7 +14,7 @@ addon.DefaultRegenPerSpirit = 0.1;  -- mana per second per Spirit until calibrat
 local IntPerCritByLevel = {
 	PALADIN = { [30] = 31.9 },
 	PRIEST  = { [30] = 26.9 },
-	SHAMAN  = { [30] = 28.2 },
+	SHAMAN  = { [28] = 26.3, [30] = 28.2 }, -- 28: measured in game 2026-10-22 (33 Int -> +1.254% crit)
 	DRUID   = { [30] = 28.4 },
 };
 
