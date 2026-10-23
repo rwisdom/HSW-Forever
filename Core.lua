@@ -34,7 +34,6 @@ local defaults = {
 		history = {},
 		hasteRatingPerPct = 1,
 		intPerCritOverride = { PALADIN = 0, PRIEST = 0, SHAMAN = 0, DRUID = 0 },
-		regenCal = {},
 	},
 };
 
@@ -458,19 +457,11 @@ end
 --[[----------------------------------------------------------------------------
 	Chat commands
 ------------------------------------------------------------------------------]]
-function addon:PrintRegenCalibration()
-	local _, class = UnitClass("player");
-	local key = class .. ":" .. tostring(UnitLevel("player"));
-	local a, b = self:RegenSamplePair();
-	if a and b then
-		self:Msg(string.format("Regen samples %s: Spirit %s -> %.2f mana/s, Spirit %s -> %.2f mana/s", key, tostring(a[1]), a[2], tostring(b[1]), b[2]));
-	elseif a then
-		self:Msg(string.format("Regen sample %s: Spirit %s -> %.2f mana/s; a reading 20+ Spirit away is needed.", key, tostring(a[1]), a[2]));
-	else
-		self:Msg("No regen samples yet for " .. key);
-	end
-	self:Msg(string.format("Regen per Spirit in use: %.4f mana/s (default %.2f). Casting share now: %.0f%%.",
-		self.RegenPerSpirit or 0, self.DefaultRegenPerSpirit, (self.ply_castpct or 0) * 100));
+function addon:PrintRegen()
+	local spirit = self.ply_spi or 0;
+	self:Msg(string.format("Spirit %s: %.3f mana/s per Spirit (%s %d Spirit). Gear MP5 %s taken out. Casting share now: %.0f%%.",
+		tostring(spirit), self.RegenPerSpirit or 0, spirit < self.RegenKnee and "under" or "from", self.RegenKnee,
+		tostring(self.ply_mp5 or 0), (self.ply_castpct or 0) * 100));
 end
 
 function addon:PrintPlayerStats()
@@ -520,7 +511,7 @@ function hsw:ChatCommand(input)
 	elseif cmd == "stats" then
 		addon:PrintPlayerStats();
 	elseif cmd == "regen" then
-		addon:PrintRegenCalibration();
+		addon:PrintRegen();
 	elseif cmd == "discover" then
 		addon.discoverSpells = (arg == "on");
 		addon:Msg("Unknown-spell discovery " .. (addon.discoverSpells and "on" or "off") .. ".");
@@ -679,6 +670,7 @@ function hsw:OnInitialize()
 		self.db.global.back = 0;
 		self.db.global.schema = SCHEMA;
 	end
+	self.db.global.regenCal = nil; -- Spirit regen samples from before the formula was measured
 
 	LibStub("AceConfigRegistry-3.0"):RegisterOptionsTable("HealerStatWeights", BuildOptionsTable, true);
 	LibStub("AceConfigRegistry-3.0"):RegisterOptionsTable("HSW_Bliz", BlizOptionsTable);

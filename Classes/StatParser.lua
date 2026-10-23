@@ -7,7 +7,6 @@ addon.CritBonus = 0.5;              -- heals crit for +50%
 addon.CritRatingPerPct = 14;        -- 14 crit rating = 1% crit at every level
 addon.ManaPerInt = 15;
 addon.FSR_SECONDS = 5;              -- five-second rule
-addon.DefaultRegenPerSpirit = 0.125; -- mana per second per Spirit until calibrated: Forever reads 6.25 + Spirit / 8 (shaman 28, paladin 10, 2026-10-22/23)
 
 -- Intellect per 1% spell crit (foreverdb.net/stats, level 30). Keyed by level so
 -- level-60 values can be added later; lookup uses the nearest keyed level <= player level.
@@ -30,59 +29,15 @@ local function lookupIntPerCrit(class, level)
 end
 
 --[[----------------------------------------------------------------------------
-	Spirit regen calibration
-	db.regenCal["CLASS:level"] = { {spirit, regen}, ... }, newest first, one entry per distinct
-	Spirit value. The slope pairs the newest reading with the newest earlier one >= 20 Spirit
-	away, so a piece-by-piece swap (each step under 20) still ends on a clean pair and a stale
-	reading ages out. Forever: 0.125 mana/s per Spirit on a level-28 shaman (2026-10-22).
-	Gear MP5 is taken off the sampled rate (UpdatePlayerStats). Known limitation: MP5 from
-	buffs (Mana Spring Totem, Blessing of Wisdom) still counts as Spirit regen in a sample.
+	Spirit regen. Measured on Forever with gear MP5 taken out (level-10 paladin, level-28 shaman,
+	2026-10-22/23): base regen = min(Spirit / 4, 6.25 + Spirit / 8) mana per second, so a point
+	of Spirit is worth 0.25 mana/s under 50 Spirit and 0.125 from 50 up.
 ------------------------------------------------------------------------------]]
-local REGEN_SAMPLES = 20;
-local REGEN_SPIRIT_GAP = 20;
+addon.RegenKnee = 50;
 
-local function regenCalKey()
-	local _, class = UnitClass("player");
-	return class .. ":" .. tostring(UnitLevel("player"));
-end
-
--- The newest reading and the newest earlier one far enough away; the second is nil until one exists.
-function addon:RegenSamplePair()
-	local cals = self.hsw.db.global.regenCal;
-	local cal = cals and cals[regenCalKey()];
-	local newest = cal and cal[1];
-	if type(newest) ~= "table" then return nil end -- none yet, or the old four-number format
-	for i = 2, #cal do
-		if math.abs(cal[i][1] - newest[1]) >= REGEN_SPIRIT_GAP then return newest, cal[i] end
-	end
-	return newest, nil;
-end
-
-function addon:GetRegenPerSpirit()
-	local a, b = self:RegenSamplePair();
-	if b then
-		local slope = (b[2] - a[2]) / (b[1] - a[1]);
-		if slope > 0 then return slope end
-	end
-	return self.DefaultRegenPerSpirit;
-end
-
-function addon:SampleRegen(spirit, baseRegen)
-	local db = self.hsw.db.global;
-	db.regenCal = db.regenCal or {};
-	local key = regenCalKey();
-	local cal = db.regenCal[key];
-	if not cal or type(cal[1]) ~= "table" then -- none yet, or the old four-number format
-		cal = {};
-		db.regenCal[key] = cal;
-	end
-	if cal[1] and cal[1][1] == spirit then
-		cal[1][2] = baseRegen; -- same Spirit: refresh (an MP5 piece may have moved)
-	else
-		table.insert(cal, 1, { spirit, baseRegen });
-		if #cal > REGEN_SAMPLES then table.remove(cal) end
-	end
-	self.RegenPerSpirit = self:GetRegenPerSpirit();
+-- Mana per second one more point of Spirit gives at `spirit` (the player's effective Spirit by default).
+function addon:GetRegenPerSpirit(spirit)
+	return (spirit or self.ply_spi or 0) < self.RegenKnee and 0.25 or 0.125;
 end
 
 --[[----------------------------------------------------------------------------
@@ -146,7 +101,7 @@ function addon:UpdatePlayerStats()
 	end
 	self.ply_intmult = intmult;
 	self.ply_spiritmult = 1 + 0.05 * self:GetTalentRank("Living Spirit") + (UnitRace("player") == "Human" and 0.05 or 0);
-	self:SampleRegen(self.ply_spi, self.ply_regen_base);
+	self.RegenPerSpirit = self:GetRegenPerSpirit();
 end
 
 -- Mana per 5 s on the equipped items.

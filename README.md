@@ -11,8 +11,9 @@ Supported specs: Holy Paladin, Restoration Shaman, Restoration Druid, Holy Pries
 Copy this folder into `{WoW_Directory}/Interface/AddOns/HealerStatWeights/`.
 
 In game, `/hsw` opens the options and history window. `/hsw show`, `/hsw hide`, `/hsw lock`,
-`/hsw unlock` control the panel. `/hsw regen` prints the current Spirit-regen calibration and
-`/hsw discover on` logs unknown healing spell IDs to chat.
+`/hsw unlock` control the panel. `/hsw regen` prints the Spirit-regen rate in use (Forever: 0.25 mana/s
+per Spirit under 50 Spirit, 0.125 from 50, gear MP5 taken out) and `/hsw discover on` logs unknown
+healing spell IDs to chat.
 
 ## How weights are computed
 

@@ -148,8 +148,8 @@ class Chat(unittest.TestCase):
         self.assertFalse(self.addon.discoverSpells)
         self.chat("regen")
         m = self.msgs()
-        self.assertIn("Spirit 60 -> 10.00", m[2])
-        self.assertIn("0.1250", m[3])
+        self.assertIn("Spirit 60: 0.125 mana/s per Spirit", m[2])
+        self.assertIn("Casting share now: 30%", m[2])
 
     def test_spec_and_stats(self):
         self.chat("spec")

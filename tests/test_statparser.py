@@ -85,38 +85,21 @@ class PlayerStats(unittest.TestCase):
         self.assertEqual(addon.ply_int, 150)                                               # still readable: updated
 
 
-class RegenCalibration(unittest.TestCase):
-    def test_slope_needs_two_samples_20_spirit_apart(self):
-        _, addon, _ = start("PALADIN")                            # UpdatePlayerStats sampled (60, 10)
-        self.assertAlmostEqual(addon.GetRegenPerSpirit(addon), 0.125)   # the default until two readings 20 apart exist
-        addon.SampleRegen(addon, 70, 12)
-        self.assertAlmostEqual(addon.GetRegenPerSpirit(addon), 0.125)
-        addon.SampleRegen(addon, 110, 20)                         # 40 apart: slope 8/40
-        self.assertAlmostEqual(addon.GetRegenPerSpirit(addon), 0.2)
-        cal = addon.hsw.db["global"].regenCal["PALADIN:30"]     # "global" is a Python keyword
-        self.assertEqual([(cal[i][1], cal[i][2]) for i in (1, 2, 3)], [(110, 20), (70, 12), (60, 10)])   # newest first
-        self.assertAlmostEqual(addon.RegenPerSpirit, 0.2)        # in use at once: a gear swap is not a talent change
+class SpiritRegen(unittest.TestCase):
+    """Forever regen is min(Spirit / 4, 6.25 + Spirit / 8) mana/s once gear MP5 is taken out
+    (level-10 paladin and level-28 shaman, 2026-10-22/23): a point of Spirit is worth 0.25 under 50 Spirit, 0.125 from 50."""
 
-    def test_piecewise_swap_pairs_the_newest_reading_with_the_newest_far_one(self):
-        # In game 2026-10-22: an MP5-tainted reading at Spirit 146 survived clean swaps because each piece
-        # moved Spirit under 20 and kept refreshing the anchor
-        _, addon, _ = start("PALADIN")
-        addon.SampleRegen(addon, 146, 26.5)                       # 10 MP5 in it
-        for spirit, regen in ((79, 16.13), (72, 15.25), (65, 14.375), (54, 13.0)):   # one piece at a time
-            addon.SampleRegen(addon, spirit, regen)
-        self.assertAlmostEqual(addon.RegenPerSpirit, 0.125, places=3)   # 54 paired with 79, not 146
-        addon.SampleRegen(addon, 54, 13.8)                        # same Spirit, an MP5 piece on: refreshes the reading
-        self.assertAlmostEqual(addon.RegenPerSpirit, (16.13 - 13.8) / 25, places=3)
-        cal = addon.hsw.db["global"].regenCal["PALADIN:30"]
-        self.assertEqual(len(list(cal.keys())), 6)                # 60 at start, 146, 79, 72, 65, 54
+    def test_rate_per_spirit_has_a_knee_at_50(self):
+        _, addon, _ = start("PALADIN")                            # stub Spirit 60
+        self.assertEqual(addon.RegenPerSpirit, 0.125)
+        rate = lambda s: addon.GetRegenPerSpirit(addon, s)
+        self.assertEqual((rate(29), rate(49), rate(50), rate(146)), (0.25, 0.25, 0.125, 0.125))
 
-    def test_readings_are_capped_and_the_old_four_number_format_is_dropped(self):
-        lua, addon, _ = start("PALADIN", extra='HSW_TEST_ADDON.hsw.db.global.regenCal = { ["PALADIN:30"] = { 146, 26.5, 92, 18.75 } }')
-        cal = addon.hsw.db["global"].regenCal["PALADIN:30"]
-        self.assertEqual((cal[1][1], cal[1][2]), (60, 10))        # the old flat samples were discarded
-        for i in range(30):
-            addon.SampleRegen(addon, 100 + i, 14 + i * 0.1)
-        self.assertEqual(len(list(cal.keys())), 20)
+    def test_a_gear_swap_across_the_knee_updates_the_rate_in_use(self):
+        lua, addon, _ = start("PALADIN")
+        lua.execute("STUB.stats[5] = {30, 42, 12, 0}")            # 42 Spirit on
+        addon.UpdatePlayerStats(addon)                            # PLAYER_EQUIPMENT_CHANGED path
+        self.assertEqual(addon.RegenPerSpirit, 0.25)
 
     def test_gear_mp5_is_taken_off_both_regen_rates(self):
         # Forever folds gear MP5 into both GetManaRegen rates; C_Item.GetItemStats reports it per item (probe 2026-10-22)
@@ -128,18 +111,10 @@ class RegenCalibration(unittest.TestCase):
         self.assertEqual(addon.ply_mp5, 5)
         self.assertEqual((addon.ply_regen_base, addon.ply_regen_cast), (10, 3))
         self.assertAlmostEqual(addon.ply_castpct, 0.3)
-        cal = addon.hsw.db["global"].regenCal["PALADIN:30"]
-        self.assertEqual((cal[1][1], cal[1][2]), (60, 10))        # the Spirit-only rate is what gets sampled
         lua.execute("HSW_TEST_ADDON.inCombat = true; STUB.regen = { base = 21, cast = 9 }")   # Mana Spring in combat: gear MP5 stays cached
         addon.UpdatePlayerStats(addon)
         self.assertEqual(addon.ply_mp5, 5)
         self.assertEqual((addon.ply_regen_base, addon.ply_regen_cast), (20, 8))
-
-    def test_gear_swap_calibrates_the_rate_in_use(self):
-        lua, addon, _ = start("PALADIN")                          # sampled (60, 10) at start
-        lua.execute("STUB.stats[5] = {120, 136, 16, 0}; STUB.regen.base = 20.5")   # +76 Spirit on gear: slope 10.5/76
-        addon.UpdatePlayerStats(addon)                            # PLAYER_EQUIPMENT_CHANGED path
-        self.assertAlmostEqual(addon.RegenPerSpirit, 10.5 / 76)
 
 
 class Derivatives(unittest.TestCase):
