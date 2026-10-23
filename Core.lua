@@ -462,9 +462,10 @@ function addon:PrintRegenCalibration()
 	local _, class = UnitClass("player");
 	local key = class .. ":" .. tostring(UnitLevel("player"));
 	local a, b = self:RegenSamplePair();
-	if a then
-		self:Msg(string.format("Regen samples %s: Spirit %s -> %.2f mana/s, Spirit %s -> %s mana/s",
-			key, tostring(a[1]), a[2], b and tostring(b[1]) or "?", b and string.format("%.2f", b[2]) or "? (need a reading 20+ Spirit away)"));
+	if a and b then
+		self:Msg(string.format("Regen samples %s: Spirit %s -> %.2f mana/s, Spirit %s -> %.2f mana/s", key, tostring(a[1]), a[2], tostring(b[1]), b[2]));
+	elseif a then
+		self:Msg(string.format("Regen sample %s: Spirit %s -> %.2f mana/s; a reading 20+ Spirit away is needed.", key, tostring(a[1]), a[2]));
 	else
 		self:Msg("No regen samples yet for " .. key);
 	end
