@@ -9,6 +9,8 @@ CHAIN = 10623    # Chain Heal R3: 3 targets
 HST = 5394       # Healing Stream Totem R1
 WG = 408120      # Wild Growth R1: party HoT, 1 s ticks over 7 s
 PWS = 10901      # Power Word: Shield R10: absorb, never a UNIT_COMBAT heal
+HW = 547         # Healing Wave R3: base 138, 2.5 s cast; Earthfury jumps to two more units at 20% each
+LHW = 8008       # Lesser Healing Wave R2: no jumps
 
 PARTY = 'STUB.group = "party"; STUB.groupSize = 2; STUB.guids.party1 = "Player-2"; STUB.names.party1 = "Bob"; STUB.guids.party2 = "Player-3"; STUB.names.party2 = "Cat"'
 SELF_TWICE = 'STUB.guids.targettarget = "Player-1"; STUB.names.targettarget = "Me"'   # the player seen through a second token
@@ -141,6 +143,78 @@ class DirectHeals(unittest.TestCase):
         hm.OnCastSent(hm, HS, "Bob", 0)
         hm.OnUnitCombat(hm, "party1", "HEAL", "", 1000, 0)             # same unit, amount and frame, but now ours
         self.assertEqual(heals(lua), [("SPELL_HEAL", "Player-2", HS, False, 1000)])
+
+
+def start8(setup=""):
+    """start() with eight Earthfury pieces worn: Healing Wave jumps to two more units."""
+    lua, addon, hm = start(setup)
+    addon.ply_earthfury = 8
+    return lua, addon, hm
+
+
+class EarthfuryJumps(unittest.TestCase):
+    """Earthfury Healing Wave jumps land on other units in the frame of the main heal, before or after it in event order."""
+
+    def test_jumps_after_the_main_heal_are_ours(self):
+        lua, addon, hm = start8(PARTY)
+        hm.OnCastSent(hm, HW, "Bob", 0)
+        for token, amount in (("party1", 230), ("party2", 46), ("player", 9)):
+            hm.OnUnitCombat(hm, token, "HEAL", "", amount, 2)
+        self.assertEqual([(h[1], h[2], h[4]) for h in heals(lua)], [("Player-2", HW, 230), ("Player-3", HW, 46), ("Player-1", HW, 9)])
+
+    def test_jumps_before_the_main_heal_are_held_until_it_lands(self):
+        lua, addon, hm = start8(PARTY)
+        hm.OnCastSent(hm, HW, "Bob", 0)
+        hm.OnUnitCombat(hm, "player", "HEAL", "", 9, 2)
+        hm.OnUnitCombat(hm, "party2", "HEAL", "CRITICAL", 54, 2)
+        self.assertEqual(heals(lua), [])
+        hm.OnUnitCombat(hm, "party1", "HEAL", "", 230, 2)
+        self.assertEqual(sorted((h[4], h[3]) for h in heals(lua)), [(9, False), (54, True), (230, False)])
+
+    def test_only_two_jumps_and_only_in_the_landing_frame(self):
+        lua, addon, hm = start8(PARTY)
+        hm.OnCastSent(hm, HW, "Bob", 0)
+        hm.OnUnitCombat(hm, "party2", "HEAL", "", 20, 1)        # a frame earlier: someone's tick
+        hm.OnUnitCombat(hm, "party1", "HEAL", "", 230, 2)
+        hm.OnUnitCombat(hm, "player", "HEAL", "", 9, 2)
+        hm.OnUnitCombat(hm, "party2", "HEAL", "", 46, 2)
+        hm.OnUnitCombat(hm, "player", "HEAL", "", 5, 2)         # a third heal in the frame
+        hm.OnUnitCombat(hm, "party2", "HEAL", "", 40, 2.1)      # the frame after
+        self.assertEqual([h[4] for h in heals(lua)], [230, 9, 46])
+
+    def test_a_held_heal_arrives_once_per_token(self):
+        lua, addon, hm = start8(PARTY + "; " + SELF_TWICE)
+        hm.OnCastSent(hm, HW, "Bob", 0)
+        hm.OnUnitCombat(hm, "player", "HEAL", "", 9, 2)
+        hm.OnUnitCombat(hm, "targettarget", "HEAL", "", 9, 2)
+        hm.OnUnitCombat(hm, "party1", "HEAL", "", 230, 2)
+        self.assertEqual([h[4] for h in heals(lua)], [230, 9])
+
+    def test_held_heals_from_another_frame_are_reported_as_unattributed(self):
+        lua, addon, hm = start8(PARTY)
+        lua.execute('MSGS = {}; function HSW_TEST_ADDON:Msg(s) table.insert(MSGS, tostring(s)) end; HSW_TEST_ADDON.discoverSpells = true')
+        hm.OnCastSent(hm, HW, "Bob", 0)
+        hm.OnUnitCombat(hm, "party2", "HEAL", "", 20, 1)
+        self.assertEqual(len(list(lua.globals().MSGS.keys())), 0)   # held: the landing frame is not known yet
+        hm.OnUnitCombat(hm, "party1", "HEAL", "", 230, 2)
+        self.assertEqual([h[4] for h in heals(lua)], [230])
+        self.assertIn("20", lua.globals().MSGS[1])
+
+    def test_lesser_healing_wave_does_not_jump(self):
+        lua, addon, hm = start8(PARTY)
+        hm.OnCastSent(hm, LHW, "Bob", 0)
+        hm.OnUnitCombat(hm, "party1", "HEAL", "", 250, 1.5)
+        hm.OnUnitCombat(hm, "player", "HEAL", "", 9, 1.5)
+        self.assertEqual([h[4] for h in heals(lua)], [250])
+
+    def test_no_jumps_below_eight_pieces(self):
+        lua, addon, hm = start(PARTY)
+        addon.ply_earthfury = 7
+        hm.OnCastSent(hm, HW, "Bob", 0)
+        hm.OnUnitCombat(hm, "player", "HEAL", "", 9, 2)
+        hm.OnUnitCombat(hm, "party1", "HEAL", "", 230, 2)
+        hm.OnUnitCombat(hm, "party2", "HEAL", "", 46, 2)
+        self.assertEqual([h[4] for h in heals(lua)], [230])
 
 
 SECRET = 'issecretvalue = function(v) return v == "SECRET" end'   # the stub's stand-in for a secret string

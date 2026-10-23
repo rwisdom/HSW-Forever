@@ -10,6 +10,9 @@ local name, addon = ...;
 	for multi-target spells) and is matched to the next heal on that unit.
 	HoT ticks: registered at SUCCEEDED per target (or per group member) and matched
 	to later heals on that unit by the tick that is due.
+	Jumps (Earthfury Healing Wave): land on other units in the frame of the main heal,
+	before or after it in event order. A heal that could be a jump is held until the
+	frame's main heal lands; held heals from any other frame were not ours.
 	Healing Stream Totem: a heal nothing else explains while the totem is down.
 	Heals from other healers cannot be told apart; the windows keep that noise small.
 ------------------------------------------------------------------------------]]
@@ -18,11 +21,12 @@ local LANDING_WINDOW = 1.0;             -- seconds after the cast time in which 
 local SEEN_WINDOW = 1.0;                -- how long dedupe keys are kept
 local TOTEM = "Healing Stream Totem";
 
-local expectations = {}; -- { spellID=, target=, remaining=, expires= }, newest last
+local expectations = {}; -- { spellID=, target=, remaining=, jumps=, landed=, expires= }, newest last
 local sentTarget = {};   -- spellID -> target name of the last UNIT_SPELLCAST_SENT
 local hots = {};         -- unit name -> { [spellID] = { nextTick=, interval=, expires= } }
 local totem = nil;       -- { spellID=, expires= } while our totem is down
-local seen = {};         -- "guid:amount" -> time of the last heal attributed with that key
+local seen = {};         -- "guid:amount" -> time of the last heal attributed or held with that key
+local held = {};         -- heals of the current frame that may be jumps: { guid=, unitName=, crit=, amount=, at= }
 
 local function playerName() return UnitName("player") end
 
@@ -35,8 +39,18 @@ local function bareName(n)
 end
 
 function HealMatcher:Reset()
-	wipe(expectations); wipe(sentTarget); wipe(hots); wipe(seen);
+	wipe(expectations); wipe(sentTarget); wipe(hots); wipe(seen); wipe(held);
 	totem = nil;
+end
+
+local function unattributed(amount, unitName)
+	if addon.discoverSpells then
+		addon:Msg("[HealerStatWeights]: unattributed heal of " .. tostring(amount) .. " on " .. unitName .. ".");
+	end
+end
+
+local function credit(ev, guid, spellID, crit, amount)
+	addon.StatParser:DecompHealingForCurrentSpec(ev, guid, spellID, crit, amount, 0);
 end
 
 -- Target name of the last UNIT_SPELLCAST_SENT for a spell (the player when none).
@@ -72,7 +86,7 @@ function HealMatcher:OnCastSent(spellID, targetName, now, castGUID)
 	if direct then
 		table.insert(expectations, {
 			spellID = spellID, target = targetName, remaining = s.targets, castGUID = castGUID,
-			expires = now + math.max(s.castTime, 0) + LANDING_WINDOW,
+			jumps = addon:CastJumps(s), expires = now + math.max(s.castTime, 0) + LANDING_WINDOW,
 		});
 	end
 end
@@ -118,6 +132,14 @@ local function expire(now)
 	for i = #expectations, 1, -1 do
 		if expectations[i].expires < now then table.remove(expectations, i) end
 	end
+	-- held heals of an earlier frame: no main heal landed with them
+	for i = #held, 1, -1 do
+		local h = held[i];
+		if h.at < now then
+			if totem then credit("SPELL_PERIODIC_HEAL", h.guid, totem.spellID, h.crit, h.amount) else unattributed(h.amount, h.unitName) end
+			table.remove(held, i);
+		end
+	end
 	for unitName, byId in pairs(hots) do
 		for id, h in pairs(byId) do
 			if h.expires < now then byId[id] = nil end
@@ -134,19 +156,56 @@ end
 -- A queued cast is sent before the previous one lands, so the newest is rarely the one landing.
 -- A single-target heal under a third of the spell's base is someone's tick, not our cast; the
 -- amount includes overheal, so a weak heal is a debuff, never a full-health target.
-local function takeExpectation(unitName, amount)
+-- Returns the spell id and, when the heal was the main heal of a jumping spell, its expectation.
+local function takeExpectation(unitName, amount, now)
 	local best, bestIdx;
 	for i, e in ipairs(expectations) do
 		local s = addon.Spells:Get(e.spellID);
-		local fits = s and (s.targets > 1 or (e.target == unitName and amount * 3 >= s.base));
+		local fits = s and not e.landed and (s.targets > 1 or (e.target == unitName and amount * 3 >= s.base));
 		if fits and (not best or e.expires < best.expires) then
 			best, bestIdx = e, i;
 		end
 	end
 	if not best then return nil end
 	best.remaining = best.remaining - 1;
-	if best.remaining <= 0 then table.remove(expectations, bestIdx) end
+	if best.remaining > 0 then return best.spellID end
+	if best.jumps > 0 then
+		best.landed, best.expires = now, now; -- jumps still arrive this frame, none later
+		return best.spellID, best;
+	end
+	table.remove(expectations, bestIdx);
 	return best.spellID;
+end
+
+-- A jump of the spell whose main heal landed this frame on another unit.
+local function takeJump(unitName, now)
+	for _, e in ipairs(expectations) do
+		if e.landed == now and e.jumps > 0 and e.target ~= unitName then
+			e.jumps = e.jumps - 1;
+			return e.spellID;
+		end
+	end
+end
+
+-- A jumping cast on another unit is still in flight: a heal on unitName may be one of its jumps.
+local function mayJump(unitName)
+	for _, e in ipairs(expectations) do
+		if not e.landed and e.jumps > 0 and e.target ~= unitName then return true end
+	end
+	return false;
+end
+
+-- The main heal of e has just landed: the heals held this frame on other units are its jumps.
+local function creditHeld(e)
+	for _, h in ipairs(held) do
+		if e.jumps > 0 and h.unitName ~= e.target then
+			e.jumps = e.jumps - 1;
+			credit("SPELL_HEAL", h.guid, e.spellID, h.crit, h.amount);
+		else
+			unattributed(h.amount, h.unitName);
+		end
+	end
+	wipe(held);
 end
 
 -- Our HoT on unitName whose tick is nearest to now; its next tick moves one interval on.
@@ -175,26 +234,34 @@ function HealMatcher:OnUnitCombat(unitToken, action, flag, amount, now)
 	now = now or GetTime();
 
 	-- one heal arrives once per unit token that points at the unit: same unit, amount and frame.
-	-- Only attributed heals are remembered, so an unattributed heal never shadows a later one.
+	-- Only attributed and held heals are remembered, so an unattributed heal never shadows a later one.
 	local key = guid .. ":" .. amount;
 	if seen[key] == now then return end
 	expire(now);
 
-	local ev, spellID = "SPELL_HEAL", takeExpectation(unitName, amount);
+	local crit = flag == "CRITICAL";
+	local ev, spellID, landed = "SPELL_HEAL", takeExpectation(unitName, amount, now);
 	if not spellID then
 		ev, spellID = "SPELL_PERIODIC_HEAL", takeHotTick(unitName, now);
 	end
+	if not spellID then
+		ev, spellID = "SPELL_HEAL", takeJump(unitName, now);
+	end
+	if not spellID and mayJump(unitName) then
+		seen[key] = now;
+		table.insert(held, { guid = guid, unitName = unitName, crit = crit, amount = amount, at = now });
+		return;
+	end
 	if not spellID and totem then
-		spellID = totem.spellID;
+		ev, spellID = "SPELL_PERIODIC_HEAL", totem.spellID;
 	end
 	if not spellID then
-		if addon.discoverSpells then
-			addon:Msg("[HealerStatWeights]: unattributed heal of " .. tostring(amount) .. " on " .. unitName .. ".");
-		end
+		unattributed(amount, unitName);
 		return;
 	end
 	seen[key] = now;
-	addon.StatParser:DecompHealingForCurrentSpec(ev, guid, spellID, flag == "CRITICAL", amount, 0);
+	credit(ev, guid, spellID, crit, amount);
+	if landed then creditHeld(landed) end
 end
 
 addon.HealMatcher = HealMatcher;

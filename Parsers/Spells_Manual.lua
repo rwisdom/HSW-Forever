@@ -37,6 +37,29 @@ addon.Priest  = { InnerFocus = 14751, InnerFocusDuration = 60, WeakenedSoul = 67
 addon.Druid   = { Clearcasting = 16870, Innervate = 29166 };
 addon.Shaman  = { WaterShield = 408510, WaterShieldDuration = 600 }; -- verified in game 2026-10-21: cast id and aura id are both 408510, 3 charges, 600 s
 
+--[[----------------------------------------------------------------------------
+	Earthfury set bonuses (seen in game 2026-10-22, Stockade log). addon.ply_earthfury counts the pieces worn.
+	5 pieces: a Healing Wave or Lesser Healing Wave cast has a 25% chance to return 35% of its base cost.
+	8 pieces: Healing Wave jumps to up to two more units, each jump 80% weaker, in the frame of the main heal.
+------------------------------------------------------------------------------]]
+addon.Shaman.Earthfury = {
+	pieces = { "Earthfury Belt", "Earthfury Boots", "Earthfury Bracers", "Earthfury Epaulets", "Earthfury Gauntlets", "Earthfury Helmet", "Earthfury Legguards", "Earthfury Vestments" },
+	manaPieces = 5, jumpPieces = 8,
+};
+
+-- Mana a cast of s returns on average: taken off the filler cost (Events.lua).
+function addon:CastManaReturn(s)
+	if (self.ply_earthfury or 0) < self.Shaman.Earthfury.manaPieces then return 0 end
+	if s.name ~= "Healing Wave" and s.name ~= "Lesser Healing Wave" then return 0 end
+	return 0.25 * 0.35 * s.manaCost;
+end
+
+-- Units a cast of s jumps to after its target (HealMatcher).
+function addon:CastJumps(s)
+	if (self.ply_earthfury or 0) < self.Shaman.Earthfury.jumpPieces then return 0 end
+	return s.name == "Healing Wave" and 2 or 0;
+end
+
 -- Casts made under these buffs cost no mana: they do not start the five-second rule.
 addon.FreeCastBuffs = { [addon.Priest.InnerFocus] = true, [addon.Druid.Clearcasting] = true };
 

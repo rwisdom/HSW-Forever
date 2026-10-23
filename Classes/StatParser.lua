@@ -117,7 +117,22 @@ function addon:UpdatePlayerStats()
 	end
 	self.ply_intmult = intmult;
 	self.ply_spiritmult = 1 + 0.05 * self:GetTalentRank("Living Spirit") + (UnitRace("player") == "Human" and 0.05 or 0);
+	if not self.inCombat and self.Shaman then -- item names may be secret in combat; gear cannot change there
+		self.ply_earthfury = self:EquippedPieces(self.Shaman.Earthfury.pieces);
+	end
 	self:SampleRegen(self.ply_spi, self.ply_regen_base);
+end
+
+-- How many of the named items the player wears.
+function addon:EquippedPieces(names)
+	local wanted, n = {}, 0;
+	for _, iname in ipairs(names) do wanted[iname] = true end
+	for slot = 1, 19 do
+		local link = GetInventoryItemLink("player", slot);
+		local iname = link and self.Compat.PlainString(self.Compat.GetItemInfo(link));
+		if iname and wanted[iname] then n = n + 1 end
+	end
+	return n;
 end
 
 --[[----------------------------------------------------------------------------

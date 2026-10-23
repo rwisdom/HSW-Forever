@@ -154,7 +154,8 @@ function addon:OnPlayerSpellcast(spellID)
 		end
 	end
 	if s and s.filler then
-		forEachSegment(function(seg) seg:IncFillerCasts(cost) end);
+		local net = cost - self:CastManaReturn(s); -- set bonuses return part of the cost on average
+		forEachSegment(function(seg) seg:IncFillerCasts(net) end);
 	end
 	forEachSegment(function(seg) seg:AccumulateFSR(now) end);
 	self.lastManaSpend = now;

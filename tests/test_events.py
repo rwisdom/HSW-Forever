@@ -9,7 +9,11 @@ PARTY = 'STUB.group = "party"; STUB.groupSize = 1; STUB.guids.party1 = "Player-2
 HL = 25292     # Holy Light R9, 660 mana, filler, 2.5 s cast
 FH = 10917     # Flash Heal R7, filler
 PWS = 10901    # Power Word: Shield R10
+HW3 = 547      # Healing Wave R3, 80 mana
+CHAIN = 10623  # Chain Heal R3, 405 mana
 INNER_FOCUS, WEAKENED_SOUL, WATER_SHIELD = 14751, 6788, 408510
+EARTHFURY5 = ('WORN = { "Earthfury Belt", "Earthfury Boots", "Earthfury Bracers", "Earthfury Epaulets", "Earthfury Gauntlets", "Earthfury Piece 6" }'
+              '; function GetInventoryItemLink(_, slot) return WORN[slot] end; function GetItemInfo(link) return link end')
 
 
 def start(setup=PALADIN, spec=65, extra=""):
@@ -112,6 +116,22 @@ class UnitEvents(unittest.TestCase):
         self.assertEqual(seg.fillerCasts, 2)
         ttl = addon.SegmentManager.Get(addon.SegmentManager, "Total")
         self.assertEqual(ttl.fillerManaSpent, 1160)
+
+    def test_earthfury_mana_return_comes_off_the_filler_cost(self):
+        lua, addon, seg = start(SHAMAN, 264)
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", HW3)          # table cost 80, no set
+        self.assertEqual(seg.fillerManaSpent, 80)
+        lua.execute(EARTHFURY5 + "; HSW_TEST_ADDON.inCombat = false")
+        addon.hsw.PLAYER_EQUIPMENT_CHANGED(addon.hsw)
+        self.assertEqual(addon.ply_earthfury, 5)
+        addon.inCombat = True
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", HW3)          # 5 pieces: 25% chance of 35% of 80 back
+        self.assertAlmostEqual(seg.fillerManaSpent, 80 + 80 - 7)
+        lua.execute(f"STUB.spellCost[{HW3}] = 76")                            # Tidal Focus: the return is still 35% of the base cost
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", HW3)
+        self.assertAlmostEqual(seg.fillerManaSpent, 153 + 76 - 7)
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", CHAIN)        # Chain Heal: no return
+        self.assertAlmostEqual(seg.fillerManaSpent, 222 + 405)
 
     def test_shield_cast_is_credited_at_cast_with_weakened_soul(self):
         lua, addon, seg = start(PRIEST, 256)
