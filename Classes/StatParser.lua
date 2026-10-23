@@ -31,9 +31,12 @@ end
 
 --[[----------------------------------------------------------------------------
 	Spirit regen calibration
-	db.regenCal["CLASS:level"] = { spirit1, regen1, spirit2, regen2 }
-	Slope of base regen vs Spirit once two samples >= 20 Spirit apart exist.
-	Known limitation: a gear swap that changes MP5 together with Spirit skews it.
+	db.regenCal["CLASS:level"] = { spirit1, regen1, spirit2, regen2 }, newest first
+	Slope of base regen vs Spirit over the two most recent readings >= 20 Spirit apart;
+	a reading within 20 of the newest refreshes it. Forever reads 0.125 mana/s per Spirit on a
+	level-28 shaman (2026-10-22).
+	Known limitation: MP5 counts in full in both regen rates, so a swap that changes MP5
+	together with Spirit skews the slope until two MP5-equal readings replace it.
 ------------------------------------------------------------------------------]]
 local function regenCalKey()
 	local _, class = UnitClass("player");
@@ -58,7 +61,8 @@ function addon:SampleRegen(spirit, baseRegen)
 	if not cal then
 		db.regenCal[key] = { spirit, baseRegen };
 	elseif math.abs(spirit - cal[1]) >= 20 then
-		cal[3], cal[4] = spirit, baseRegen;
+		cal[3], cal[4] = cal[1], cal[2]; -- the newest reading becomes the anchor, the oldest goes
+		cal[1], cal[2] = spirit, baseRegen;
 	else
 		cal[1], cal[2] = spirit, baseRegen; -- refresh the anchor sample
 	end
