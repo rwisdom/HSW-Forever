@@ -95,8 +95,13 @@ class RegenCalibration(unittest.TestCase):
         self.assertAlmostEqual(addon.GetRegenPerSpirit(addon), 0.2)
         cal = addon.hsw.db["global"].regenCal["PALADIN:30"]     # "global" is a Python keyword
         self.assertEqual((cal[1], cal[2], cal[3], cal[4]), (70, 12, 110, 20))
-        addon.SetupConversionFactors(addon)
-        self.assertAlmostEqual(addon.RegenPerSpirit, 0.2)
+        self.assertAlmostEqual(addon.RegenPerSpirit, 0.2)        # in use at once: a gear swap is not a talent change
+
+    def test_gear_swap_calibrates_the_rate_in_use(self):
+        lua, addon, _ = start("PALADIN")                          # sampled (60, 10) at start
+        lua.execute("STUB.stats[5] = {120, 136, 16, 0}; STUB.regen.base = 20.5")   # +76 Spirit on gear: slope 10.5/76
+        addon.UpdatePlayerStats(addon)                            # PLAYER_EQUIPMENT_CHANGED path
+        self.assertAlmostEqual(addon.RegenPerSpirit, 10.5 / 76)
 
 
 class Derivatives(unittest.TestCase):

@@ -62,6 +62,7 @@ function addon:SampleRegen(spirit, baseRegen)
 	else
 		cal[1], cal[2] = spirit, baseRegen; -- refresh the anchor sample
 	end
+	self.RegenPerSpirit = self:GetRegenPerSpirit();
 end
 
 --[[----------------------------------------------------------------------------
