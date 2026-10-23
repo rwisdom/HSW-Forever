@@ -60,6 +60,9 @@ end
 
 function addon.hsw:PLAYER_REGEN_ENABLED()
 	if addon.inBossFight then return end
+	if addon.discoverSpells then
+		addon:Msg("[HealerStatWeights]: player left combat, group " .. (groupInCombat() and "still fighting." or "out of combat."));
+	end
 	if not groupInCombat() then
 		addon:EndFight();
 	elseif not combatPoll then
@@ -79,6 +82,7 @@ end
 
 function addon.hsw:ENCOUNTER_END()
 	addon.inBossFight = false;
+	if addon.discoverSpells then addon:Msg("[HealerStatWeights]: encounter ended.") end
 	addon:EndFight();
 end
 

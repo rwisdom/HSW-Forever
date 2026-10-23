@@ -249,8 +249,16 @@ function addon:UpdateFightButton()
 	btn.title, btn.description = s.title, s.desc;
 end
 
+-- Discover mode narrates the fight boundaries: a silent heal is then readable as attributed or dropped.
+local function discoverMsg(text)
+	if addon.discoverSpells then addon:Msg("[HealerStatWeights]: " .. text) end
+end
+
 function addon:StartFight(id)
-	if self.inCombat or not self:Enabled() then return end
+	if self.inCombat then return end
+	discoverMsg("fight start requested (" .. tostring(id) .. ").");
+	if not self:Enabled() then discoverMsg("fight not started: not enabled here."); return end
+	discoverMsg("fight started.");
 	self:UpdatePlayerStats();
 	self.UnitManager:Cache();
 	self.HealMatcher:Reset();
@@ -271,6 +279,7 @@ end
 
 function addon:EndFight()
 	if not self.inCombat then return end
+	discoverMsg("fight ended.");
 	self.inCombat = false;
 	self.manualFight = nil;
 	local cur_seg = self.SegmentManager:Get(0);
