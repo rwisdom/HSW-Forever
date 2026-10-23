@@ -11,7 +11,7 @@ addon.FSR_SECONDS = 5;              -- five-second rule
 -- Intellect per 1% spell crit (foreverdb.net/stats, level 30). Keyed by level so
 -- level-60 values can be added later; lookup uses the nearest keyed level <= player level.
 local IntPerCritByLevel = {
-	PALADIN = { [30] = 31.9 },
+	PALADIN = { [10] = 16.3, [30] = 31.9 }, -- 10: measured in game 2026-10-23 (51 Int -> +3.13% crit after 13 rating)
 	PRIEST  = { [30] = 26.9 },
 	SHAMAN  = { [28] = 26.3, [30] = 28.2 }, -- 28: measured in game 2026-10-22 (33 Int -> +1.254% crit)
 	DRUID   = { [30] = 28.4 },

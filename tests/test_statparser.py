@@ -50,6 +50,8 @@ class Conversions(unittest.TestCase):
         self.assertEqual((addon.IntPerCrit, addon.HasteConv), (40, 1000))
         _, addon, _ = start("SHAMAN", extra="STUB.level = 29")
         self.assertEqual(addon.IntPerCrit, 26.3)                 # the level-28 measurement until 30
+        _, addon, _ = start("PALADIN", extra="STUB.level = 12")
+        self.assertEqual(addon.IntPerCrit, 16.3)                 # the level-10 measurement until 30
 
     def test_unsupported_class_has_no_parser(self):
         _, addon = load(FILES, setup='STUB.class = "WARRIOR"; STUB.talents = { {name="Arms", talents={ {name="Deflection", rank=5, max=5} }} }')
