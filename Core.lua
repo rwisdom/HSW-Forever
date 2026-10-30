@@ -16,7 +16,7 @@ local defaults = {
 	global = {
 		schema = 0,
 		excludeRaidHealingCooldowns = false,
-		logEvents = true,
+		logEvents = false,
 		fontSize = 12,
 		frameWidth = 192,
 		enabledInDungeons = true,
@@ -131,7 +131,7 @@ local options = {
 				},
 				logEvents = {
 					name = "Log Casts and Heals per Segment",
-					desc = "Keeps a row for every cast and attributed heal of each logged segment and shows them as CSV on its history page. Memory intensive: a raid night can add megabytes to the saved variables. Off hides the section; rows already stored are kept.",
+					desc = "Keeps a row for every cast and attributed heal of each logged segment and shows them as CSV on its history page. Memory intensive: a raid night can add megabytes to the saved variables. Off by default; off hides the section, rows already stored are kept.",
 					type = "toggle",
 					order = 3,
 					width = "full",

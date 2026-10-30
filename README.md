@@ -13,10 +13,11 @@ contains a single `HealerStatWeights` folder, so after extraction the addon live
 `{WoW_Directory}/Interface/AddOns/HealerStatWeights/` with `HealerStatWeights.toc` directly inside it.
 Restart the client or `/reload` and enable the addon on the character screen if it is not already.
 
-In game, `/hsw` opens the options and history window. Each logged segment's page has a "Casts and
-Heals" box with a CSV of every cast and attributed heal (time, spell, target, amount, crit, mana) the
-weights were built from; click in it, Ctrl+A, Ctrl+C to copy. The "Log Casts and Heals per Segment"
-option turns this off: the rows live in the saved variables and a raid night can add megabytes. `/hsw show`, `/hsw hide`, `/hsw lock`,
+In game, `/hsw` opens the options and history window. With "Log Casts and Heals per Segment" on
+(off by default: the rows live in the saved variables and a raid night can add megabytes), each
+logged segment's page has a "Casts and Heals" box with a CSV of every cast and attributed heal
+(time, spell, target, amount, crit, mana) the weights were built from; click in it, Ctrl+A, Ctrl+C
+to copy. `/hsw show`, `/hsw hide`, `/hsw lock`,
 `/hsw unlock` control the panel. `/hsw regen` prints the Spirit-regen rate in use (Forever: 0.25 mana/s
 per Spirit under 50 Spirit, 0.125 from 50, gear MP5 taken out) and `/hsw discover on` logs unknown
 healing spell IDs to chat.
