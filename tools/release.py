@@ -89,7 +89,7 @@ def commit_and_tag(version, root=None, toc=None):
         raise SystemExit(f"tag {tag} already exists")
     git("add", (toc or TOC).name, root=root)
     git("commit", "-m", f"release: {version}", root=root)
-    git("tag", tag, root=root)
+    git("tag", "-a", tag, "-m", f"{ADDON} {version}", root=root)   # annotated: git push --follow-tags carries it
     return tag
 
 

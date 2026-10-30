@@ -66,6 +66,7 @@ class Git(unittest.TestCase):
                 r.require_clean_tree(root=root)
             self.assertEqual(r.commit_and_tag("1.0.1-forever", root=root, toc=toc), "v1.0.1-forever")
             self.assertEqual(r.git("tag", "--list", root=root).split(), ["v1.0.1-forever"])
+            self.assertEqual(r.git("cat-file", "-t", "v1.0.1-forever", root=root).strip(), "tag")   # annotated, so --follow-tags pushes it
             self.assertEqual(r.git("log", "-1", "--format=%s", root=root).strip(), "release: 1.0.1-forever")
             r.require_clean_tree(root=root)                                       # the bump is committed
             with self.assertRaises(SystemExit):
