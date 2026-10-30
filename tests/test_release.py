@@ -75,9 +75,10 @@ class Git(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root, toc = self.repo(tmp)
             first = r.write_notes("1.0.0-forever", dist=root / "dist", root=root)
-            self.assertIn("first release (1 commits)", first.read_text(encoding="utf-8"))
+            self.assertIn("first release\n\n## Other\n\n- init", first.read_text(encoding="utf-8"))
             subprocess.run(["git", "tag", "v1.0.0-forever"], cwd=root, check=True)
-            for subject in ("fix: a thing", "feat: another"):
+            for subject in ("fix: a thing", "test: noise", "feat: another", "data: Int per crit", "chore: bump libs",
+                            "fix(matcher): second thing", "docs: how it works"):
                 (root / "f").write_text(subject, encoding="utf-8")
                 subprocess.run(["git", "add", "."], cwd=root, check=True)
                 subprocess.run(["git", "commit", "-q", "-m", subject], cwd=root, check=True)
@@ -87,6 +88,14 @@ class Git(unittest.TestCase):
             text = notes.read_text(encoding="utf-8")
         self.assertEqual(notes.name, "HealerStatWeights-1.0.1-forever-notes.md")
         self.assertTrue(text.startswith("# HealerStatWeights 1.0.1-forever\n"))
-        self.assertIn("since v1.0.0-forever (2 commits)", text)
-        self.assertEqual(text.strip().splitlines()[-2:], ["- fix: a thing", "- feat: another"])   # oldest first
-        self.assertNotIn("release:", text)                                       # the bump commit itself is noise
+        self.assertIn(", since v1.0.0-forever\n", text)
+        body = text.split("\n\n", 2)[2]
+        self.assertEqual(body, "## Features\n\n- another\n\n## Fixes\n\n- a thing\n- second thing\n\n"
+                               "## Data\n\n- Int per crit\n\n## Other\n\n- docs: how it works\n")
+        for noise in ("test:", "chore:", "release:"):
+            self.assertNotIn(noise, text)
+
+    def test_group_subjects(self):
+        self.assertEqual(r.group_subjects(["feat!: breaking", "chore: x", "plain subject"]),
+                         {"Features": ["breaking"], "Other": ["plain subject"]})
+        self.assertEqual(r.group_subjects(["test: only"]), {})

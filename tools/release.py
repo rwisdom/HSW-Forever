@@ -101,16 +101,36 @@ def previous_tag(version, root=None):
     return None
 
 
+NOTE_GROUPS = [("feat", "Features"), ("fix", "Fixes"), ("data", "Data"), (None, "Other")]
+NOTE_SKIP = {"test", "chore", "release"}   # not news to a player
+SUBJECT_RE = re.compile(r"^(\w+)(?:\([^)]*\))?!?:\s*(.*)$")   # conventional "type(scope): text"
+
+
+def group_subjects(subjects):
+    """{heading: [text, ...]} in NOTE_GROUPS order; test/chore/release commits dropped, prefixes stripped."""
+    groups = {heading: [] for _, heading in NOTE_GROUPS}
+    headings = {kind: heading for kind, heading in NOTE_GROUPS}
+    for s in subjects:
+        m = SUBJECT_RE.match(s)
+        kind, text = (m[1], m[2]) if m else (None, s)
+        if kind in NOTE_SKIP:
+            continue
+        groups[headings.get(kind, "Other")].append(text if kind in headings else s)
+    return {h: items for h, items in groups.items() if items}
+
+
 def write_notes(version, dist=DIST, root=None):
-    """dist/HealerStatWeights-<version>-notes.md: commit subjects since the previous release."""
+    """dist/HealerStatWeights-<version>-notes.md: commits since the previous release, grouped by type."""
     prev = previous_tag(version, root=root)
     head = f"v{version}" if git("tag", "--list", f"v{version}", root=root).strip() else "HEAD"
     rng = f"{prev}..{head}" if prev else head
-    subjects = [s for s in git("log", "--no-merges", "--reverse", "--format=%s", rng, root=root).splitlines()
-                if s and not s.startswith("release:")]
+    groups = group_subjects(git("log", "--no-merges", "--reverse", "--format=%s", rng, root=root).splitlines())
     since = f"since {prev}" if prev else "first release"
-    lines = [f"# {ADDON} {version}", "", f"{datetime.date.today().isoformat()}, {since} ({len(subjects)} commits)", ""]
-    lines += [f"- {s}" for s in subjects] or ["- no changes"]
+    lines = [f"# {ADDON} {version}", "", f"{datetime.date.today().isoformat()}, {since}"]
+    for heading, items in groups.items():
+        lines += ["", f"## {heading}", ""] + [f"- {t}" for t in items]
+    if not groups:
+        lines += ["", "- no changes"]
     dist.mkdir(exist_ok=True)
     out = dist / f"{ADDON}-{version}-notes.md"
     out.write_text("\n".join(lines) + "\n", encoding="utf-8")
