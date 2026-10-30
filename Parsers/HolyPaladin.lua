@@ -10,7 +10,7 @@ addon.SpecInfo[addon.SpellType.PALADIN] = {
 	},
 	{
 		key = "Holy Paladin\nNotes:",
-		value = "Crit includes the mana Illumination returns (50% of base cost on Flash of Light, Holy Light, Holy Shock and Light's Vigil crits), valued at your filler healing-per-mana. Divine Favor's guaranteed crit is ignored (one heal per 2 minutes). Reverence is read from the client's regen rates.",
+		value = "Crit includes the mana Illumination returns (50% of base cost on Flash of Light, Holy Light, Holy Shock and Light's Vigil crits), valued at your filler healing-per-mana; the returned mana also comes off the filler mana spent. Divine Favor's guaranteed crit is ignored (one heal per 2 minutes). Reverence is read from the client's regen rates.",
 	},
 };
 

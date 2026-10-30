@@ -24,7 +24,8 @@ and turns the printing off. `/hsw debug` dumps the current segment's counters.
 Every effective (non-overheal) heal is decomposed into "how much of this heal did one point of each
 stat produce" using the spell's Forever coefficient. Mana stats (Intellect mana pool, Spirit regen
 inside and outside the five-second rule, MP5) are valued at the healing-per-mana of your filler spells
-over the fight. Crit includes mana returned by Illumination, Water Shield and Divine Aegis absorbs.
+over the fight, net of the mana Illumination, Water Shield and the Earthfury set return. Crit includes
+that returned mana and Divine Aegis absorbs.
 
 This is a port of Bastas' retail HealerStatWeights (v1.9.1); spell and talent data come from the
 talentsforever.com beta export. Forever is in beta: numbers may lag live tuning.

@@ -30,6 +30,14 @@ class SegmentTests(unittest.TestCase):
         addon.ply_intmult = 1.1
         self.assertAlmostEqual(s.GetIntManaValue(s), 82.5)
 
+    def test_returned_mana_comes_off_filler_mana(self):
+        _, _, s = self.seg()
+        s.IncFillerHealing(s, 1000); s.IncFillerCasts(s, 200)
+        s.IncManaRestore(s, 50)
+        self.assertAlmostEqual(s.GetFillerHPM(s), 1000 / 150)
+        s.IncManaRestore(s, 150)
+        self.assertEqual(s.GetFillerHPM(s), 0)              # more returned than spent so far: no rate yet
+
     def test_no_filler_means_zero(self):
         _, _, s = self.seg()
         self.assertEqual(s.GetMP5(s), 0)

@@ -44,10 +44,12 @@ end
 --[[----------------------------------------------------------------------------
 	Live getters
 ------------------------------------------------------------------------------]]
--- Healing per point of mana, from filler spells.
+-- Healing per point of mana, from filler spells. Mana returned on crits (Illumination, Water
+-- Shield) funds further casts, so it comes off the mana spent, as the Earthfury return does at cast.
 function Segment:GetFillerHPM()
-	if self.fillerManaSpent <= 0 then return 0 end
-	return self.fillerHealing / self.fillerManaSpent;
+	local net = self.fillerManaSpent - self.manaRestore;
+	if net <= 0 then return 0 end
+	return self.fillerHealing / net;
 end
 
 -- Healing attributable to 1 mp5 over this segment (continuous, FSR-independent).
@@ -160,7 +162,8 @@ function Segment:IncFillerCasts(manaCost)
 	self.fillerManaSpent = self.fillerManaSpent + manaCost;
 end
 
--- Diagnostic only (/hsw debug): the crit value of returned mana is credited per heal by the parsers.
+-- Mana returned on crits: taken off the filler mana spent (GetFillerHPM). Its value per 1% crit is
+-- credited per heal by the parsers.
 function Segment:IncManaRestore(amount) self.manaRestore = self.manaRestore + amount end
 
 --[[----------------------------------------------------------------------------

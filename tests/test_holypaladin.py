@@ -48,6 +48,14 @@ class HolyPaladinTests(unittest.TestCase):
         heal(addon, "SPELL_HEAL", HL, 1000)
         self.assertAlmostEqual(seg.t.crit, crit_per_pct(1000, 0.12) / 14)
 
+    def test_illumination_mana_comes_off_the_filler_cost(self):
+        _, addon, seg = start("PALADIN", HOLY, FILES)
+        seg.IncFillerCasts(seg, 660)
+        heal(addon, "SPELL_HEAL", HL, 1500, crit=True)             # 330 back before the crit is valued: HPM 1500/330
+        self.assertAlmostEqual(seg.GetFillerHPM(seg), 1500 / 330)
+        illumination = 0.01 * 1.0 * 0.5 * 660 * (1500 / 330) / 14
+        self.assertAlmostEqual(seg.t.crit, crit_per_pct(1000, 0.15) / 14 + illumination)
+
     def test_illumination_mana_is_credited_on_crits(self):
         _, addon, seg = start("PALADIN", HOLY, FILES)
         heal(addon, "SPELL_HEAL", HL, 1500, crit=True)             # 5/5: 100% chance x 50% of 660
