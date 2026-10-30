@@ -253,7 +253,10 @@ function StatParser:DecompHealingForCurrentSpec(ev, destGUID, spellID, critFlag,
 		heal = heal / (1 + addon.ply_crtbonus);
 	end
 
-	self:IncHealing(origHeal, s.filler, true);
+	-- a "% of base mana" spell has no table cost: it is a filler only while the client prices it,
+	-- the same condition under which its cast recorded filler mana (Events.lua)
+	local filler = s.filler and (s.manaCost > 0 or (addon.Compat.GetSpellManaCost(s.spellID) or 0) > 0);
+	self:IncHealing(origHeal, filler, true);
 	-- no energize events on Forever: mana returned by this crit is credited analytically
 	if critFlag and f.ManaReturn then
 		local mana = f.ManaReturn(ev, s, origHeal, destUnit);

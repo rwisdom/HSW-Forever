@@ -156,6 +156,16 @@ class Derivatives(unittest.TestCase):
         self.assertEqual(seg.t.haste_hpct, 0)                     # instant: no HPCT value
         self.assertGreater(seg.t.crit, 0)                         # HoT ticks crit on Forever
 
+    def test_percent_of_base_mana_spell_is_filler_only_when_the_client_prices_it(self):
+        # Swiftmend costs "20% of base mana": the table has no absolute cost, so its healing is filler
+        # only when the cost API answers (the cast side records filler mana under the same condition).
+        lua, addon, seg = start("DRUID")
+        heal(addon, "SPELL_HEAL", 18562, 900)
+        self.assertEqual((seg.totalHealing, seg.fillerHealing), (900, 0))
+        lua.execute("STUB.spellCost[18562] = 250")
+        heal(addon, "SPELL_HEAL", 18562, 900)
+        self.assertEqual((seg.totalHealing, seg.fillerHealing), (1800, 900))
+
     def test_shield_cast_has_no_crit_value(self):
         _, addon, seg = start("PRIEST")
         addon.StatParser.DecompShieldCast(addon.StatParser, "Player-1", PWS)     # expected size 928 + 0.10 * 200
