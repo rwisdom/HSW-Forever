@@ -187,6 +187,28 @@ class UnitEvents(unittest.TestCase):
         fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", WATER_SHIELD)
         self.assertEqual(addon.BuffTracker.Get(addon.BuffTracker, WATER_SHIELD), 1)
 
+    def test_casts_and_heals_are_logged_on_the_live_segment(self):
+        lua, addon, seg = start(extra=PARTY)
+        cast(addon, HL, "Bob")                                               # table cost 660, t = 0
+        lua.execute("STUB.time = 2.5")
+        fire(addon, "UNIT_COMBAT", "party1", "HEAL", "CRITICAL", 1500, 2.5)
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", 633)          # Lay on Hands: no cost, still a cast
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", 424242)      # unknown spell: not logged
+        rows = list(seg.events.values())
+        self.assertEqual(rows, ["0.00,cast,25292,Holy Light,Bob,,,660",
+                                "2.50,heal,25292,Holy Light,Bob,1500,1,",
+                                "2.50,cast,633,Lay on Hands,Me,,,0"])
+        ttl = addon.SegmentManager.Get(addon.SegmentManager, "Total")
+        self.assertEqual(len(list(ttl.events.values())), 0)                 # the Total segment keeps no log
+
+    def test_free_cast_is_logged_at_zero_mana(self):
+        lua, addon, seg = start(PRIEST, 256)
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", INNER_FOCUS)
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", FH)
+        rows = list(seg.events.values())                                     # Inner Focus is not a healing spell: one row
+        self.assertEqual(len(rows), 1)
+        self.assertTrue(rows[0].endswith(",Flash Heal,Me,,,0"), rows)
+
     def test_failed_cast_opens_no_heal(self):
         lua, addon, seg = start()
         fire(addon, "UNIT_SPELLCAST_SENT", "player", "", "g", HL)

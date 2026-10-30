@@ -137,6 +137,19 @@ class History(unittest.TestCase):
         names = [v.name for _, v in addon.BuildOptionsTableForHistorySegment(addon, 0).items() if v.name]
         self.assertTrue(any("icon_charm" in n and "45" in n and "Lucky Charm" in n for n in names), names)
 
+    def test_history_entry_exports_its_casts_and_heals_as_csv(self):
+        lua, addon = start()
+        addon.AddHistoricalSegment(addon, fought_segment(lua, addon))       # one Holy Light heal, no cast events
+        h = addon.History.Get(addon.History, 0)
+        csv = addon.EventsCSV(addon, h)
+        self.assertEqual(csv.split("\n"), ["time,event,spell_id,spell,target,amount,crit,mana",
+                                           "0.00,heal,25292,Holy Light,Me,1000,0,"])
+        t = addon.BuildOptionsTableForHistorySegment(addon, 0)
+        boxes = [v for _, v in t.items() if v.type == "input" and v.multiline]
+        self.assertEqual(len(boxes), 1)
+        self.assertEqual(boxes[0].get(None), csv)
+        self.assertEqual(addon.EventsCSV(addon, lua.table()), "No casts or heals were recorded for this segment.")   # pre-feature entry
+
     def test_calibration_inputs_are_validated(self):
         lua, addon = start()
         opts = lua.globals().HSW_TEST_OPTIONS.HealerStatWeights().args.optionsTab.args

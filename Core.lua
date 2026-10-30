@@ -402,6 +402,11 @@ function addon:BuildOptionsTableForHistorySegment(i)
 		OptionsBuilder:AddNewLine();
 	end
 
+	OptionsBuilder:AddDivider("Casts and Heals");
+	OptionsBuilder:AddExport("Every cast and attributed heal of this segment, CSV (click in the box, Ctrl+A, Ctrl+C)",
+		function() return addon:EventsCSV(h) end);
+	OptionsBuilder:AddNewLine();
+
 	if self.SpecInfo[h.SpecID] then
 		OptionsBuilder:AddDivider("Resources");
 		local specInfoOptions = { Width = 2.75, Type = "string" };
@@ -583,11 +588,18 @@ function addon:AddHistoricalSegment(segment)
 	h.Mp5Pct  = perOnePercent(segment:GetMP5());
 
 	h.Talents = segment.talentsSnapshot and segment.selectedTalents or {};
+	h.Events = segment.events;
 	h.Name = pname or "Unknown";
 	h.Realm = realm or "Unknown";
 	h.Region = regions[regionID] or "Unknown";
 
 	self.History:Enqueue(h, segment);
+end
+
+-- The casts and heals a history entry was built from, as CSV with a header row.
+function addon:EventsCSV(h)
+	if not h.Events or #h.Events == 0 then return "No casts or heals were recorded for this segment." end
+	return self.EventsHeader .. "\n" .. table.concat(h.Events, "\n");
 end
 
 --[[----------------------------------------------------------------------------

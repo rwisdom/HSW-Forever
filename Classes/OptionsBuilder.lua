@@ -233,5 +233,21 @@ end
 
 
 
+--[[----------------------------------------------------------------------------
+    AddExport - a full-width multi-line box holding text the user can copy out
+------------------------------------------------------------------------------]]
+function OptionsBuilder:AddExport(name, getText)
+    self:AddCtrl({
+        type = "input",
+        multiline = 12,
+        width = "full",
+        name = name,
+        get = function(info) return getText() end,
+        set = function(info, val) end,
+    });
+end
+
+
+
 addon.OptionsBuilder = OptionsBuilder;
 

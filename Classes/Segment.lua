@@ -38,6 +38,7 @@ function Segment.Create(id)
 	self.chainCasts = 0;
 	self.debug = {};
 	self.bossFight = false;
+	self.events = {};           -- CSV rows of every cast and attributed heal (addon:LogEvent), exported from the history tab
 	return self;
 end
 

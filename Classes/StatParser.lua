@@ -194,6 +194,22 @@ function StatParser:IncHealing(heal, updateFiller, updateTotal)
 	end
 end
 
+--[[----------------------------------------------------------------------------
+	Event log - one CSV row per cast and per attributed heal on the live segment,
+	the inputs the weights are built from. Columns: addon.EventsHeader.
+------------------------------------------------------------------------------]]
+addon.EventsHeader = "time,event,spell_id,spell,target,amount,crit,mana";
+
+function addon:LogEvent(kind, s, target, amount, crit, cost)
+	local seg = self.SegmentManager:Get(0);
+	if not seg or seg.startTime < 0 then return end
+	table.insert(seg.events, string.format("%.2f,%s,%d,%s,%s,%s,%s,%s",
+		GetTime() - seg.startTime, kind, s.spellID, s.name, target or "",
+		amount and string.format("%g", amount) or "",
+		crit == nil and "" or (crit and "1" or "0"),
+		cost and string.format("%g", cost) or ""));
+end
+
 function StatParser:IncManaRestore(mana)
 	local cur_seg, ttl_seg = segments();
 	if cur_seg then cur_seg:IncManaRestore(mana) end
@@ -246,6 +262,7 @@ function StatParser:DecompHealingForCurrentSpec(ev, destGUID, spellID, critFlag,
 	if not destUnit then return end
 
 	if addon.hsw.db.global.excludeRaidHealingCooldowns and s.cd then return end
+	addon:LogEvent(ev == "SPELL_PERIODIC_HEAL" and "tick" or "heal", s, addon.Compat.PlainString(UnitName(destUnit)), heal, critFlag and true or false);
 
 	-- reduce crit heals to the non-crit amount
 	local origHeal = heal;

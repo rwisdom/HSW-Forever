@@ -166,6 +166,15 @@ class Derivatives(unittest.TestCase):
         heal(addon, "SPELL_HEAL", 18562, 900)
         self.assertEqual((seg.totalHealing, seg.fillerHealing), (1800, 900))
 
+    def test_heals_log_ticks_shields_and_skip_excluded_cooldowns(self):
+        lua, addon, seg = start("PRIEST")
+        heal(addon, "SPELL_PERIODIC_HEAL", 25315, 200)                      # Renew R10 tick
+        addon.StatParser.DecompShieldCast(addon.StatParser, "Player-1", PWS)
+        lua.execute("HSW_TEST_ADDON.hsw.db.global.excludeRaidHealingCooldowns = true")
+        heal(addon, "SPELL_HEAL", 19236, 300)                               # Desperate Prayer: excluded, not logged
+        self.assertEqual(list(seg.events.values()), ["0.00,tick,25315,Renew,Me,200,0,",
+                                                     "0.00,heal,10901,Power Word: Shield,Me,948,0,"])
+
     def test_tick_without_a_coefficient_counts_in_totals_only(self):
         _, addon, seg = start("SHAMAN")
         heal(addon, "SPELL_PERIODIC_HEAL", 5394, 6)                # Healing Stream Totem: no coefficient yet

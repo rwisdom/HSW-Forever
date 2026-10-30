@@ -152,13 +152,18 @@ function addon:OnPlayerSpellcast(spellID)
 
 	-- mana: free casts, filler accounting, five-second rule
 	local cost = SpellManaCost(spellID, s);
-	if cost <= 0 then return end
-	for buffId in pairs(self.FreeCastBuffs) do
-		if self.BuffTracker:Get(buffId) > 0 then
-			self.BuffTracker:Consume(buffId); -- spent by this cast
-			return;
+	local free = false;
+	if cost > 0 then
+		for buffId in pairs(self.FreeCastBuffs) do
+			if self.BuffTracker:Get(buffId) > 0 then
+				self.BuffTracker:Consume(buffId); -- spent by this cast
+				free = true;
+				break;
+			end
 		end
 	end
+	if s then self:LogEvent("cast", s, self.HealMatcher:SentTarget(spellID), nil, nil, free and 0 or cost) end
+	if cost <= 0 or free then return end
 	if s and s.filler then
 		local net = cost - self:CastManaReturn(s); -- set bonuses return part of the cost on average
 		forEachSegment(function(seg) seg:IncFillerCasts(net) end);
