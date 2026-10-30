@@ -11,7 +11,7 @@ WATER_SHIELD = 408510
 class RestoShamanTests(unittest.TestCase):
     def test_spec_detection(self):
         _, addon, _ = start("SHAMAN", RESTO, FILES)
-        self.assertTrue(addon.IsRestoShaman(addon))
+        self.assertEqual(addon.GetSpecId(addon), 264)
         self.assertTrue(addon.SpecInfo[264][1].value.startswith("https://"))
 
     def test_tidal_mastery_and_mental_quickness(self):

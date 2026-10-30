@@ -85,7 +85,7 @@ function addon:UpdatePlayerStats()
 	self.ply_maxmana = P(UnitPowerMax("player", 0)) or self.ply_maxmana or 0;
 	if not self.inCombat then -- item data may be secret in combat; gear cannot change there
 		self.ply_mp5 = self:EquippedMP5();
-		if self.Shaman then self.ply_earthfury = self:EquippedPieces(self.Shaman.Earthfury.pieces) end
+		if class == "SHAMAN" then self.ply_earthfury = self:EquippedPieces(self.Shaman.Earthfury.pieces) end
 	end
 	-- per-second rates; the ratio includes regen talents and Innervate. Gear MP5 sits in full in both
 	-- (verified 2026-10-22): taken out, what is left is Spirit regen. Buff MP5 (Mana Spring, Wisdom) is not.
@@ -164,7 +164,6 @@ local StatParser = {};
 --   CriticalStrike(ev, s, heal, destUnit, C, CB, seg) -> extra crit value (mana returned on crit)
 --   Intellect(ev, s, heal, destUnit, _SP, seg) -> extra Int value (Int -> +Healing talents)
 --   Spirit(ev, s, heal, destUnit, _SP, seg) -> extra Spirit value (Spirit -> +Healing talents)
---   HealEvent(ev, s, heal, overhealing, destUnit, f, origHeal) -> true to skip allocation
 --   ManaReturn(ev, s, heal, destUnit) -> mana this crit returned (Illumination, Water Shield)
 function StatParser:Create(specId, overrides)
 	self[specId] = overrides or {};
@@ -181,12 +180,6 @@ end
 
 local function segments()
 	return addon.SegmentManager:Get(0), addon.SegmentManager:Get("Total");
-end
-
-function StatParser:IncFillerHealing(heal)
-	local cur_seg, ttl_seg = segments();
-	if cur_seg then cur_seg:IncFillerHealing(heal) end
-	if ttl_seg then ttl_seg:IncFillerHealing(heal) end
 end
 
 function StatParser:IncHealing(heal, updateFiller, updateTotal)
@@ -209,11 +202,9 @@ end
 
 --[[----------------------------------------------------------------------------
 	Allocate - compute derivatives for one effective heal and add them to the
-	current and Total segments. heal/overhealing are already crit-normalised.
+	current and Total segments. heal is already crit-normalised.
 ------------------------------------------------------------------------------]]
-function StatParser:Allocate(ev, s, heal, overhealing, destUnit, f, SP, C, CB, H)
-	if overhealing > 0 then return end -- any overheal: the marginal value of every stat is 0
-
+function StatParser:Allocate(ev, s, heal, destUnit, f, SP, C, CB, H)
 	if HSW_ENABLE_FOR_TESTING then
 		addon:Msg("allocate spellid=" .. tostring(s.spellID) .. " destunit=" .. tostring(destUnit) .. " amount=" .. heal);
 	end
@@ -240,7 +231,7 @@ end
 --[[----------------------------------------------------------------------------
 	DecompHealingForCurrentSpec - entry point from SPELL_HEAL / SPELL_PERIODIC_HEAL
 ------------------------------------------------------------------------------]]
-function StatParser:DecompHealingForCurrentSpec(ev, destGUID, spellID, critFlag, heal, overhealing)
+function StatParser:DecompHealingForCurrentSpec(ev, destGUID, spellID, critFlag, heal)
 	local f, specId = self:GetParserForCurrentSpec();
 	if not f then return end
 
@@ -254,20 +245,13 @@ function StatParser:DecompHealingForCurrentSpec(ev, destGUID, spellID, critFlag,
 	local destUnit = addon.UnitManager:Find(destGUID); -- excludes pets/npcs
 	if not destUnit then return end
 
+	if addon.hsw.db.global.excludeRaidHealingCooldowns and s.cd then return end
+
 	-- reduce crit heals to the non-crit amount
-	overhealing = overhealing or 0;
 	local origHeal = heal;
 	if critFlag then
 		heal = heal / (1 + addon.ply_crtbonus);
-		overhealing = overhealing / (1 + addon.ply_crtbonus);
 	end
-
-	local skipAllocate = false;
-	if f.HealEvent then
-		skipAllocate = f.HealEvent(ev, s, heal, overhealing, destUnit, f, origHeal);
-	end
-
-	if addon.hsw.db.global.excludeRaidHealingCooldowns and s.cd then return end
 
 	self:IncHealing(origHeal, s.filler, true);
 	-- no energize events on Forever: mana returned by this crit is credited analytically
@@ -275,9 +259,7 @@ function StatParser:DecompHealingForCurrentSpec(ev, destGUID, spellID, critFlag,
 		local mana = f.ManaReturn(ev, s, origHeal, destUnit);
 		if mana and mana > 0 then self:IncManaRestore(mana) end
 	end
-	if not skipAllocate then
-		self:Allocate(ev, s, heal, overhealing, destUnit, f, addon.ply_sp, addon.ply_crt, addon.ply_crtbonus, addon.ply_hst);
-	end
+	self:Allocate(ev, s, heal, destUnit, f, addon.ply_sp, addon.ply_crt, addon.ply_crtbonus, addon.ply_hst);
 end
 
 -- Power Word: Shield: absorbs are not observable on Forever, so the shield is credited at cast
@@ -285,7 +267,7 @@ end
 function StatParser:DecompShieldCast(destGUID, spellID)
 	local s = addon.Spells:Get(spellID);
 	if not s then return end
-	self:DecompHealingForCurrentSpec("SPELL_HEAL", destGUID, spellID, false, s.base + s.coeff * (addon.ply_sp or 0), 0);
+	self:DecompHealingForCurrentSpec("SPELL_HEAL", destGUID, spellID, false, s.base + s.coeff * (addon.ply_sp or 0));
 end
 
 addon.StatParser = StatParser;

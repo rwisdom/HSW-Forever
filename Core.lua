@@ -431,6 +431,9 @@ local function TryBuildHistoryList()
 			historyArgs["ctrl" .. i] = { name = v, order = i + 1, type = "group", args = t };
 		end
 	end
+	if next(historyArgs) == nil then
+		historyArgs.empty = { name = "No logged segments yet.", type = "description", order = 1 };
+	end
 	addon.History:ClearDirty();
 	return {
 		clearHistory = {
@@ -497,6 +500,7 @@ function hsw:ChatCommand(input)
 		addon:StartFight("test");
 	elseif cmd == "end" then
 		addon:EndFight();
+		HSW_ENABLE_FOR_TESTING = nil;
 	elseif cmd == "spec" then
 		local specId = addon:GetSpecId();
 		local label;
@@ -544,9 +548,8 @@ local regions = { [1] = "US", [2] = "KR", [3] = "EU", [4] = "TW", [5] = "CN" };
 
 function addon:AddHistoricalSegment(segment)
 	if not segment or not segment.t or segment.t.heal == 0 then return end -- nothing healed
-	if self:InRaidInstance() and not segment.instance.bossFight then return end -- raid trash
+	if self:InRaidInstance() and not segment.bossFight then return end -- raid trash
 
-	local info = segment:GetInstanceInfo();
 	local h = {};
 	local duration = segment:GetDuration() or 0;
 	local m = math.floor(duration / 60);
@@ -555,7 +558,7 @@ function addon:AddHistoricalSegment(segment)
 	local pname, realm = UnitFullName("player");
 	local regionID = GetCurrentRegion and GetCurrentRegion() or nil;
 
-	h.tab = info.bossFight and "" or "    ";
+	h.tab = segment.bossFight and "" or "    ";
 	h.isDungeon = not self:InRaidInstance();
 	h.Segment = segment.id;
 	h.Duration = m .. ":" .. (s < 10 and "0" or "") .. s;
@@ -601,20 +604,9 @@ function addon:CreatePawnStringFromHistory()
 	StaticPopup_Show(addon.PawnHistoryDialogName);
 end
 
-local function addExampleSegment()
-	local s = addon.Segment.Create("Example Segment!");
-	s:AllocateHeal(1, math.random(), math.random(), math.random(), math.random());
-	addon:AddHistoricalSegment(s);
-end
-
 function addon:GetHistoricalSegmentsList()
 	local t = {};
-	local n = addon.History:Size();
-	if n == 0 then
-		addExampleSegment();
-		n = addon.History:Size();
-	end
-	for i = 0, n - 1 do
+	for i = 0, addon.History:Size() - 1 do
 		local h = addon.History:Get(i);
 		if h then
 			local segment_name = h.tab or "";
@@ -670,7 +662,6 @@ function hsw:OnInitialize()
 		self.db.global.back = 0;
 		self.db.global.schema = SCHEMA;
 	end
-	self.db.global.regenCal = nil; -- Spirit regen samples from before the formula was measured
 
 	LibStub("AceConfigRegistry-3.0"):RegisterOptionsTable("HealerStatWeights", BuildOptionsTable, true);
 	LibStub("AceConfigRegistry-3.0"):RegisterOptionsTable("HSW_Bliz", BlizOptionsTable);

@@ -18,8 +18,7 @@ def aegis(heal_amount, rank=3, CB=0.5):
 class DiscPriestTests(unittest.TestCase):
     def test_spec_detection(self):
         _, addon, _ = start("PRIEST", DISC, FILES)
-        self.assertTrue(addon.IsDiscPriest(addon))
-        self.assertFalse(addon.IsHolyPriest(addon))
+        self.assertEqual(addon.GetSpecId(addon), 256)
         self.assertTrue(addon.SpecInfo[256][1].value.startswith("https://"))
 
     def test_renewed_hope_needs_weakened_soul(self):

@@ -1,5 +1,4 @@
 local name, addon = ...;
-addon.TimestampDelta = 0.050; -- 50ms
 
 --[[----------------------------------------------------------------------------
 	BuffTracker - stack counts of tracked player buffs, refreshed on UNIT_AURA
@@ -14,14 +13,6 @@ function BuffTracker:Track(spellId, fApply, fExpires)
 		onApply = fApply or nil,
 		onExpires = fExpires or nil,
 	};
-end
-
--- True when two timestamps are within `leniancy` seconds (default 50ms).
-function BuffTracker:CompareTimestamps(ts1, ts2, leniancy)
-	ts1 = ts1 or 0;
-	ts2 = ts2 or 0;
-	leniancy = leniancy or addon.TimestampDelta;
-	return ts1 > 0 and ts2 > 0 and math.abs(ts1 - ts2) <= leniancy;
 end
 
 function BuffTracker:UpdatePlayerBuffs()

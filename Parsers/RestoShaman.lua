@@ -1,9 +1,5 @@
 local name, addon = ...;
 
-function addon:IsRestoShaman()
-	return self:GetSpecId() == addon.SpellType.SHAMAN;
-end
-
 addon.SpecInfo = addon.SpecInfo or {};
 addon.SpecInfo[addon.SpellType.SHAMAN] = {
 	{

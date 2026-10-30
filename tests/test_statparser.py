@@ -30,8 +30,8 @@ def start(cls, overrides="{}", extra=""):
     return lua, addon, addon.SegmentManager.Get(addon.SegmentManager, 0)
 
 
-def heal(addon, ev, spell, amount, crit=False, overheal=0, dest="Player-1"):
-    addon.StatParser.DecompHealingForCurrentSpec(addon.StatParser, ev, dest, spell, crit, amount, overheal)
+def heal(addon, ev, spell, amount, crit=False, dest="Player-1"):
+    addon.StatParser.DecompHealingForCurrentSpec(addon.StatParser, ev, dest, spell, crit, amount)
 
 
 class Conversions(unittest.TestCase):
@@ -162,12 +162,6 @@ class Derivatives(unittest.TestCase):
         self.assertAlmostEqual(seg.t.heal, 0.10)
         self.assertEqual((seg.t.crit, seg.t.int, seg.t.haste_hpct), (0, 0, 0))
 
-    def test_overheal_counts_in_totals_but_not_derivatives(self):
-        _, addon, seg = start("PALADIN")
-        heal(addon, "SPELL_HEAL", HL, 1000, overheal=50)
-        self.assertEqual(seg.t.heal, 0)
-        self.assertEqual((seg.totalHealing, seg.fillerHealing), (1000, 1000))
-
     def test_filter_rules(self):
         lua, addon, seg = start("PALADIN")
         heal(addon, "SPELL_HEAL", REJUV, 500)                     # druid spell on a paladin: ignored
@@ -196,11 +190,3 @@ class Overrides(unittest.TestCase):
         self.assertAlmostEqual(ttl.t.crit, per1 / 14 + 2)
         self.assertAlmostEqual(seg.t.int, per1 / 31.9 + seg.t.heal)
         self.assertAlmostEqual(seg.t.spirit, 0.5 * seg.t.heal)
-
-    def test_heal_event_can_skip_allocation(self):
-        ov = "{ HealEvent = function(ev, s, heal, overhealing, destUnit, f, origHeal) return heal < origHeal end }"
-        _, addon, seg = start("PALADIN", overrides=ov)
-        heal(addon, "SPELL_HEAL", HL, 1500, crit=True)            # normalised 1000 < 1500: skipped
-        self.assertEqual((seg.t.heal, seg.totalHealing), (0, 1500))
-        heal(addon, "SPELL_HEAL", HL, 1000)
-        self.assertGreater(seg.t.heal, 0)

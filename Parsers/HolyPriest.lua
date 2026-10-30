@@ -1,9 +1,5 @@
 local name, addon = ...;
 
-function addon:IsHolyPriest()
-	return self:GetSpecId() == addon.SpellType.HPRIEST;
-end
-
 addon.SpecInfo = addon.SpecInfo or {};
 addon.SpecInfo[addon.SpellType.HPRIEST] = {
 	{

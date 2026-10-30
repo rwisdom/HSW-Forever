@@ -15,6 +15,10 @@ In game, `/hsw` opens the options and history window. `/hsw show`, `/hsw hide`, 
 per Spirit under 50 Spirit, 0.125 from 50, gear MP5 taken out) and `/hsw discover on` logs unknown
 healing spell IDs to chat.
 
+Diagnostics: `/hsw spec` prints the detected spec, `/hsw stats` the character values in use.
+`/hsw start` opens a test segment anywhere and prints every heal it allocates; `/hsw end` closes it
+and turns the printing off. `/hsw debug` dumps the current segment's counters.
+
 ## How weights are computed
 
 Every effective (non-overheal) heal is decomposed into "how much of this heal did one point of each

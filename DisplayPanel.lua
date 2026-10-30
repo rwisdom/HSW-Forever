@@ -96,13 +96,11 @@ end
 	Show / Hide / Msg
 ------------------------------------------------------------------------------]]
 function addon:Show()
-	addon.frameVisible = true;
 	self:SetCurrentSegment(self.currentSegment or "Total");
 	if self.frame then self.frame:Show() end
 end
 
 function addon:Hide()
-	addon.frameVisible = false;
 	if self.frame then self.frame:Hide() end
 end
 
@@ -292,6 +290,7 @@ function addon:EndFight()
 		ttl_seg:End();
 	end
 	self:UpdateFightButton();
+	self:AdjustVisibility(); -- a manual segment showed the panel outside enabled content
 end
 
 -- The window's start/end button. manualFight lets StartFight through the instance gate.

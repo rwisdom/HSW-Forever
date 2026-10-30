@@ -10,6 +10,13 @@ local endcast = 0;
 local castedSpellID = 0;
 local leniancy = 0.33333;
 
+-- True when two timestamps are within `leniancy` seconds of each other.
+local function near(ts1, ts2)
+	ts1 = ts1 or 0;
+	ts2 = ts2 or 0;
+	return ts1 > 0 and ts2 > 0 and math.abs(ts1 - ts2) <= leniancy;
+end
+
 function CastTracker:IncChainCasts()
 	local cur_seg = addon.SegmentManager:Get(0);
 	local ttl_seg = addon.SegmentManager:Get("Total");
@@ -24,7 +31,7 @@ function CastTracker:StartCast(unit)
 	if not addon.Spells:Get(spellID) then return end
 	startTimeMS, endTimeMS = addon.Compat.PlainNumber(startTimeMS), addon.Compat.PlainNumber(endTimeMS);
 	if not (startTimeMS and endTimeMS) then return end -- cast timing hidden from addons: no chain-cast credit
-	if addon.BuffTracker:CompareTimestamps(startTimeMS / 1000, endcast, leniancy) then
+	if near(startTimeMS / 1000, endcast) then
 		castedSpellID = spellID;
 	end
 	endcast = endTimeMS / 1000;
@@ -50,7 +57,7 @@ function CastTracker:FinishCast(unit, castGUID, spellID)
 	else
 		local start, dur = addon.Compat.GetSpellCooldown(spellID); -- nil, nil when the client hides cooldown timing
 		if start and start > 0 then      -- instant with a cooldown, used right as a cast landed
-			if addon.BuffTracker:CompareTimestamps(curTime, endcast, leniancy) then
+			if near(curTime, endcast) then
 				self:IncChainCasts();
 			end
 			endcast = start + (dur or 0);

@@ -10,7 +10,7 @@ REJUV = 25299     # R11 tick: coeffTick .2 baseTick 194
 class RestoDruidTests(unittest.TestCase):
     def test_spec_detection_and_info(self):
         _, addon, _ = start("DRUID", RESTO, FILES)
-        self.assertTrue(addon.IsRestoDruid(addon))
+        self.assertEqual(addon.GetSpecId(addon), 105)
         self.assertTrue(addon.SpecInfo[105][1].value.startswith("https://"))
         self.assertIsNotNone(addon.StatParser[105])
 

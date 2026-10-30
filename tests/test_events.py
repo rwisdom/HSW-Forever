@@ -25,6 +25,8 @@ def start(setup=PALADIN, spec=65, extra=""):
         a.Util.RebuildTalentCache(); a:SetupConversionFactors(); a:UpdatePlayerStats()
         a.frame = CreateFrame(); a:SetupUnitEvents()
         a.SegmentManager:Enqueue(); a.UnitManager:Cache()
+        local ttl = a.SegmentManager:Get("Total")                 -- as StartFight does: Total is live for the fight
+        ttl.startTime = a.SegmentManager:Get(0).startTime; ttl.fsrLastAccum = ttl.startTime
         a.inCombat = true
     """)
     return lua, addon, addon.SegmentManager.Get(addon.SegmentManager, 0)
@@ -68,6 +70,36 @@ class UnitEvents(unittest.TestCase):
         lua.execute("STUB.combat.party1 = false; STUB.tick()")
         self.assertFalse(addon.inCombat)
         self.assertEqual(len(list(lua.globals().STUB.tickers.keys())), 0)   # the poll stopped with the fight
+
+    def test_boss_pulled_mid_fight_gets_its_own_segment(self):
+        lua, addon, seg = start(extra=PARTY)
+        lua.execute("""
+            FIGHTS = {}
+            function HSW_TEST_ADDON:EndFight() if self.inCombat then table.insert(FIGHTS, "end"); self.inCombat = false end end
+            function HSW_TEST_ADDON:StartFight(id) table.insert(FIGHTS, "start:" .. tostring(id)); self.inCombat = true end
+            STUB.combat.party1 = true
+        """)
+        addon.hsw.PLAYER_REGEN_ENABLED(addon.hsw)                            # trash: healer out, Bob fighting -> poll
+        addon.hsw.ENCOUNTER_START(addon.hsw, "ENCOUNTER_START", 1, "Lucifron")
+        self.assertEqual(list(lua.globals().FIGHTS.values()), ["end", "start:Lucifron"])
+        self.assertTrue(addon.inBossFight)
+        self.assertEqual(len(list(lua.globals().STUB.tickers.keys())), 0)    # the trash poll cannot end the boss fight
+        addon.hsw.PLAYER_REGEN_ENABLED(addon.hsw)                            # mid-boss flicker: ignored
+        self.assertTrue(addon.inCombat)
+        addon.hsw.ENCOUNTER_END(addon.hsw)
+        self.assertEqual(list(lua.globals().FIGHTS.values()), ["end", "start:Lucifron", "end"])
+        self.assertFalse(addon.inBossFight)
+
+    def test_encounter_start_with_no_open_fight(self):
+        lua, addon, seg = start()
+        lua.execute("""
+            FIGHTS = {}
+            function HSW_TEST_ADDON:EndFight() if self.inCombat then table.insert(FIGHTS, "end"); self.inCombat = false end end
+            function HSW_TEST_ADDON:StartFight(id) table.insert(FIGHTS, "start:" .. tostring(id)); self.inCombat = true end
+        """)
+        addon.inCombat = False
+        addon.hsw.ENCOUNTER_START(addon.hsw, "ENCOUNTER_START", 1, "Lucifron")
+        self.assertEqual(list(lua.globals().FIGHTS.values()), ["start:Lucifron"])
 
     def test_secret_combat_flag_counts_as_out_of_combat(self):
         lua, addon, seg = start(extra=PARTY + '; issecretvalue = function(v) return v == "SECRET" end')
@@ -208,8 +240,10 @@ class Handlers(unittest.TestCase):
     def test_entering_world_and_talent_change_rebuild_state(self):
         lua, addon, _ = start()
         lua.execute("STUB.talents[1].talents[1].rank = 3")
+        addon.inBossFight = True
         addon.hsw.PLAYER_ENTERING_WORLD(addon.hsw)
         self.assertEqual(addon.GetTalentRank(addon, "Illumination"), 3)
+        self.assertFalse(addon.inBossFight)                                  # zoned out mid-encounter: no ENCOUNTER_END came
         lua.execute("STUB.talents[1].talents[1].rank = 1; HSW_TEST_ADDON.hsw.db.global.intPerCritOverride.PALADIN = 50")
         addon.hsw.CHARACTER_POINTS_CHANGED(addon.hsw)
         self.assertEqual((addon.GetTalentRank(addon, "Illumination"), addon.IntPerCrit), (1, 50))

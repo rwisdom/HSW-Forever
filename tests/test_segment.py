@@ -70,20 +70,11 @@ class SegmentTests(unittest.TestCase):
         addon.ply_castpct = 0.0; s.AccumulateFSR(s, 4)
         self.assertAlmostEqual(s.castPctWeighted / (s.timeInFSR + s.timeOutsideFSR), 0.5)
 
-    def test_allocate_and_merge(self):
+    def test_allocate(self):
         lua, addon, s = self.seg()
         s.AllocateHeal(s, 1, 2, 3, 4, 5, 123)
         self.assertEqual((s.t.heal, s.t.crit, s.t.haste_hpct, s.t.int, s.t.spirit), (1, 2, 3, 4, 5))
-        other = addon.Segment.Create("o")
-        other.AllocateHeal(other, 1, 1, 1, 1, 1, 1)
-        other.IncFillerCasts(other, 50)
-        lua.execute("STUB.time = 10")
-        s.End(s); other.End(other)                  # both: 0..10 outside the FSR
-        s.MergeSegment(s, other)
-        self.assertEqual(s.t.heal, 2)
-        self.assertEqual(s.fillerManaSpent, 50)
-        self.assertAlmostEqual(s.timeOutsideFSR, 20)
-        self.assertAlmostEqual(s.totalDuration, 20)
+        self.assertIsNone(s.MergeSegment)
 
     def test_haste_hpct_estimate_is_capped(self):
         _, addon, s = self.seg()
@@ -94,10 +85,8 @@ class SegmentTests(unittest.TestCase):
         s.t.haste_hpct = 50.0
         self.assertAlmostEqual(s.GetHasteHPCT(s), 10.0)
 
-    def test_end_and_instance_info_work_without_retail_globals(self):
+    def test_end_works_without_retail_globals(self):
         lua, _, s = self.seg()
-        lua.execute('STUB.instance = { name = "Scarlet Monastery", type = "party", difficultyId = 1 }')
-        s.SetupInstanceInfo(s, False)
-        self.assertEqual((s.instance.name, s.instance.type, s.instance.difficultyId, s.instance.bossFight), ("Scarlet Monastery", "party", 1, False))
+        self.assertFalse(s.bossFight)
         s.End(s)   # must not touch MAX_TALENT_TIERS / C_ChallengeMode
         self.assertTrue(s.talentsSnapshot)

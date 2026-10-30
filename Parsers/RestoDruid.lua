@@ -1,9 +1,5 @@
 local name, addon = ...;
 
-function addon:IsRestoDruid()
-	return self:GetSpecId() == addon.SpellType.DRUID;
-end
-
 addon.SpecInfo = addon.SpecInfo or {};
 addon.SpecInfo[addon.SpellType.DRUID] = {
 	{

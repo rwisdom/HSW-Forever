@@ -50,7 +50,7 @@ local function unattributed(amount, unitName)
 end
 
 local function credit(ev, guid, spellID, crit, amount)
-	addon.StatParser:DecompHealingForCurrentSpec(ev, guid, spellID, crit, amount, 0);
+	addon.StatParser:DecompHealingForCurrentSpec(ev, guid, spellID, crit, amount);
 end
 
 -- Target name of the last UNIT_SPELLCAST_SENT for a spell (the player when none).

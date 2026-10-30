@@ -100,11 +100,12 @@ class History(unittest.TestCase):
         addon.AddHistoricalSegment(addon, fought_segment(lua, addon))
         self.assertEqual(addon.History.Size(addon.History), 1)
 
-    def test_example_segment_when_history_empty(self):
-        _, addon = start()
-        names = addon.GetHistoricalSegmentsList(addon)
-        self.assertEqual(addon.History.Size(addon.History), 1)
-        self.assertIn("Example Segment!", names[0])
+    def test_empty_history_shows_a_note_and_stores_nothing(self):
+        lua, addon = start()
+        self.assertEqual(len(list(addon.GetHistoricalSegmentsList(addon).keys())), 0)
+        tab = lua.globals().HSW_TEST_OPTIONS.HealerStatWeights().args.historyTab.args
+        self.assertEqual(tab.HistorySelection.args.empty.name, "No logged segments yet.")
+        self.assertEqual(addon.History.Size(addon.History), 0)
 
     def test_history_tab_clear_button_wipes_the_log(self):
         lua, addon = start()
@@ -116,8 +117,8 @@ class History(unittest.TestCase):
         tab.clearHistory.func()
         self.assertEqual(addon.History.Size(addon.History), 0)
         tab = build().args.historyTab.args                                 # AceConfig refetches after an execute
-        self.assertIn("Example Segment!", tab.HistorySelection.args.ctrl0.name)
-        self.assertNotIn("ctrl1", tab.HistorySelection.args.keys())
+        self.assertNotIn("ctrl0", tab.HistorySelection.args.keys())
+        self.assertIn("empty", tab.HistorySelection.args.keys())
 
     def test_history_options_table_uses_new_labels(self):
         lua, addon = start()

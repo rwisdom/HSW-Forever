@@ -23,8 +23,8 @@ def start(cls, tabs, parser_files, extra=""):
     return lua, addon, addon.SegmentManager.Get(addon.SegmentManager, 0)
 
 
-def heal(addon, ev, spell, amount, crit=False, overheal=0, dest="Player-1"):
-    addon.StatParser.DecompHealingForCurrentSpec(addon.StatParser, ev, dest, spell, crit, amount, overheal)
+def heal(addon, ev, spell, amount, crit=False, dest="Player-1"):
+    addon.StatParser.DecompHealingForCurrentSpec(addon.StatParser, ev, dest, spell, crit, amount)
 
 
 def set_auras(lua, *ids):

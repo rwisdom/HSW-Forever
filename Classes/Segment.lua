@@ -37,7 +37,7 @@ function Segment.Create(id)
 	self.chainHaste = 0;
 	self.chainCasts = 0;
 	self.debug = {};
-	self.instance = { name = "", type = "none", difficultyId = -1, bossFight = false };
+	self.bossFight = false;
 	return self;
 end
 
@@ -68,10 +68,6 @@ function Segment:GetSpiritRegenValue()
 	local castPctAvg = self.castPctWeighted / total;
 	local effectiveSeconds = self.timeOutsideFSR + castPctAvg * self.timeInFSR;
 	return (addon.RegenPerSpirit or 0) * (addon.ply_spiritmult or 1) * effectiveSeconds * self:GetFillerHPM();
-end
-
-function Segment:GetManaRestoreValue()
-	return self:GetFillerHPM() * self.manaRestore;
 end
 
 -- Haste HPCT: chain-cast based estimate, capped by the per-heal upper bound.
@@ -164,35 +160,8 @@ function Segment:IncFillerCasts(manaCost)
 	self.fillerManaSpent = self.fillerManaSpent + manaCost;
 end
 
+-- Diagnostic only (/hsw debug): the crit value of returned mana is credited per heal by the parsers.
 function Segment:IncManaRestore(amount) self.manaRestore = self.manaRestore + amount end
-
---[[----------------------------------------------------------------------------
-	Instance info
-------------------------------------------------------------------------------]]
-function Segment:SetupInstanceInfo(isBossFight)
-	local instName, _, difficultyId = GetInstanceInfo();
-	local _, instType = IsInInstance();
-	self.instance.name = instName or "";
-	self.instance.type = instType or "none";
-	self.instance.difficultyId = difficultyId or -1;
-	self.instance.bossFight = isBossFight and true or false;
-end
-
-function Segment:GetInstanceInfo() return self.instance end
-
---[[----------------------------------------------------------------------------
-	MergeSegment - only call after both segments have Ended
-------------------------------------------------------------------------------]]
-function Segment:MergeSegment(other)
-	local skip = { totalDuration = true, startTime = true, startTimeStamp = true, gear = true, fsrLastAccum = true };
-	for k in pairs(self.t) do self.t[k] = self.t[k] + (other.t[k] or 0) end
-	for k, v in pairs(self) do
-		if type(v) == "number" and not skip[k] then
-			self[k] = self[k] + (other[k] or 0);
-		end
-	end
-	self.totalDuration = self.totalDuration + other:GetDuration();
-end
 
 --[[----------------------------------------------------------------------------
 	Debug - print internal values of this segment to chat

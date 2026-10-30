@@ -1,9 +1,5 @@
 local name, addon = ...;
 
-function addon:IsHolyPaladin()
-	return self:GetSpecId() == addon.SpellType.PALADIN;
-end
-
 addon.SpecInfo = addon.SpecInfo or {};
 addon.SpecInfo[addon.SpellType.PALADIN] = {
 	{

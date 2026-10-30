@@ -75,7 +75,11 @@ function addon.hsw:PLAYER_REGEN_ENABLED()
 	end
 end
 
+-- A boss pulled while a fight is open (trash, or the healer entered combat first) gets its own
+-- segment: the open one is closed, so the boss is not logged under a trash name.
 function addon.hsw:ENCOUNTER_START(eventName, encounterId, encounterName)
+	stopCombatPoll();
+	addon:EndFight();
 	addon:StartFight(encounterName);
 	addon.inBossFight = true; -- wait for ENCOUNTER_END to close the segment
 end
@@ -97,11 +101,9 @@ local function RefreshCharacter()
 end
 
 function addon.hsw:PLAYER_ENTERING_WORLD()
-	addon.Util.RebuildTalentCache();
-	addon:SetupConversionFactors();
-	addon:UpdatePlayerStats();
+	addon.inBossFight = false; -- ENCOUNTER_END never came (zoned out mid-encounter)
 	addon:SetupFrame();
-	addon:AdjustVisibility();
+	RefreshCharacter();
 end
 
 function addon.hsw:CHARACTER_POINTS_CHANGED() RefreshCharacter() end

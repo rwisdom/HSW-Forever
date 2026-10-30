@@ -1,9 +1,5 @@
 local name, addon = ...;
 
-function addon:IsDiscPriest()
-	return self:GetSpecId() == addon.SpellType.DPRIEST;
-end
-
 addon.SpecInfo = addon.SpecInfo or {};
 addon.SpecInfo[addon.SpellType.DPRIEST] = {
 	{

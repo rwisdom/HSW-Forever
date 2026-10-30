@@ -14,6 +14,7 @@ local SegmentManager = {
 	back=0, --back of queue
 	Total = addon.Segment.Create("Total");
 };
+SegmentManager.Total.startTime = -1; -- live only during a fight (StartFight)
 
 
 
@@ -52,7 +53,7 @@ function SegmentManager:Enqueue(id)
 		self:SetCurrentId(id or "Unknown",true);
 	end
 	
-	if ( SegmentManager:Size() > addon.hsw.db.global.maxSegments ) then
+	if ( self:Size() > addon.hsw.db.global.maxSegments ) then
 		self:Dequeue();
 	end	
 end
@@ -98,11 +99,11 @@ end
 
 
 --[[----------------------------------------------------------------------------
-	SetId - Update the name of the current segment & instance info
+	SetId - Update the name of the current segment & boss flag
 ------------------------------------------------------------------------------]]
 function SegmentManager:SetCurrentId(newId,isBossFight)
 	if ( newId and newId ~= "Unknown" and newId ~= "Total" and not self.segments[self.front].nameSet ) then
-		self.segments[self.front]:SetupInstanceInfo(isBossFight);
+		self.segments[self.front].bossFight = isBossFight and true or false;
 		ids[newId] = ( ids[newId] or 0 ) + 1;
 		if ( ids[newId] > 1 ) then
 			self.segments[self.front].id = newId .. "(" .. tostring(ids[newId]) .. ")";

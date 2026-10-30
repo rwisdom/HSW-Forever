@@ -51,7 +51,7 @@ class Fights(unittest.TestCase):
         addon.StartFight(addon, "Boss")
         self.assertTrue(addon.inCombat)
         cur, ttl = seg(addon), seg(addon, "Total")
-        self.assertEqual((cur.id, cur.instance.bossFight), ("Boss", True))
+        self.assertEqual((cur.id, cur.bossFight), ("Boss", True))
         self.assertEqual((ttl.startTime, ttl.fsrLastAccum), (cur.startTime, cur.startTime))
         lua.execute(HEAL + "; STUB.time = 100")
         addon.EndFight(addon)
@@ -131,6 +131,7 @@ class Display(unittest.TestCase):
         addon.SegmentMenu(addon)                                                 # EasyMenu stub: must not error
         addon.hsw.ChatCommand(addon.hsw, "end")
         self.assertFalse(addon.inCombat)
+        self.assertIsNone(lua.globals().HSW_ENABLE_FOR_TESTING)              # debug mode ends with the test segment
 
 
 FAKE_FRAME = """
