@@ -42,6 +42,9 @@ luac.out
 # Vendored library downloads staged for libs/
 download/
 
+# Release zips (tools/release.py)
+dist/
+
 # Local planning notes and data exports
 .claude/
 docs/

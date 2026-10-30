@@ -8,7 +8,9 @@ Supported specs: Holy Paladin, Restoration Shaman, Restoration Druid, Holy Pries
 
 ## Installation
 
-Copy this folder into `{WoW_Directory}/Interface/AddOns/HealerStatWeights/`.
+Copy this folder into `{WoW_Directory}/Interface/AddOns/HealerStatWeights/`, or unzip a release
+(`tools/release.py patch|minor|major|X.Y.Z` bumps `## Version` in the .toc, commits it, tags
+`v<version>` and writes `dist/HealerStatWeights-<version>.zip`, which unpacks to that folder).
 
 In game, `/hsw` opens the options and history window. `/hsw show`, `/hsw hide`, `/hsw lock`,
 `/hsw unlock` control the panel. `/hsw regen` prints the Spirit-regen rate in use (Forever: 0.25 mana/s
