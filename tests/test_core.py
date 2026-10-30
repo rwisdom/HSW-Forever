@@ -35,7 +35,7 @@ class Database(unittest.TestCase):
         _, addon = start()
         g = addon.hsw.db["global"]
         self.assertEqual((g.schema, g.enabledInDungeons, g.enabledInRaids, g.enabledInBattlegrounds), (2, True, True, False))
-        self.assertEqual((g.hasteRatingPerPct, g.intPerCritOverride.PALADIN, g.maxSegments, g.neverShow), (1, 0, 10, False))
+        self.assertEqual((g.hasteRatingPerPct, g.intPerCritOverride.PALADIN, g.maxSegments, g.neverShow, g.logEvents), (1, 0, 10, False, True))
         self.assertEqual(addon.hsw.optionsFrame.settingsCategoryID, "HSW_TEST_CATEGORY")   # Configure button → Settings.OpenToCategory(id)
 
     def test_old_history_is_wiped_once(self):
@@ -149,6 +149,20 @@ class History(unittest.TestCase):
         self.assertEqual(len(boxes), 1)
         self.assertEqual(boxes[0].get(None), csv)
         self.assertEqual(addon.EventsCSV(addon, lua.table()), "No casts or heals were recorded for this segment.")   # pre-feature entry
+
+    def test_event_logging_can_be_switched_off(self):
+        lua, addon = start()
+        opts = lua.globals().HSW_TEST_OPTIONS.HealerStatWeights().args.optionsTab.args
+        self.assertIn("memory intensive", opts.logEvents.desc.lower())
+        opts.logEvents.set(None, False)
+        addon.AddHistoricalSegment(addon, fought_segment(lua, addon))
+        h = addon.History.Get(addon.History, 0)
+        self.assertEqual(len(list(h.Events.values())), 0)                   # nothing recorded while off
+        t = addon.BuildOptionsTableForHistorySegment(addon, 0)
+        self.assertFalse(any(v.type == "input" and v.multiline for _, v in t.items()))   # section hidden
+        opts.logEvents.set(None, True)
+        t = addon.BuildOptionsTableForHistorySegment(addon, 0)
+        self.assertTrue(any(v.type == "input" and v.multiline for _, v in t.items()))
 
     def test_calibration_inputs_are_validated(self):
         lua, addon = start()

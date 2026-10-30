@@ -104,7 +104,7 @@ end
 
 HSW_TEST_ADDON = {
 	hsw = {
-		db = { global = { maxSegments = 10, excludeRaidHealingCooldowns = false, history = {}, front = 0, back = 0,
+		db = { global = { maxSegments = 10, excludeRaidHealingCooldowns = false, logEvents = true, history = {}, front = 0, back = 0,
 		                  historySize = 200, hasteRatingPerPct = 1, intPerCritOverride = {} } },
 		RegisterEvent = function() end,
 	},

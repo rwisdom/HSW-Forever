@@ -201,6 +201,7 @@ end
 addon.EventsHeader = "time,event,spell_id,spell,target,amount,crit,mana";
 
 function addon:LogEvent(kind, s, target, amount, crit, cost)
+	if not self.hsw.db.global.logEvents then return end
 	local seg = self.SegmentManager:Get(0);
 	if not seg or seg.startTime < 0 then return end
 	table.insert(seg.events, string.format("%.2f,%s,%d,%s,%s,%s,%s,%s",

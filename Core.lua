@@ -16,6 +16,7 @@ local defaults = {
 	global = {
 		schema = 0,
 		excludeRaidHealingCooldowns = false,
+		logEvents = true,
 		fontSize = 12,
 		frameWidth = 192,
 		enabledInDungeons = true,
@@ -127,6 +128,15 @@ local options = {
 					width = "full",
 					get = function(info) return hsw.db.global.excludeRaidHealingCooldowns end,
 					set = function(info, val) hsw.db.global.excludeRaidHealingCooldowns = val end,
+				},
+				logEvents = {
+					name = "Log Casts and Heals per Segment",
+					desc = "Keeps a row for every cast and attributed heal of each logged segment and shows them as CSV on its history page. Memory intensive: a raid night can add megabytes to the saved variables. Off hides the section; rows already stored are kept.",
+					type = "toggle",
+					order = 3,
+					width = "full",
+					get = function(info) return hsw.db.global.logEvents end,
+					set = function(info, val) hsw.db.global.logEvents = val; addon.History.Dirty = true; end,
 				},
 				headerUI = {
 					name = "UI Settings",
@@ -402,10 +412,12 @@ function addon:BuildOptionsTableForHistorySegment(i)
 		OptionsBuilder:AddNewLine();
 	end
 
-	OptionsBuilder:AddDivider("Casts and Heals");
-	OptionsBuilder:AddExport("Every cast and attributed heal of this segment, CSV (click in the box, Ctrl+A, Ctrl+C)",
-		function() return addon:EventsCSV(h) end);
-	OptionsBuilder:AddNewLine();
+	if self.hsw.db.global.logEvents then
+		OptionsBuilder:AddDivider("Casts and Heals");
+		OptionsBuilder:AddExport("Every cast and attributed heal of this segment, CSV (click in the box, Ctrl+A, Ctrl+C)",
+			function() return addon:EventsCSV(h) end);
+		OptionsBuilder:AddNewLine();
+	end
 
 	if self.SpecInfo[h.SpecID] then
 		OptionsBuilder:AddDivider("Resources");
