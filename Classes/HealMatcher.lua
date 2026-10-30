@@ -19,6 +19,8 @@ local name, addon = ...;
 local HealMatcher = {};
 local LANDING_WINDOW = 1.0;             -- seconds after the cast time in which a direct heal must land
 local SEEN_WINDOW = 1.0;                -- how long dedupe keys are kept
+local TICK_WINDOW = 0.5;                -- seconds a HoT tick may land off its due time
+local TICK_MAX = 3;                     -- a heal over this many expected ticks is not a tick of ours
 local TOTEM = "Healing Stream Totem";
 
 local expectations = {}; -- { spellID=, target=, remaining=, jumps=, landed=, expires= }, newest last
@@ -208,14 +210,20 @@ local function creditHeld(e)
 	wipe(held);
 end
 
--- Our HoT on unitName whose tick is nearest to now; its next tick moves one interval on.
-local function takeHotTick(unitName, now)
+-- Our HoT on unitName with a tick due now, nearest first; its next tick moves one interval on.
+-- Due means within TICK_WINDOW of the tick grid (so a tick lost to another match does not lose the
+-- HoT) and an amount a tick could reach: another healer's direct heal on the unit is not a tick.
+local function takeHotTick(unitName, amount, now)
 	local byId = hots[unitName];
 	if not byId then return nil end
 	local bestId, bestDist;
 	for id, h in pairs(byId) do
-		local dist = math.abs(now - h.nextTick);
-		if not bestDist or dist < bestDist then bestId, bestDist = id, dist end
+		local s = addon.Spells:Get(id);
+		local expected = s.baseTick + s.coeffTick * (addon.ply_sp or 0);
+		local phase = (now - h.nextTick) % h.interval;
+		local dist = math.min(phase, h.interval - phase);
+		local fits = dist <= TICK_WINDOW and (expected <= 0 or amount <= TICK_MAX * expected);
+		if fits and (not bestDist or dist < bestDist) then bestId, bestDist = id, dist end
 	end
 	if bestId then byId[bestId].nextTick = now + byId[bestId].interval end
 	return bestId;
@@ -242,7 +250,7 @@ function HealMatcher:OnUnitCombat(unitToken, action, flag, amount, now)
 	local crit = flag == "CRITICAL";
 	local ev, spellID, landed = "SPELL_HEAL", takeExpectation(unitName, amount, now);
 	if not spellID then
-		ev, spellID = "SPELL_PERIODIC_HEAL", takeHotTick(unitName, now);
+		ev, spellID = "SPELL_PERIODIC_HEAL", takeHotTick(unitName, amount, now);
 	end
 	if not spellID then
 		ev, spellID = "SPELL_HEAL", takeJump(unitName, now);

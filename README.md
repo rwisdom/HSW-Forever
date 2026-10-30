@@ -32,7 +32,7 @@ talentsforever.com beta export. Forever is in beta: numbers may lag live tuning.
 
 ## How it measures on Forever
 
-The Forever client does not let addons read the combat log. HealerStatWeights instead watches your own casts (`UNIT_SPELLCAST_SENT` / `_SUCCEEDED`) and the heals that land on units (`UNIT_COMBAT`) and matches the two: a direct heal is matched to your cast on that target, HoT ticks to the HoT you put on them, Healing Stream Totem to any heal nothing else explains while it is down.
+The Forever client does not let addons read the combat log. HealerStatWeights instead watches your own casts (`UNIT_SPELLCAST_SENT` / `_SUCCEEDED`) and the heals that land on units (`UNIT_COMBAT`) and matches the two: a direct heal is matched to your cast on that target, HoT ticks to the HoT you put on them (at its tick time, up to three times the expected tick), Healing Stream Totem to any heal nothing else explains while it is down.
 
 Consequences:
 - Overheal is not visible. Every heal counts in full, so +Healing and Crit read a little high on overhealed targets.

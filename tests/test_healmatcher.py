@@ -255,6 +255,32 @@ class PeriodicHeals(unittest.TestCase):
         hm.OnUnitCombat(hm, "player", "HEAL", "", 194, 16)             # past 12 s + one tick of grace: not ours
         self.assertEqual([(h[0], h[2]) for h in heals(lua)], [("SPELL_PERIODIC_HEAL", REJUV)] * 4)
 
+    def test_tick_must_land_near_its_due_time(self):
+        lua, addon, hm = start()
+        hm.OnCastSent(hm, REJUV, "", 0)
+        hm.OnCastSucceeded(hm, REJUV, 0)
+        hm.OnUnitCombat(hm, "player", "HEAL", "", 194, 3.4)            # 0.4 s late: ours
+        hm.OnUnitCombat(hm, "player", "HEAL", "", 194, 4.6)            # 1.4 s off the grid: someone else's
+        hm.OnUnitCombat(hm, "player", "HEAL", "", 194, 6.1)            # 0.3 s off the re-based tick (6.4): ours
+        self.assertEqual([h[4] for h in heals(lua)], [194, 194])
+        self.assertEqual(len(heals(lua)), 2)
+
+    def test_a_missed_tick_does_not_lose_the_hot(self):
+        lua, addon, hm = start()
+        hm.OnCastSent(hm, REJUV, "", 0)
+        hm.OnCastSucceeded(hm, REJUV, 0)
+        hm.OnUnitCombat(hm, "player", "HEAL", "", 194, 3)
+        hm.OnUnitCombat(hm, "player", "HEAL", "", 194, 9)              # the tick at 6 went unseen: 9 is still on the grid
+        self.assertEqual(len(heals(lua)), 2)
+
+    def test_a_big_heal_on_a_hot_target_is_not_a_tick(self):
+        lua, addon, hm = start()
+        hm.OnCastSent(hm, REJUV, "", 0)
+        hm.OnCastSucceeded(hm, REJUV, 0)
+        hm.OnUnitCombat(hm, "player", "HEAL", "", 1000, 3)             # 5x a 194 tick: another healer's direct heal
+        hm.OnUnitCombat(hm, "player", "HEAL", "CRITICAL", 291, 3)      # a crit tick (1.5x) still fits
+        self.assertEqual([(h[3], h[4]) for h in heals(lua)], [(True, 291)])
+
     def test_direct_part_then_ticks(self):
         lua, addon, hm = start()
         hm.OnCastSent(hm, REGROWTH, "", 0)
