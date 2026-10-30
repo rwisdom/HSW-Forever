@@ -10,8 +10,10 @@
 The version is the "## Version:" line of HealerStatWeights.toc: MAJOR.MINOR.PATCH with an
 optional -suffix that bumps keep. A bump needs a clean working tree; it commits the .toc as
 "release: <version>" and tags it v<version>. The zip lands in dist/HealerStatWeights-<version>.zip
-and unpacks to a single HealerStatWeights/ folder holding only what the client loads.
+and unpacks to a single HealerStatWeights/ folder holding only what the client loads. Next to it,
+dist/HealerStatWeights-<version>-notes.md lists the commits since the previous v* tag.
 """
+import datetime
 import pathlib
 import re
 import subprocess
@@ -91,6 +93,30 @@ def commit_and_tag(version, root=None, toc=None):
     return tag
 
 
+def previous_tag(version, root=None):
+    """Newest v* tag other than this version's own, or None for a first release."""
+    for tag in git("tag", "--list", "v*", "--sort=-v:refname", root=root).split():
+        if tag != f"v{version}":
+            return tag
+    return None
+
+
+def write_notes(version, dist=DIST, root=None):
+    """dist/HealerStatWeights-<version>-notes.md: commit subjects since the previous release."""
+    prev = previous_tag(version, root=root)
+    head = f"v{version}" if git("tag", "--list", f"v{version}", root=root).strip() else "HEAD"
+    rng = f"{prev}..{head}" if prev else head
+    subjects = [s for s in git("log", "--no-merges", "--reverse", "--format=%s", rng, root=root).splitlines()
+                if s and not s.startswith("release:")]
+    since = f"since {prev}" if prev else "first release"
+    lines = [f"# {ADDON} {version}", "", f"{datetime.date.today().isoformat()}, {since} ({len(subjects)} commits)", ""]
+    lines += [f"- {s}" for s in subjects] or ["- no changes"]
+    dist.mkdir(exist_ok=True)
+    out = dist / f"{ADDON}-{version}-notes.md"
+    out.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return out
+
+
 def shipped_files():
     """(archive path, source path) for every file in the release, archive paths under ADDON/."""
     out = []
@@ -136,8 +162,11 @@ def main(argv):
         old, new = set_version(argv[0])
         tag = commit_and_tag(new)
         print(f"{TOC.name}: {old} -> {new}, committed and tagged {tag}")
-    out, n = build(current_version())
+    version = current_version()
+    out, n = build(version)
     print(f"wrote {out.relative_to(ROOT)}: {n} files")
+    notes = write_notes(version)
+    print(f"wrote {notes.relative_to(ROOT)}")
     return 0
 
 

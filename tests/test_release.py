@@ -70,3 +70,23 @@ class Git(unittest.TestCase):
             r.require_clean_tree(root=root)                                       # the bump is committed
             with self.assertRaises(SystemExit):
                 r.commit_and_tag("1.0.1-forever", root=root, toc=toc)             # tag taken
+
+    def test_release_notes_list_commits_since_the_previous_tag(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root, toc = self.repo(tmp)
+            first = r.write_notes("1.0.0-forever", dist=root / "dist", root=root)
+            self.assertIn("first release (1 commits)", first.read_text(encoding="utf-8"))
+            subprocess.run(["git", "tag", "v1.0.0-forever"], cwd=root, check=True)
+            for subject in ("fix: a thing", "feat: another"):
+                (root / "f").write_text(subject, encoding="utf-8")
+                subprocess.run(["git", "add", "."], cwd=root, check=True)
+                subprocess.run(["git", "commit", "-q", "-m", subject], cwd=root, check=True)
+            toc.write_text("## Version: 1.0.1-forever\n", encoding="utf-8")
+            r.commit_and_tag("1.0.1-forever", root=root, toc=toc)
+            notes = r.write_notes("1.0.1-forever", dist=root / "dist", root=root)
+            text = notes.read_text(encoding="utf-8")
+        self.assertEqual(notes.name, "HealerStatWeights-1.0.1-forever-notes.md")
+        self.assertTrue(text.startswith("# HealerStatWeights 1.0.1-forever\n"))
+        self.assertIn("since v1.0.0-forever (2 commits)", text)
+        self.assertEqual(text.strip().splitlines()[-2:], ["- fix: a thing", "- feat: another"])   # oldest first
+        self.assertNotIn("release:", text)                                       # the bump commit itself is noise
