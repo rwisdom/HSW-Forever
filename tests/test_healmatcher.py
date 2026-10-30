@@ -23,7 +23,7 @@ def start(setup=""):
         local a = HSW_TEST_ADDON
         a.UnitManager:Cache(); a.inCombat = true
         HEALS = {}
-        function a.StatParser:DecompHealingForCurrentSpec(ev, guid, spellID, crit, amount, over)
+        function a.StatParser:DecompHealingForCurrentSpec(ev, guid, spellID, crit, amount)
             table.insert(HEALS, { ev = ev, guid = guid, spellID = spellID, crit = crit, amount = amount })
         end
     """)
@@ -236,6 +236,12 @@ class SecretValues(unittest.TestCase):
         hm.OnUnitCombat(hm, "player", "HEAL", "", 500, 0.1)
         self.assertEqual(heals(lua), [("SPELL_HEAL", "Player-1", HS, False, 500)])
 
+    def test_secret_amount_is_dropped(self):
+        lua, addon, hm = start('issecretvalue = function(v) return v == -777 end')
+        hm.OnCastSent(hm, HS, "", 0)
+        hm.OnUnitCombat(hm, "player", "HEAL", "", -777, 0.1)
+        self.assertEqual(heals(lua), [])
+
     def test_heal_on_a_secret_unit_is_dropped(self):
         # the player seen through the hostile target's target: secret GUID and name; the "player" token delivers the same heal
         lua, addon, hm = start(SECRET + '; STUB.guids.targettarget = "SECRET"; STUB.names.targettarget = "SECRET"')
@@ -312,6 +318,7 @@ class Housekeeping(unittest.TestCase):
     def test_reset_and_out_of_combat(self):
         lua, addon, hm = start()
         hm.OnCastSent(hm, HS, "", 0)
+        hm.OnUnitCombat(hm, "player", "WOUND", "", 500, 0.05)         # damage: not a heal
         hm.Reset(hm)
         hm.OnUnitCombat(hm, "player", "HEAL", "", 500, 0.1)
         self.assertEqual(heals(lua), [])

@@ -74,6 +74,7 @@ class BuildAndRender(unittest.TestCase):
         self.assertEqual(g.render_entry(e), 'S:Define(18562, T.DRUID, "Swiftmend", { manaPct = 0.2 }); -- (no coefficient in JSON; tooltip not parsed)')
 
 
+@unittest.skipUnless(g.DATA.exists(), "talentsforever export (.claude/docs/data.json) is local only")
 class RealData(unittest.TestCase):
     def test_spot_values_from_json(self):
         text = g.render(g.collect())

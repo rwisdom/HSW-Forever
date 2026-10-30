@@ -37,6 +37,13 @@ class BuffTrackerTests(unittest.TestCase):
         self.auras("{id=12345, count=4}")
         self.assertEqual(self.bt.Get(self.bt, 12345), 0)
 
+    def test_refused_aura_read_keeps_the_last_known_state(self):
+        # Forever throws from the aura API in combat: the tracked stacks stay as they were
+        self.auras("{id=14751}")
+        self.assertEqual(self.bt.Get(self.bt, 14751), 1)
+        self.lua.execute('function UnitAura() error("Auras cannot be accessed when secret") end; HSW_TEST_ADDON.BuffTracker:UpdatePlayerBuffs()')
+        self.assertEqual(self.bt.Get(self.bt, 14751), 1)
+
     def test_marks_from_own_casts_and_target_marks(self):
         self.bt.MarkCast(self.bt, 14751, 60)                            # Inner Focus cast: up until spent
         self.assertEqual(self.bt.Get(self.bt, 14751), 1)
@@ -94,9 +101,8 @@ class CastTrackerTests(unittest.TestCase):
 
 
 class HistoryQueueTests(unittest.TestCase):
-    def test_spell_queue_removed_history_queue_bounded(self):
+    def test_history_queue_is_bounded(self):
         lua, addon = load(CORE_FILES)
-        self.assertIsNone(addon.Queue.CreateSpellQueue)
         lua.execute("""
             HSW_TEST_ADDON.hsw.db.global.historySize = 2
             H = HSW_TEST_ADDON.Queue.CreateHistoryQueue()

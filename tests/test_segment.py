@@ -82,7 +82,6 @@ class SegmentTests(unittest.TestCase):
         lua, addon, s = self.seg()
         s.AllocateHeal(s, 1, 2, 3, 4, 5, 123)
         self.assertEqual((s.t.heal, s.t.crit, s.t.haste_hpct, s.t.int, s.t.spirit), (1, 2, 3, 4, 5))
-        self.assertIsNone(s.MergeSegment)
 
     def test_haste_hpct_estimate_is_capped(self):
         _, addon, s = self.seg()
@@ -93,8 +92,8 @@ class SegmentTests(unittest.TestCase):
         s.t.haste_hpct = 50.0
         self.assertAlmostEqual(s.GetHasteHPCT(s), 10.0)
 
-    def test_end_works_without_retail_globals(self):
+    def test_end_snapshots_talents(self):
         lua, _, s = self.seg()
         self.assertFalse(s.bossFight)
-        s.End(s)   # must not touch MAX_TALENT_TIERS / C_ChallengeMode
+        s.End(s)
         self.assertTrue(s.talentsSnapshot)

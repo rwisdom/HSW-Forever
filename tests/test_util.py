@@ -50,3 +50,13 @@ class TalentCache(unittest.TestCase):
         lua.execute("STUB.talents[1].talents[1].rank = 1")
         addon.Util.RebuildTalentCache()
         self.assertEqual(snap[1].rank, 4)   # a history entry keeps the snapshot it was given
+
+    def test_cache_waits_for_trait_data(self):
+        # early in login C_ClassTalents has no active config yet: ranks read 0 and the cache is retried on the next lookup
+        setup = talents("PALADIN", [("Holy", [("Illumination", 5)])]) + "; C_ClassTalents.GetActiveConfigID = function() return nil end"
+        lua, addon = load(FILES, setup=setup)
+        self.assertEqual(addon.GetTalentRank(addon, "Illumination"), 0)
+        self.assertIsNone(addon.GetSpecId(addon))
+        lua.execute("C_ClassTalents.GetActiveConfigID = function() return 1 end")
+        self.assertEqual(addon.GetTalentRank(addon, "Illumination"), 5)
+        self.assertEqual(addon.GetSpecId(addon), 65)

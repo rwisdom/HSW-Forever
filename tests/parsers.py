@@ -1,4 +1,4 @@
-"""Shared setup for the spec-parser tests (Tasks 8-12). Not a test module."""
+"""Shared setup for the spec-parser tests. Not a test module."""
 from harness import load, CORE_FILES
 
 

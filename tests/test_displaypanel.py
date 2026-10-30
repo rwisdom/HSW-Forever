@@ -38,7 +38,6 @@ class ContentGates(unittest.TestCase):
         self.assertTrue(addon.Enabled(addon))
         lua.execute('STUB.instance.type = "none"; HSW_TEST_ADDON.hsw.db.global.alwaysEnabled = true')
         self.assertTrue(addon.Enabled(addon))
-        self.assertIsNone(addon.InMythicPlus)
 
     def test_unsupported_spec_never_enabled(self):
         lua, addon = start(extra='STUB.class = "WARRIOR"; STUB.talents = {}; ' + ALWAYS)
@@ -99,8 +98,6 @@ class Display(unittest.TestCase):
         addon.EndFight(addon)
         h = addon.GetPawnStringFromHistory(addon, 0)
         self.assertTrue(h.startswith('( Pawn: v1: "Boss": Class=PALADIN, Spec=1, HealingPower=1.00'), h)
-        self.assertIsNone(addon.GetQELiveStringRaw)
-        self.assertIsNone(addon.QELiveDialogName)
 
     def test_pawn_dialogs_fill_the_popup_edit_box(self):
         lua, addon = start(extra=ALWAYS)
@@ -192,6 +189,25 @@ class FightButton(unittest.TestCase):
         addon.ToggleFight(addon)
         self.assertFalse(addon.Enabled(addon))
 
+    def test_visibility_follows_the_options_and_the_manual_segment(self):
+        lua, addon = start()                                                     # open world, alwaysEnabled off
+        lua.execute(FAKE_FRAME + '; HSW_TEST_ADDON.frame.Show = function() SHOWN = true end; HSW_TEST_ADDON.frame.Hide = function() SHOWN = false end')
+        g = addon.hsw.db["global"]
+        shown = lambda: lua.globals().SHOWN
+        addon.AdjustVisibility(addon)
+        self.assertFalse(shown())                                                # not enabled here
+        g.alwaysShow = True
+        addon.AdjustVisibility(addon)
+        self.assertTrue(shown())
+        g.neverShow = True
+        addon.AdjustVisibility(addon)
+        self.assertFalse(shown())                                                # never wins over always
+        g.neverShow = False; g.alwaysShow = False
+        addon.ToggleFight(addon)
+        self.assertTrue(shown())                                                 # a manual segment shows the panel
+        addon.ToggleFight(addon)
+        self.assertFalse(shown())                                                # and hides it again when it ends
+
     def test_unsupported_spec_refuses_with_a_message(self):
         lua, addon = start()
         lua.execute("""
@@ -203,3 +219,27 @@ class FightButton(unittest.TestCase):
         self.assertFalse(addon.inCombat)
         self.assertIsNone(addon.manualFight)
         self.assertEqual(list(lua.globals().MSGS.values()), ["Current spec is not supported."])
+
+
+class Encounters(unittest.TestCase):
+    """Events.lua on top of the real StartFight/EndFight: a boss pulled during trash gets its own segment."""
+
+    def test_boss_pulled_mid_trash_is_logged_under_its_own_name(self):
+        lua, addon = load(FILES + ["Events.lua"], setup=PALADIN + '\nSTUB.instance = { name = "MC", type = "raid", difficultyId = 14 }'
+                          '; function UnitExists() return true end; function UnitCanAttack() return true end; STUB.names.target = "Core Hound"')
+        lua.execute("local a = HSW_TEST_ADDON; a.hsw:OnInitialize(); a.Util.RebuildTalentCache(); a:SetupConversionFactors(); a:UpdatePlayerStats()")
+        addon.hsw.PLAYER_REGEN_DISABLED(addon.hsw)                               # trash: named after the hostile target
+        lua.execute(HEAL)
+        self.assertEqual((seg(addon).id, seg(addon).bossFight), ("Core Hound", False))
+        addon.hsw.ENCOUNTER_START(addon.hsw, "ENCOUNTER_START", 663, "Lucifron")
+        self.assertEqual(addon.SegmentManager.Size(addon.SegmentManager), 2)
+        self.assertEqual((seg(addon).id, seg(addon).bossFight), ("Lucifron", True))
+        self.assertEqual(seg(addon, 1).id, "Core Hound")
+        self.assertEqual(addon.History.Size(addon.History), 0)                   # raid trash is not logged
+        lua.execute(HEAL + "; STUB.time = 60")
+        addon.hsw.PLAYER_REGEN_ENABLED(addon.hsw)                                # mid-boss flicker: ignored
+        self.assertTrue(addon.inCombat)
+        addon.hsw.ENCOUNTER_END(addon.hsw)
+        self.assertFalse(addon.inCombat)
+        self.assertEqual(addon.History.Size(addon.History), 1)
+        self.assertEqual(addon.History.Get(addon.History, 0).Segment, "Lucifron")

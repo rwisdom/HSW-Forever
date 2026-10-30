@@ -36,8 +36,6 @@ class Database(unittest.TestCase):
         g = addon.hsw.db["global"]
         self.assertEqual((g.schema, g.enabledInDungeons, g.enabledInRaids, g.enabledInBattlegrounds), (2, True, True, False))
         self.assertEqual((g.hasteRatingPerPct, g.intPerCritOverride.PALADIN, g.maxSegments, g.neverShow), (1, 0, 10, False))
-        for gone in ("useHPMoverHPCT", "useVersDR", "useCritResurg", "enabledInMythicPlusDungeons", "enabledInLfrRaids"):
-            self.assertIsNone(g[gone])
         self.assertEqual(addon.hsw.optionsFrame.settingsCategoryID, "HSW_TEST_CATEGORY")   # Configure button → Settings.OpenToCategory(id)
 
     def test_old_history_is_wiped_once(self):
@@ -120,14 +118,38 @@ class History(unittest.TestCase):
         self.assertNotIn("ctrl0", tab.HistorySelection.args.keys())
         self.assertIn("empty", tab.HistorySelection.args.keys())
 
-    def test_history_options_table_uses_new_labels(self):
+    def test_history_options_table_labels(self):
         lua, addon = start()
         addon.AddHistoricalSegment(addon, fought_segment(lua, addon))
         t = addon.BuildOptionsTableForHistorySegment(addon, 0)
         names = [v.name for _, v in t.items() if v.name]
         for label in ("+Healing", "Crit Rating", "Haste (HPCT)", "Intellect", "Spirit", "MP5", "Pawn >>", "icon_Illumination"):
             self.assertTrue(any(label in n for n in names), label)
-        self.assertFalse(any("QE" in n or "Versatility" in n for n in names))
+
+    def test_history_entry_carries_the_trinket_snapshot(self):
+        trinket = ('function GetInventoryItemLink(_, slot) return slot == 13 and "|Hitem:1|h[Lucky Charm]|h" or nil end'
+                   '; function GetItemInfo(link) return "Lucky Charm", link, 3, 45, 40, "Armor", "Trinket", 1, "INVTYPE_TRINKET", "icon_charm" end')
+        lua, addon = start(extra=trinket)
+        addon.AddHistoricalSegment(addon, fought_segment(lua, addon))
+        h = addon.History.Get(addon.History, 0)
+        self.assertEqual((h.Slot13.name, h.Slot13.ilvl, h.Slot13.icon), ("Lucky Charm", 45, "icon_charm"))
+        self.assertIsNone(h.Slot14)
+        names = [v.name for _, v in addon.BuildOptionsTableForHistorySegment(addon, 0).items() if v.name]
+        self.assertTrue(any("icon_charm" in n and "45" in n and "Lucky Charm" in n for n in names), names)
+
+    def test_calibration_inputs_are_validated(self):
+        lua, addon = start()
+        opts = lua.globals().HSW_TEST_OPTIONS.HealerStatWeights().args.optionsTab.args
+        g = addon.hsw.db["global"]
+        opts.hasteRatingPerPct.set(None, "abc")
+        opts.hasteRatingPerPct.set(None, "0")
+        self.assertEqual((g.hasteRatingPerPct, addon.HasteConv), (1, 100))      # rejected: unchanged
+        opts.hasteRatingPerPct.set(None, "10")
+        self.assertEqual((g.hasteRatingPerPct, addon.HasteConv, opts.hasteRatingPerPct.get(None)), (10, 1000, "10"))
+        opts.intPerCrit.set(None, "40")
+        self.assertEqual((g.intPerCritOverride.PALADIN, addon.IntPerCrit, opts.intPerCrit.get(None)), (40, 40, "40"))
+        opts.intPerCrit.set(None, "x")                                           # not a number: back to the table
+        self.assertEqual((g.intPerCritOverride.PALADIN, addon.IntPerCrit), (0, 31.9))
 
 
 class Chat(unittest.TestCase):

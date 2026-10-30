@@ -8,11 +8,10 @@ REJUV = 25299     # R11 tick: coeffTick .2 baseTick 194
 
 
 class RestoDruidTests(unittest.TestCase):
-    def test_spec_detection_and_info(self):
+    def test_parser_and_info_registered(self):
         _, addon, _ = start("DRUID", RESTO, FILES)
-        self.assertEqual(addon.GetSpecId(addon), 105)
-        self.assertTrue(addon.SpecInfo[105][1].value.startswith("https://"))
         self.assertIsNotNone(addon.StatParser[105])
+        self.assertTrue(addon.SpecInfo[105][1].value.startswith("https://"))
 
     def test_improved_regrowth_on_direct_and_tick(self):
         _, addon, seg = start("DRUID", RESTO, FILES)           # Nature crit 12% + 50%

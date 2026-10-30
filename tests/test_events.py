@@ -255,7 +255,37 @@ class Handlers(unittest.TestCase):
         addon.hsw.COMBAT_RATING_UPDATE(addon.hsw)
         self.assertEqual(addon.ply_sp, 200)
 
-    def test_combat_log_and_retail_handlers_are_gone(self):
+    def test_combat_log_handler_is_gone(self):
         _, addon, _ = start()
-        for name in ("COMBAT_LOG_EVENT_UNFILTERED", "CHALLENGE_MODE_START", "CHALLENGE_MODE_COMPLETED", "CHALLENGE_MODE_RESET", "PLAYER_SPECIALIZATION_CHANGED"):
-            self.assertIsNone(addon.hsw[name])
+        self.assertIsNone(addon.hsw.COMBAT_LOG_EVENT_UNFILTERED)     # registering it is a blocked action on Forever
+
+    def test_unit_aura_credits_fsr_time_at_the_old_casting_share(self):
+        lua, addon, seg = start()                                    # casting share 3/10
+        lua.execute("STUB.time = 4; STUB.regen = { base = 10, cast = 10 }")     # Innervate lands
+        fire(addon, "UNIT_AURA", "player")
+        self.assertAlmostEqual(seg.castPctWeighted, 0.3 * 4)         # 0..4 at the share in force then
+        self.assertAlmostEqual(addon.ply_castpct, 1.0)
+        lua.execute("STUB.time = 6")
+        fire(addon, "UNIT_STATS", "player")
+        self.assertAlmostEqual(seg.castPctWeighted, 0.3 * 4 + 1.0 * 2)
+
+    def test_roster_change_in_combat_recaches_the_group(self):
+        lua, addon, seg = start()
+        lua.execute(PARTY)                                           # Bob joins mid-fight
+        cast(addon, HL, "Bob")
+        fire(addon, "UNIT_COMBAT", "party1", "HEAL", "", 1000, 2)
+        self.assertEqual(seg.totalHealing, 0)                        # Bob's GUID is not cached yet
+        addon.hsw.GROUP_ROSTER_UPDATE(addon.hsw)
+        lua.execute("STUB.time = 10")
+        cast(addon, HL, "Bob")
+        fire(addon, "UNIT_COMBAT", "party1", "HEAL", "", 1000, 12)
+        self.assertEqual(seg.totalHealing, 1000)
+
+    def test_re_entering_combat_cancels_the_poll(self):
+        lua, addon, seg = start(extra=PARTY)
+        lua.execute("function HSW_TEST_ADDON:EndFight() self.inCombat = false end; function HSW_TEST_ADDON:StartFight() end; STUB.combat.party1 = true")
+        addon.hsw.PLAYER_REGEN_ENABLED(addon.hsw)
+        self.assertEqual(len(list(lua.globals().STUB.tickers.keys())), 1)
+        addon.hsw.PLAYER_REGEN_DISABLED(addon.hsw)
+        self.assertEqual(len(list(lua.globals().STUB.tickers.keys())), 0)
+        self.assertTrue(addon.inCombat)

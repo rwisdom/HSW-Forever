@@ -9,9 +9,9 @@ INNER_FOCUS = 14751
 
 
 class HolyPriestTests(unittest.TestCase):
-    def test_spec_detection_and_shared_functions(self):
+    def test_parser_info_and_shared_functions_registered(self):
         _, addon, _ = start("PRIEST", HOLY, FILES)
-        self.assertEqual(addon.GetSpecId(addon), 257)
+        self.assertIsNotNone(addon.StatParser[257])
         self.assertTrue(addon.SpecInfo[257][1].value.startswith("https://"))
         self.assertIsNotNone(addon.Priest.CritChance)
         self.assertIsNotNone(addon.Priest.Spirit)

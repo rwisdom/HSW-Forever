@@ -166,6 +166,11 @@ class Derivatives(unittest.TestCase):
         heal(addon, "SPELL_HEAL", 18562, 900)
         self.assertEqual((seg.totalHealing, seg.fillerHealing), (1800, 900))
 
+    def test_tick_without_a_coefficient_counts_in_totals_only(self):
+        _, addon, seg = start("SHAMAN")
+        heal(addon, "SPELL_PERIODIC_HEAL", 5394, 6)                # Healing Stream Totem: no coefficient yet
+        self.assertEqual((seg.totalHealing, seg.fillerHealing, seg.t.heal), (6, 6, 0))
+
     def test_shield_cast_has_no_crit_value(self):
         _, addon, seg = start("PRIEST")
         addon.StatParser.DecompShieldCast(addon.StatParser, "Player-1", PWS)     # expected size 928 + 0.10 * 200

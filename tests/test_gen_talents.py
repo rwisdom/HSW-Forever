@@ -6,6 +6,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "tools")
 import gen_talents as g  # noqa: E402
 
 
+@unittest.skipUnless(g.DATA.exists(), "talentsforever export (.claude/docs/data.json) is local only")
 class RealData(unittest.TestCase):
     def test_tab_map_from_json(self):
         tabs = g.collect()

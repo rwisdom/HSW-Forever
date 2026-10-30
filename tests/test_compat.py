@@ -63,6 +63,32 @@ class CompatTests(unittest.TestCase):
         lua, addon = load(["Classes/Compat.lua"], setup='function UnitAura() error("secret") end')
         self.assertEqual(addon.Compat.UnitAura("player", 1), (None, None, None, None, True))
 
+    def test_context_menu_prefers_menu_util(self):
+        # Forever has MenuUtil and no EasyMenu: the segment menu is built through the modern API
+        setup = """
+        CALLS = {}
+        MenuUtil = { CreateContextMenu = function(owner, build)
+            local root = { CreateTitle = function(_, t) table.insert(CALLS, "title:" .. t) end,
+                           CreateButton = function(_, t, f) table.insert(CALLS, "button:" .. t); f() end }
+            build(owner, root)
+        end }
+        function EasyMenu() error("legacy menu used") end
+        """
+        lua, addon = load(["Classes/Compat.lua"], setup=setup)
+        lua.execute("""
+            HSW_TEST_ADDON.Compat.ShowContextMenu({ { text = "Pick", isTitle = true },
+                { text = "Total", func = function() table.insert(CALLS, "clicked") end } }, {})
+        """)
+        self.assertEqual(list(lua.globals().CALLS.values()), ["title:Pick", "button:Total", "clicked"])
+
+    def test_options_category_opens_by_settings_id_or_legacy_frame(self):
+        lua, addon = load(["Classes/Compat.lua"], setup="Settings = { OpenToCategory = function(id) OPENED = id end }")
+        lua.execute('HSW_TEST_ADDON.Compat.OpenOptionsCategory({ settingsCategoryID = "cat-7" })')
+        self.assertEqual(lua.globals().OPENED, "cat-7")
+        lua, addon = load(["Classes/Compat.lua"], setup="OPENS = 0; function InterfaceOptionsFrame_OpenToCategory() OPENS = OPENS + 1 end")
+        lua.execute("HSW_TEST_ADDON.Compat.OpenOptionsCategory({})")
+        self.assertEqual(lua.globals().OPENS, 2)                              # twice: Blizzard first-open bug
+
     def test_legacy_unit_aura(self):
         lua, addon = load(["Classes/Compat.lua"], setup="STUB.auras[1] = { id = 16870, count = 2, expiration = 4 }")
         self.assertEqual(addon.Compat.UnitAura("player", 1), (2, 4, "player", 16870))

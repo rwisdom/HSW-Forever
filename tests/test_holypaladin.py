@@ -9,9 +9,9 @@ LV = 1310911        # Light's Vigil R1: 730 mana, heal coeff .143
 
 
 class HolyPaladinTests(unittest.TestCase):
-    def test_spec_detection_and_info(self):
+    def test_parser_and_info_registered(self):
         _, addon, _ = start("PALADIN", HOLY, FILES)
-        self.assertEqual(addon.GetSpecId(addon), 65)
+        self.assertIsNotNone(addon.StatParser[65])
         self.assertTrue(addon.SpecInfo[65][1].value.startswith("https://"))
 
     def test_holy_power_and_illumination(self):
