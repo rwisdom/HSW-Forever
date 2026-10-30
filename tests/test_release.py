@@ -34,11 +34,11 @@ class Build(unittest.TestCase):
             names = zipfile.ZipFile(out).namelist()
         self.assertEqual(len(names), n)
         self.assertTrue(all(x.startswith("HealerStatWeights/") for x in names))
-        for required in ("HealerStatWeights/HealerStatWeights.toc", "HealerStatWeights/embeds.xml", "HealerStatWeights/Core.lua",
+        for required in ("HealerStatWeights/HealerStatWeights.toc", "HealerStatWeights/embeds.xml", "HealerStatWeights/icon.png", "HealerStatWeights/Core.lua",
                          "HealerStatWeights/Classes/HealMatcher.lua", "HealerStatWeights/Parsers/Spells_Generated.lua",
                          "HealerStatWeights/Libs/LibStub/LibStub.lua", "HealerStatWeights/LICENSE", "HealerStatWeights/README.md"):
             self.assertIn(required, names)
-        for top in ("tests", "tools", "docs", ".claude", "download", "dist", ".git", ".gitignore"):
+        for top in ("tests", "tools", "docs", "images", ".claude", "download", "dist", ".git", ".gitignore"):
             self.assertFalse(any(x.split("/")[1] == top for x in names), top)
         self.assertFalse(any("__pycache__" in x for x in names))
 

@@ -25,8 +25,8 @@ ADDON = "HealerStatWeights"
 TOC = ROOT / f"{ADDON}.toc"
 DIST = ROOT / "dist"
 
-# What the client needs: the .toc, what it and embeds.xml load, licence and readme.
-SHIP_FILES = [f"{ADDON}.toc", "embeds.xml", "Core.lua", "DisplayPanel.lua", "Events.lua", "LICENSE", "README.md"]
+# What the client needs: the .toc, what it and embeds.xml load, the AddOns-list icon, licence and readme.
+SHIP_FILES = [f"{ADDON}.toc", "embeds.xml", "icon.png", "Core.lua", "DisplayPanel.lua", "Events.lua", "LICENSE", "README.md"]
 SHIP_DIRS = ["Classes", "Parsers", "Libs"]
 SKIP_NAMES = {"__pycache__", ".DS_Store", "Thumbs.db"}
 

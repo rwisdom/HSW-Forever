@@ -3,6 +3,7 @@
 ## Author: Bastas#6681 (discord); Forever port by rwisdom
 ## Version: 1.0.0-forever
 ## Notes: Computes live healer stat weights (+Healing, Crit, Haste, Intellect, Spirit, MP5) for World of Warcraft Forever.
+## IconTexture: Interface\AddOns\HealerStatWeights\icon.png
 ## DefaultState: Enabled
 ## SavedVariables: HSW_DB
 
