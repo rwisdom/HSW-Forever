@@ -6,7 +6,7 @@ FILES = ["Classes/Compat.lua", "Classes/Util.lua", "Classes/BuffTracker.lua", "C
          "Parsers/Spells.lua", "Parsers/Spells_Generated.lua", "Parsers/Spells_Manual.lua", "Parsers/Talents_Generated.lua"]
 
 TALENTS = {
-    "PALADIN": 'STUB.class = "PALADIN"; STUB.talents = { {name="Holy", talents={ {name="Divine Intellect", rank=5, max=5} }}, {name="Protection", talents={}}, {name="Retribution", talents={}} }',
+    "PALADIN": 'STUB.class = "PALADIN"; STUB.talents = { {name="Holy", talents={ {name="Illumination", rank=5, max=5}, {name="Healing Light", rank=3, max=3} }}, {name="Protection", talents={ {name="Divine Intellect", rank=5, max=5} }}, {name="Retribution", talents={}} }',   # Divine Intellect is a Protection talent since 2026-10-30
     "DRUID": 'STUB.class = "DRUID"; STUB.talents = { {name="Balance", talents={}}, {name="Feral Combat", talents={}}, {name="Restoration", talents={ {name="Living Spirit", rank=3, max=3} }} }',
     "PRIEST": 'STUB.class = "PRIEST"; STUB.talents = { {name="Discipline", talents={ {name="Mental Strength", rank=5, max=5} }}, {name="Holy", talents={}} }',
     "SHAMAN": 'STUB.class = "SHAMAN"; STUB.talents = { {name="Elemental", talents={}}, {name="Enhancement", talents={}}, {name="Restoration", talents={ {name="Tidal Mastery", rank=5, max=5} }} }',
@@ -67,7 +67,7 @@ class PlayerStats(unittest.TestCase):
         self.assertEqual((addon.ply_regen_base, addon.ply_regen_cast), (10, 3))
         self.assertAlmostEqual(addon.ply_castpct, 0.3)
         self.assertAlmostEqual(addon.ply_intmult, 1.10)
-        self.assertAlmostEqual(addon.ply_spiritmult, 1.05)
+        self.assertAlmostEqual(addon.ply_spiritmult, 1.10)        # The Human Spirit: 10% since the 26 Oct racial pass
 
     def test_crit_school_and_multipliers_by_class(self):
         lua, addon, _ = start("DRUID", extra='STUB.race = "Tauren"')   # Nature crit, Living Spirit 3/3
@@ -202,15 +202,18 @@ class Overrides(unittest.TestCase):
     def test_crit_chance_and_per_segment_extras(self):
         ov = """{
             CritChance = function(ev, s, destUnit, C) return 1.0 end,
+            CritBonus = function(ev, s, destUnit, CB) return 1.0 end,
             CriticalStrike = function(ev, s, heal, destUnit, C, CB, seg) return seg.id == "Total" and 2 or 1 end,
             Intellect = function(ev, s, heal, destUnit, _SP, seg) return _SP end,
             Spirit = function(ev, s, heal, destUnit, _SP, seg) return 0.5 * _SP end,
         }"""
         _, addon, seg = start("PALADIN", overrides=ov)
         heal(addon, "SPELL_HEAL", HL, 1000)
-        per1 = 1000 * 0.5 / 1.5 / 100                             # crit chance overridden to 100%
+        per1 = 1000 * 1.0 / 2.0 / 100                             # crit chance and crit bonus overridden to 100%
         self.assertAlmostEqual(seg.t.crit, per1 / 14 + 1)
         ttl = addon.SegmentManager.Get(addon.SegmentManager, "Total")
         self.assertAlmostEqual(ttl.t.crit, per1 / 14 + 2)
         self.assertAlmostEqual(seg.t.int, per1 / 31.9 + seg.t.heal)
         self.assertAlmostEqual(seg.t.spirit, 0.5 * seg.t.heal)
+        heal(addon, "SPELL_HEAL", HL, 2000, crit=True)            # a crit heal is normalised with the overridden bonus
+        self.assertAlmostEqual(seg.t.heal, 2 * 0.714 * 1000 / (1580 + 0.714 * 200))

@@ -100,7 +100,8 @@ function addon:UpdatePlayerStats()
 		intmult = intmult + perRank * self:GetTalentRank(talent);
 	end
 	self.ply_intmult = intmult;
-	self.ply_spiritmult = 1 + 0.05 * self:GetTalentRank("Living Spirit") + (UnitRace("player") == "Human" and 0.05 or 0);
+	-- The Human Spirit is 10% since the racial pass of 26 Oct 2026 (was 5%).
+	self.ply_spiritmult = 1 + 0.05 * self:GetTalentRank("Living Spirit") + (UnitRace("player") == "Human" and 0.10 or 0);
 	self.RegenPerSpirit = self:GetRegenPerSpirit();
 end
 
@@ -161,6 +162,7 @@ local StatParser = {};
 
 -- overrides (all optional):
 --   CritChance(ev, s, destUnit, C) -> C             per-spell crit chance (talents, buffs)
+--   CritBonus(ev, s, destUnit, CB) -> CB            per-spell crit healing bonus (Holy Power)
 --   CriticalStrike(ev, s, heal, destUnit, C, CB, seg) -> extra crit value (mana returned on crit)
 --   Intellect(ev, s, heal, destUnit, _SP, seg) -> extra Int value (Int -> +Healing talents)
 --   Spirit(ev, s, heal, destUnit, _SP, seg) -> extra Spirit value (Spirit -> +Healing talents)
@@ -266,9 +268,10 @@ function StatParser:DecompHealingForCurrentSpec(ev, destGUID, spellID, critFlag,
 	addon:LogEvent(ev == "SPELL_PERIODIC_HEAL" and "tick" or "heal", s, addon.Compat.PlainString(UnitName(destUnit)), heal, critFlag and true or false);
 
 	-- reduce crit heals to the non-crit amount
+	local CB = f.CritBonus and f.CritBonus(ev, s, destUnit, addon.ply_crtbonus) or addon.ply_crtbonus;
 	local origHeal = heal;
 	if critFlag then
-		heal = heal / (1 + addon.ply_crtbonus);
+		heal = heal / (1 + CB);
 	end
 
 	-- a "% of base mana" spell has no table cost: it is a filler only while the client prices it,
@@ -280,7 +283,7 @@ function StatParser:DecompHealingForCurrentSpec(ev, destGUID, spellID, critFlag,
 		local mana = f.ManaReturn(ev, s, origHeal, destUnit);
 		if mana and mana > 0 then self:IncManaRestore(mana) end
 	end
-	self:Allocate(ev, s, heal, destUnit, f, addon.ply_sp, addon.ply_crt, addon.ply_crtbonus, addon.ply_hst);
+	self:Allocate(ev, s, heal, destUnit, f, addon.ply_sp, addon.ply_crt, CB, addon.ply_hst);
 end
 
 -- Power Word: Shield: absorbs are not observable on Forever, so the shield is credited at cast

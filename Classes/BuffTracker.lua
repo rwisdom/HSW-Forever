@@ -80,6 +80,11 @@ function BuffTracker:MarkTarget(unitName, spellId, duration)
 	targetMarks[unitName][spellId] = GetTime() + duration;
 end
 
+-- Drops a mark from every unit (a buff the player may hold on one target at a time: Oath of Light).
+function BuffTracker:UnmarkAll(spellId)
+	for _, marks in pairs(targetMarks) do marks[spellId] = nil end
+end
+
 function BuffTracker:TargetHas(unit, spellId)
 	local unitName = UnitName(unit);
 	local marks = unitName and targetMarks[unitName];

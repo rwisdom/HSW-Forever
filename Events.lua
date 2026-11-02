@@ -127,6 +127,12 @@ end
 	visible in combat, so only Inner Focus (our own cast) marks a free cast.
 ------------------------------------------------------------------------------]]
 function addon:OnPlayerSpellcast(spellID)
+	-- Oath of Light is sworn before the pull and lasts 5 min, so it is marked in or out of combat.
+	-- One Oath at a time: the new target takes it from the old one.
+	if spellID == self.Paladin.OathOfLight then
+		self.BuffTracker:UnmarkAll(spellID);
+		self.BuffTracker:MarkTarget(self.HealMatcher:SentTarget(spellID), spellID, self.Paladin.OathOfLightDuration);
+	end
 	if not self.inCombat then return end
 	local s = self.Spells:Get(spellID);
 	local now = GetTime();

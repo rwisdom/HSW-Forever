@@ -28,6 +28,17 @@ class RestoDruidTests(unittest.TestCase):
         self.assertAlmostEqual(seg.t.crit, crit_per_pct(194 + 0.2 * 200, 0.12) / 14)
         self.assertEqual(seg.t.spirit, 0)
 
+    def test_natural_instinct_turns_intellect_into_healing(self):
+        resto = [("Balance", []), ("Feral Combat", [("Natural Instinct", 2)]), ("Restoration", [("Gift of Nature", 5), ("Living Spirit", 3)])]
+        _, addon, seg = start("DRUID", resto, FILES)
+        heal(addon, "SPELL_PERIODIC_HEAL", REJUV, 194 + 0.2 * 200)
+        self.assertAlmostEqual(seg.t.heal, 0.2)
+        self.assertAlmostEqual(seg.t.int, crit_per_pct(194 + 0.2 * 200, 0.12) / 28.4 + 0.25 * 0.2)   # 25% of Int at 2/2
+        resto[1] = ("Feral Combat", [("Natural Instinct", 1)])
+        _, addon, seg = start("DRUID", resto, FILES)
+        heal(addon, "SPELL_PERIODIC_HEAL", REJUV, 194 + 0.2 * 200)
+        self.assertAlmostEqual(seg.t.int, crit_per_pct(194 + 0.2 * 200, 0.12) / 28.4 + 0.12 * 0.2)   # 12% at 1/2
+
     def test_without_talent(self):
         _, addon, seg = start("DRUID", [("Balance", []), ("Feral Combat", []), ("Restoration", [("Living Spirit", 1)])], FILES)
         heal(addon, "SPELL_HEAL", REGROWTH, 1000)

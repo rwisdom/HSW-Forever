@@ -60,6 +60,10 @@ class BuffTrackerTests(unittest.TestCase):
         self.assertFalse(self.bt.TargetHas(self.bt, "player", 6788))
         self.bt.MarkCast(self.bt, 12345, 10)                            # untracked buff: ignored
         self.assertEqual(self.bt.Get(self.bt, 12345), 0)
+        self.bt.MarkTarget(self.bt, "Me", 1328548, 300)                 # Oath of Light: one target at a time
+        self.bt.MarkTarget(self.bt, "Bob", 1328548, 300)
+        self.bt.UnmarkAll(self.bt, 1328548)
+        self.assertFalse(self.bt.TargetHas(self.bt, "player", 1328548))
 
 
 class CastTrackerTests(unittest.TestCase):

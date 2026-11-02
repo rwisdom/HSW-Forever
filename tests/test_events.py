@@ -311,3 +311,20 @@ class Handlers(unittest.TestCase):
         addon.hsw.PLAYER_REGEN_DISABLED(addon.hsw)
         self.assertEqual(len(list(lua.globals().STUB.tickers.keys())), 0)
         self.assertTrue(addon.inCombat)
+
+
+class OathOfLight(unittest.TestCase):
+    OATH = 1328548
+
+    def test_oath_marks_its_target_in_or_out_of_combat_one_at_a_time(self):
+        lua, addon, seg = start(extra=PARTY)
+        lua.execute("HSW_TEST_ADDON.inCombat = false")                # sworn before the pull, as a 5 min buff is
+        cast(addon, self.OATH, "Bob Builder")
+        self.assertTrue(addon.BuffTracker.TargetHas(addon.BuffTracker, "party1", self.OATH))
+        self.assertEqual(seg.fillerManaSpent, 0)                       # no expectation, no filler: out of combat
+        lua.execute("HSW_TEST_ADDON.inCombat = true")
+        cast(addon, self.OATH)                                         # sworn on the player: Bob loses it
+        self.assertFalse(addon.BuffTracker.TargetHas(addon.BuffTracker, "party1", self.OATH))
+        self.assertTrue(addon.BuffTracker.TargetHas(addon.BuffTracker, "player", self.OATH))
+        lua.execute("STUB.time = 301")
+        self.assertFalse(addon.BuffTracker.TargetHas(addon.BuffTracker, "player", self.OATH))

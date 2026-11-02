@@ -69,8 +69,9 @@ end
 
 -- UNIT_SPELLCAST_SENT: targetName is "" for self casts and totems. In a dungeon the client hands
 -- it over as a secret string that cannot be read: then the selected group member, else the player.
+-- The target is remembered out of combat too (Oath of Light is sworn before the pull); expectations
+-- open only in a fight.
 function HealMatcher:OnCastSent(spellID, targetName, now, castGUID)
-	if not addon.inCombat then return end
 	local plain = addon.Compat.PlainString(targetName);
 	if plain or targetName == nil then
 		targetName = bareName(plain) or playerName();
@@ -81,6 +82,7 @@ function HealMatcher:OnCastSent(spellID, targetName, now, castGUID)
 		end
 	end
 	sentTarget[spellID] = targetName;
+	if not addon.inCombat then return end
 	local s = addon.Spells:Get(spellID);
 	if not s or addon.AbsorbSpells[spellID] then return end -- shields are credited at cast (Events.lua)
 	now = now or GetTime();

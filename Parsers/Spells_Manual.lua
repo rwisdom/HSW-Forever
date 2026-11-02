@@ -35,6 +35,7 @@ S:Alias(25903, 20930); -- Holy Shock heal, Rank 4
 addon.Priest  = { InnerFocus = 14751, InnerFocusDuration = 60, WeakenedSoul = 6788, WeakenedSoulDuration = 15 };
 addon.Druid   = { Clearcasting = 16870 };
 addon.Shaman  = { WaterShield = 408510, WaterShieldDuration = 600 }; -- verified in game 2026-10-21: cast id and aura id are both 408510, 3 charges, 600 s
+addon.Paladin = { OathOfLight = 1328548, OathOfLightDuration = 300 }; -- talent spell (hotfix 2026-10-30); marked on its target at cast (Events.lua)
 
 --[[----------------------------------------------------------------------------
 	Earthfury set bonuses (seen in game 2026-10-22, Stockade log). addon.ply_earthfury counts the pieces worn.

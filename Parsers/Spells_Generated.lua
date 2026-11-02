@@ -41,9 +41,9 @@ S:Define(9857, T.DRUID, "Regrowth", { coeff = 0.286, base = 847, coeffTick = 0.0
 S:Define(9858, T.DRUID, "Regrowth", { coeff = 0.286, base = 1021, coeffTick = 0.071, baseTick = 142, mana = 525, cast = 2, duration = 21, tick = 3 }); -- Rank 9
 
 -- Wild Growth
-S:Define(408120, T.DRUID, "Wild Growth", { coeffTick = 0.033, baseTick = 48, mana = 550, duration = 7, tick = 1, party = true }); -- Rank 1
-S:Define(1238214, T.DRUID, "Wild Growth", { coeffTick = 0.033, baseTick = 70, mana = 755, duration = 7, tick = 1, party = true }); -- Rank 2
-S:Define(1238215, T.DRUID, "Wild Growth", { coeffTick = 0.033, baseTick = 97, mana = 1050, duration = 7, tick = 1, party = true }); -- Rank 3
+S:Define(408120, T.DRUID, "Wild Growth", { coeffTick = 0.033, baseTick = 48, mana = 550, cast = 3, duration = 7, tick = 1, party = true }); -- Rank 1
+S:Define(1238214, T.DRUID, "Wild Growth", { coeffTick = 0.033, baseTick = 70, mana = 755, cast = 3, duration = 7, tick = 1, party = true }); -- Rank 2
+S:Define(1238215, T.DRUID, "Wild Growth", { coeffTick = 0.033, baseTick = 97, mana = 1050, cast = 3, duration = 7, tick = 1, party = true }); -- Rank 3
 
 -- Tranquility
 S:Define(740, T.DRUID, "Tranquility", { baseTick = 90, mana = 375, cast = -1, cd = true, duration = 10, tick = 2, party = true }); -- Rank 1 (no coefficient in JSON)

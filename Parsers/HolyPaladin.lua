@@ -10,19 +10,28 @@ addon.SpecInfo[addon.SpellType.PALADIN] = {
 	},
 	{
 		key = "Holy Paladin\nNotes:",
-		value = "Crit includes the mana Illumination returns (50% of base cost on Flash of Light, Holy Light, Holy Shock and Light's Vigil crits), valued at your filler healing-per-mana; the returned mana also comes off the filler mana spent. Divine Favor's guaranteed crit is ignored (one heal per 2 minutes). Reverence is read from the client's regen rates.",
+		value = "Crit includes the mana Illumination returns (50% of base cost on Flash of Light, Holy Light, Holy Shock and Light's Vigil crits), valued at your filler healing-per-mana; the returned mana also comes off the filler mana spent. Holy Power raises the crit healing bonus (+10% per rank on the 50%). Boundless Light adds Holy Shock crit on allies without your Oath of Light, which is tracked from your own cast; the Oath's healing increase is read from the heal amounts. Divine Favor's guaranteed crit is ignored (one heal per 2 minutes). Reverence is read from the client's regen rates.",
 	},
 };
 
 --[[----------------------------------------------------------------------------
-	Holy Power: +3% crit per rank on Holy Shock, +1% per rank on other spells.
+	Holy Power (hotfix 2026-10-30): "increases the critical strike healing bonus of your Holy
+	spells by 10%" per rank. Read as a multiplier on the bonus, the Classic reading of the
+	"critical strike damage bonus" talents: 50% -> 75% at 5/5. Verify in game (checklist C4).
+------------------------------------------------------------------------------]]
+local function CritBonus(ev, s, destUnit, CB)
+	return CB * (1 + 0.10 * addon:GetTalentRank("Holy Power"));
+end
+
+--[[----------------------------------------------------------------------------
+	Boundless Light: +15% crit per rank on Holy Shock cast on allies not under our Oath of
+	Light. The Oath is marked on its target when we cast it (Events.lua).
 ------------------------------------------------------------------------------]]
 local function CritChance(ev, s, destUnit, C)
-	local rank = addon:GetTalentRank("Holy Power");
-	if s.name == "Holy Shock" then
-		return C + 0.03 * rank;
+	if s.name == "Holy Shock" and not addon.BuffTracker:TargetHas(destUnit, addon.Paladin.OathOfLight) then
+		C = C + 0.15 * addon:GetTalentRank("Boundless Light");
 	end
-	return C + 0.01 * rank;
+	return C;
 end
 
 --[[----------------------------------------------------------------------------
@@ -47,6 +56,7 @@ end
 
 addon.StatParser:Create(addon.SpellType.PALADIN, {
 	CritChance = CritChance,
+	CritBonus = CritBonus,
 	CriticalStrike = CriticalStrike,
 	ManaReturn = ManaReturn,
 });
