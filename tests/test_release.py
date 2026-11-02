@@ -72,6 +72,28 @@ class Git(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 r.commit_and_tag("1.0.1-forever", root=root, toc=toc)             # tag taken
 
+    def test_push_carries_the_branch_and_the_release_tag_only(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root, toc = self.repo(tmp)
+            remote = pathlib.Path(tmp) / "remote.git"
+            subprocess.run(["git", "init", "-q", "--bare", str(remote)], check=True)
+            subprocess.run(["git", "remote", "add", "origin", str(remote)], cwd=root, check=True)
+            subprocess.run(["git", "push", "-q", "-u", "origin", "HEAD"], cwd=root, check=True)
+            subprocess.run(["git", "tag", "scratch"], cwd=root, check=True)          # lightweight, not a release tag
+            (root / "dist").mkdir(); (root / "dist" / "HealerStatWeights-1.0.1-forever.zip").write_bytes(b"zip")
+            (root / ".gitignore").write_text("dist/\n", encoding="utf-8")
+            subprocess.run(["git", "add", ".gitignore"], cwd=root, check=True)
+            subprocess.run(["git", "commit", "-q", "-m", "chore: ignore dist"], cwd=root, check=True)
+            toc.write_text("## Version: 1.0.1-forever\n", encoding="utf-8")
+            r.commit_and_tag("1.0.1-forever", root=root, toc=toc)
+            r.push(root=root)
+            tags = r.git("ls-remote", "--tags", "--refs", "origin", root=root)
+            self.assertEqual(tags.count("refs/tags/"), 1)                                                 # the release tag, not "scratch"
+            self.assertIn("refs/tags/v1.0.1-forever", tags)
+            self.assertEqual(r.git("rev-parse", "HEAD", root=root), r.git("rev-parse", "@{u}", root=root))   # branch pushed
+            remote_files = subprocess.run(["git", "ls-tree", "-r", "--name-only", "HEAD"], cwd=remote, check=True, capture_output=True, text=True).stdout.split()
+        self.assertEqual(sorted(remote_files), [".gitignore", "HealerStatWeights.toc"])             # no zip, no notes
+
     def test_release_notes_list_commits_since_the_previous_tag(self):
         with tempfile.TemporaryDirectory() as tmp:
             root, toc = self.repo(tmp)

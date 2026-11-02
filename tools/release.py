@@ -9,9 +9,10 @@
 
 The version is the "## Version:" line of HealerStatWeights.toc: MAJOR.MINOR.PATCH with an
 optional -suffix that bumps keep. A bump needs a clean working tree; it commits the .toc as
-"release: <version>" and tags it v<version>. The zip lands in dist/HealerStatWeights-<version>.zip
-and unpacks to a single HealerStatWeights/ folder holding only what the client loads. Next to it,
-dist/HealerStatWeights-<version>-notes.md lists the commits since the previous v* tag.
+"release: <version>", tags it v<version> and pushes the branch with the tag (git push --follow-tags).
+The zip lands in dist/HealerStatWeights-<version>.zip and unpacks to a single HealerStatWeights/
+folder holding only what the client loads. Next to it, dist/HealerStatWeights-<version>-notes.md
+lists the commits since the previous v* tag. dist/ is not tracked: the zip and notes are never pushed.
 """
 import datetime
 import pathlib
@@ -91,6 +92,11 @@ def commit_and_tag(version, root=None, toc=None):
     git("commit", "-m", f"release: {version}", root=root)
     git("tag", "-a", tag, "-m", f"{ADDON} {version}", root=root)   # annotated: git push --follow-tags carries it
     return tag
+
+
+def push(root=None):
+    """Pushes the current branch to its upstream with the annotated tags on it (the release tag)."""
+    git("push", "--follow-tags", root=root)
 
 
 def previous_tag(version, root=None):
@@ -181,7 +187,8 @@ def main(argv):
         require_clean_tree()
         old, new = set_version(argv[0])
         tag = commit_and_tag(new)
-        print(f"{TOC.name}: {old} -> {new}, committed and tagged {tag}")
+        push()
+        print(f"{TOC.name}: {old} -> {new}, committed, tagged {tag} and pushed")
     version = current_version()
     out, n = build(version)
     print(f"wrote {out.relative_to(ROOT)}: {n} files")
