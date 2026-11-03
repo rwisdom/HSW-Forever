@@ -31,6 +31,7 @@ class ParseDescription(unittest.TestCase):
         self.assertEqual(g.parse_desc("Renew", "Heals the target of 45 damage over 15 sec."), (None, 9))
         self.assertEqual(g.parse_desc("Regrowth", "Heals a friendly target for 965 to 1,077 and another 994 over 21 sec."), (1021, 142))
         self.assertEqual(g.parse_desc("Riptide", "Heals a friendly target for 485 to 533, an additional 445 over 15 sec, and increases the effectiveness of your Chain Heal casts directly on that target by 25%."), (509, 89))
+        self.assertEqual(g.parse_desc("Riptide", "Heals a friendly target for 445 over 15 sec, and increases the effectiveness of your Chain Heal casts directly on that target by 25%."), (None, 89))
         self.assertEqual(g.parse_desc("Wild Growth", "Heals the target and their party for 336 over 7 sec. Party members must be within 43 yards of target."), (None, 48))
         self.assertEqual(g.parse_desc("Tranquility", "Regenerates all nearby party members within 20 yards for 90 every 2 sec for 10 sec. Druid must channel to maintain the spell."), (None, 90))
         self.assertEqual(g.parse_desc("Healing Stream Totem", "Summons a Healing Stream Totem with 5 health at the feet of the caster for 5 min that heals group members within 30 yards for 5 every 2 seconds."), (None, 5))
@@ -67,6 +68,11 @@ class BuildAndRender(unittest.TestCase):
         e = g.build_entry("PRIEST", "Penance", "Rank 1", {"id": 402174, "l": [["", "Enemy: 36 yd range"], ["100 Mana", "Friendly: 40 yd range"], ["Channeled", "12 sec cooldown"]], "co": "28.5% of spell power (heal), 28.5% of spell power (per tick)", "d": "Launches a volley of holy light at the target, causing 81 Holy damage to an enemy, or 184 healing to an ally, instantly and every 1 sec for 2 sec."})
         self.assertEqual(e["opts"], {"coeff": 0.285, "base": 184, "coeffTick": 0.285, "baseTick": 184, "mana": 100, "cast": -1, "duration": 2, "tick": 1})
 
+    def test_direct_coefficient_dropped_when_tooltip_has_no_direct_heal(self):
+        # Riptide since Blizzard's notes of 2 Nov 2026: HoT only, but the export still lists a "(heal)" coefficient
+        e = g.build_entry("SHAMAN", "Riptide", "Rank 1", {"id": 408521, "l": [["245 Mana", "40 yd range"], ["Instant", "12 sec cooldown"]], "co": "21.4% of spell power (heal), 10% of spell power (per tick)", "d": "Heals a friendly target for 445 over 15 sec, and increases the effectiveness of your Chain Heal casts directly on that target by 25%."})
+        self.assertEqual(g.render_entry(e), 'S:Define(408521, T.SHAMAN, "Riptide", { coeffTick = 0.1, baseTick = 89, mana = 245, duration = 15, tick = 3 }); -- Rank 1')
+
     def test_flags_and_notes(self):
         e = g.build_entry("PALADIN", "Lay on Hands", "Rank 1", {"id": 633, "l": [["", "40 yd range"], ["Instant", "20 min cooldown"]], "d": "Heals a friendly target for an amount equal to the Paladin's maximum health."})
         self.assertEqual(g.render_entry(e), 'S:Define(633, T.PALADIN, "Lay on Hands", { cd = true, canCrit = false }); -- Rank 1 (no coefficient in JSON; tooltip not parsed)')
@@ -87,6 +93,7 @@ class RealData(unittest.TestCase):
             'S:Define(10901, T.PRIEST, "Power Word: Shield", { base = 928, mana = 500, canCrit = false }); -- Rank 10 (no coefficient in JSON)',
             'S:Define(402174, T.PRIEST, "Penance", { coeff = 0.19, base = 133, coeffTick = 0.19, baseTick = 133, mana = 150, cast = -1, duration = 2, tick = 1 }); -- Rank 1',
             'S:Define(5394, T.SHAMAN, "Healing Stream Totem", { baseTick = 5, mana = 40, duration = 300, tick = 2, party = true }); -- Rank 1 (no coefficient in JSON)',
+            'S:Define(1239243, T.SHAMAN, "Riptide", { coeffTick = 0.1, baseTick = 161, mana = 385, duration = 15, tick = 3 }); -- Rank 3',
         ]:
             self.assertIn(line, text)
         self.assertGreaterEqual(text.count("S:Define("), 160)   # 168 rank entries at export 2026-10-15

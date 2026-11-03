@@ -140,6 +140,8 @@ def build_entry(spell_type, name, rank, entry):
     base, base_tick = parse_desc(name, entry.get("d") or "")
     if coeff_tick is not None and base_tick is None and base is not None:
         base_tick = base  # Penance: every bolt heals the same amount
+    if coeff is not None and base is None and base_tick is not None:
+        coeff = None  # Riptide: the export kept a "(heal)" coefficient after the direct heal left the tooltip (Blizzard's notes of 2 Nov 2026)
     opts = parse_l(entry.get("l"))
     if coeff is not None:
         opts["coeff"] = coeff
