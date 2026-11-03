@@ -10,7 +10,7 @@ addon.SpecInfo[addon.SpellType.PALADIN] = {
 	},
 	{
 		key = "Holy Paladin\nNotes:",
-		value = "Crit includes the mana Illumination returns (50% of base cost on Flash of Light, Holy Light, Holy Shock and Light's Vigil crits), valued at your filler healing-per-mana; the returned mana also comes off the filler mana spent. Holy Power raises the crit healing bonus (+10% per rank on the 50%). Boundless Light adds Holy Shock crit on allies without your Oath of Light, which is tracked from your own cast; the Oath's healing increase is read from the heal amounts. Divine Favor's guaranteed crit is ignored (one heal per 2 minutes). Reverence is read from the client's regen rates.",
+		value = "Crit includes the mana Illumination returns (50% of base cost on Flash of Light, Holy Light, Holy Shock and Light's Vigil crits), valued at your filler healing-per-mana; the returned mana also comes off the filler mana spent. Holy Power raises the crit healing bonus (+10% per rank on the 50%). Boundless Light adds Holy Shock crit on allies without your Oath of Light, which is tracked from your own cast; the Oath's flat bonus (+400 Holy Light, +115 Flash of Light, +230 Holy Shock) is taken off those heals before +Healing is valued. Divine Favor's guaranteed crit is ignored (one heal per 2 minutes). Reverence is read from the client's regen rates.",
 	},
 };
 
@@ -32,6 +32,18 @@ local function CritChance(ev, s, destUnit, C)
 		C = C + 0.15 * addon:GetTalentRank("Boundless Light");
 	end
 	return C;
+end
+
+--[[----------------------------------------------------------------------------
+	Oath of Light adds a flat amount to Holy Light, Flash of Light and Holy Shock on its target
+	(Spells_Manual.lua). That part crits with the heal but was not produced by +Healing, so it
+	is taken off before the +Healing derivative. Verify the amounts in game (checklist C5).
+------------------------------------------------------------------------------]]
+local function FlatBonus(ev, s, destUnit)
+	if ev == "SPELL_PERIODIC_HEAL" then return 0 end
+	local bonus = addon.Paladin.OathBonus[s.name];
+	if bonus and addon.BuffTracker:TargetHas(destUnit, addon.Paladin.OathOfLight) then return bonus end
+	return 0;
 end
 
 --[[----------------------------------------------------------------------------
@@ -57,6 +69,7 @@ end
 addon.StatParser:Create(addon.SpellType.PALADIN, {
 	CritChance = CritChance,
 	CritBonus = CritBonus,
+	FlatBonus = FlatBonus,
 	CriticalStrike = CriticalStrike,
 	ManaReturn = ManaReturn,
 });

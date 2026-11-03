@@ -47,6 +47,30 @@ class HolyPaladinTests(unittest.TestCase):
         illumination = 0.01 * 1.0 * 0.5 * 325 * (2000 / 325) / 14
         self.assertAlmostEqual(seg.t.crit - before, crit_per_pct(1000, 0.10, CB) / 14 + illumination)
 
+    def test_oath_flat_bonus_comes_off_the_healing_derivative_only(self):
+        _, addon, seg = start("PALADIN", HOLY, FILES)
+        heal(addon, "SPELL_HEAL", HL, 1000)
+        plain_heal, plain_int = seg.t.heal, seg.t.int
+        _, addon, seg = start("PALADIN", HOLY, FILES)
+        addon.BuffTracker.MarkTarget(addon.BuffTracker, "Me", OATH, 300)
+        heal(addon, "SPELL_HEAL", HL, 1400)                     # 1000 + the Oath's 400 on Holy Light
+        self.assertAlmostEqual(seg.t.heal, plain_heal)          # +Healing did not produce the 400
+        self.assertAlmostEqual(seg.t.crit, crit_per_pct(1400, 0.10, CB) / 14)   # the 400 crits with the rest
+        self.assertAlmostEqual(seg.t.int, crit_per_pct(1400, 0.10, CB) / 31.9)
+        heal(addon, "SPELL_HEAL", HL, 2450, crit=True)          # (1000 + 400) x 1.75
+        self.assertAlmostEqual(seg.t.heal, 2 * plain_heal)
+
+    def test_oath_amounts_per_spell_and_target(self):
+        _, addon, seg = start("PALADIN", HOLY, FILES)
+        addon.BuffTracker.MarkTarget(addon.BuffTracker, "Me", OATH, 300)
+        get = lambda spell: addon.Spells.Get(addon.Spells, spell)
+        for spell, amount in ((HL, 400), (HS_HEAL, 230), (LV, 0)):   # Light's Vigil is not in the Oath
+            self.assertEqual(addon.StatParser[65].FlatBonus("SPELL_HEAL", get(spell), "player"), amount)
+        fol = get(19943)                                          # Flash of Light R6
+        self.assertEqual(addon.StatParser[65].FlatBonus("SPELL_HEAL", fol, "player"), 115)
+        self.assertEqual(addon.StatParser[65].FlatBonus("SPELL_PERIODIC_HEAL", fol, "player"), 0)
+        self.assertEqual(addon.StatParser[65].FlatBonus("SPELL_HEAL", fol, "party1"), 0)   # no Oath there
+
     def test_boundless_light_leaves_other_spells_alone(self):
         _, addon, seg = start("PALADIN", HOLY, FILES)
         heal(addon, "SPELL_HEAL", HL, 1000)

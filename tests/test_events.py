@@ -4,10 +4,13 @@ from harness import load, CORE_FILES
 FILES = CORE_FILES + ["Events.lua"]
 PALADIN = 'STUB.class = "PALADIN"; STUB.talents = { {name="Holy", talents={ {name="Illumination", rank=5, max=5} }}, {name="Protection", talents={}}, {name="Retribution", talents={}} }'
 PRIEST = 'STUB.class = "PRIEST"; STUB.talents = { {name="Discipline", talents={ {name="Meditation", rank=3, max=3} }}, {name="Holy", talents={}} }'
+LITANY = 'STUB.class = "PRIEST"; STUB.talents = { {name="Discipline", talents={}}, {name="Holy", talents={ {name="Litany of Light", rank=2, max=2} }} }'
 SHAMAN = 'STUB.class = "SHAMAN"; STUB.talents = { {name="Elemental", talents={}}, {name="Enhancement", talents={}}, {name="Restoration", talents={ {name="Tidal Mastery", rank=1, max=5} }} }'
 PARTY = 'STUB.group = "party"; STUB.groupSize = 1; STUB.guids.party1 = "Player-2"; STUB.names.party1 = "Bob"'
 HL = 25292     # Holy Light R9, 660 mana, filler, 2.5 s cast
-FH = 10917     # Flash Heal R7, filler
+FH = 10917     # Flash Heal R7, 380 mana, filler
+FH6 = 10916    # Flash Heal R6, 315 mana
+RENEW = 25315  # Renew R10, 410 mana
 PWS = 10901    # Power Word: Shield R10
 HW3 = 547      # Healing Wave R3, 80 mana
 CHAIN = 10623  # Chain Heal R3, 405 mana
@@ -164,6 +167,34 @@ class UnitEvents(unittest.TestCase):
         self.assertAlmostEqual(seg.fillerManaSpent, 153 + 76 - 7)
         fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", CHAIN)        # Chain Heal: no return
         self.assertAlmostEqual(seg.fillerManaSpent, 222 + 405)
+
+    def test_litany_of_light_returns_mana_when_the_previous_heal_was_another_spell(self):
+        lua, addon, seg = start(LITANY, 257)
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", FH)           # first heal: nothing before it
+        self.assertEqual(seg.fillerManaSpent, 380)
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", FH)           # same spell: no return
+        self.assertEqual(seg.fillerManaSpent, 760)
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", RENEW)        # 2/2: 10% of the 410 base cost back
+        self.assertAlmostEqual(seg.fillerManaSpent, 760 + 410 - 41)
+        lua.execute(f"STUB.spellCost[{FH6}] = 300")                          # Improved Healing: still 10% of the base cost
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", FH6)
+        self.assertAlmostEqual(seg.fillerManaSpent, 1129 + 300 - 31.5)
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", FH)           # another rank of the same spell: no return
+        self.assertAlmostEqual(seg.fillerManaSpent, 1397.5 + 380)
+        ttl = addon.SegmentManager.Get(addon.SegmentManager, "Total")
+        self.assertAlmostEqual(ttl.fillerManaSpent, 1777.5)
+
+    def test_litany_tracks_heals_cast_out_of_combat_and_needs_the_talent(self):
+        lua, addon, seg = start(LITANY, 257)
+        lua.execute("HSW_TEST_ADDON.inCombat = false")
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", RENEW)        # before the pull
+        lua.execute("HSW_TEST_ADDON.inCombat = true")
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", FH)           # previous heal was Renew
+        self.assertAlmostEqual(seg.fillerManaSpent, 380 - 38)
+        lua, addon, seg = start(PRIEST, 256)                                 # no Litany
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", RENEW)
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", FH)
+        self.assertEqual(seg.fillerManaSpent, 790)
 
     def test_shield_cast_is_credited_at_cast_with_weakened_soul(self):
         lua, addon, seg = start(PRIEST, 256)

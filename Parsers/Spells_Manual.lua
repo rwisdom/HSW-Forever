@@ -36,6 +36,10 @@ addon.Priest  = { InnerFocus = 14751, InnerFocusDuration = 60, WeakenedSoul = 67
 addon.Druid   = { Clearcasting = 16870 };
 addon.Shaman  = { WaterShield = 408510, WaterShieldDuration = 600 }; -- verified in game 2026-10-21: cast id and aura id are both 408510, 3 charges, 600 s
 addon.Paladin = { OathOfLight = 1328548, OathOfLightDuration = 300 }; -- talent spell (hotfix 2026-10-30); marked on its target at cast (Events.lua)
+-- Flat healing the Oath adds on its target (build 70753 tooltip: "up to" these, Classic's Blessing of
+-- Light R3 numbers; the "up to" is the Classic downrank penalty on spell ranks learned under level 20,
+-- which a 15-point talent never meets). Subtracted before the +Healing derivative (Parsers/HolyPaladin.lua).
+addon.Paladin.OathBonus = { ["Holy Light"] = 400, ["Flash of Light"] = 115, ["Holy Shock"] = 230 };
 
 --[[----------------------------------------------------------------------------
 	Earthfury set bonuses (seen in game 2026-10-22, Stockade log). addon.ply_earthfury counts the pieces worn.
@@ -47,11 +51,26 @@ addon.Shaman.Earthfury = {
 	manaPieces = 5, jumpPieces = 8,
 };
 
--- Mana a cast of s returns on average: taken off the filler cost (Events.lua).
+--[[----------------------------------------------------------------------------
+	Litany of Light (Holy priest, row 5): a heal cast returns 5% per rank of its base cost when
+	the previous heal was a different spell (another rank of the same spell is the same spell).
+	The previous heal is tracked on every cast, in or out of combat.
+------------------------------------------------------------------------------]]
+local lastHealCast;
+
+-- Mana a cast of s returns on average: taken off the filler cost (Events.lua). Called for every
+-- cast of a database spell so Litany of Light sees the previous heal.
 function addon:CastManaReturn(s)
-	if (self.ply_earthfury or 0) < self.Shaman.Earthfury.manaPieces then return 0 end
-	if s.name ~= "Healing Wave" and s.name ~= "Lesser Healing Wave" then return 0 end
-	return 0.25 * 0.35 * s.manaCost;
+	local back = 0;
+	local litany = self:GetTalentRank("Litany of Light");
+	if litany > 0 and lastHealCast and lastHealCast ~= s.name then
+		back = back + 0.05 * litany * s.manaCost;
+	end
+	lastHealCast = s.name;
+	if (self.ply_earthfury or 0) >= self.Shaman.Earthfury.manaPieces and (s.name == "Healing Wave" or s.name == "Lesser Healing Wave") then
+		back = back + 0.25 * 0.35 * s.manaCost;
+	end
+	return back;
 end
 
 -- Units a cast of s jumps to after its target (HealMatcher).

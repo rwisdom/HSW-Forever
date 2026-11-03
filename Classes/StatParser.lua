@@ -163,6 +163,7 @@ local StatParser = {};
 -- overrides (all optional):
 --   CritChance(ev, s, destUnit, C) -> C             per-spell crit chance (talents, buffs)
 --   CritBonus(ev, s, destUnit, CB) -> CB            per-spell crit healing bonus (Holy Power)
+--   FlatBonus(ev, s, destUnit) -> amount            fixed part of the heal that +Healing did not produce (Oath of Light)
 --   CriticalStrike(ev, s, heal, destUnit, C, CB, seg) -> extra crit value (mana returned on crit)
 --   Intellect(ev, s, heal, destUnit, _SP, seg) -> extra Int value (Int -> +Healing talents)
 --   Spirit(ev, s, heal, destUnit, _SP, seg) -> extra Spirit value (Spirit -> +Healing talents)
@@ -229,7 +230,9 @@ function StatParser:Allocate(ev, s, heal, destUnit, f, SP, C, CB, H)
 	end
 
 	if f.CritChance then C = f.CritChance(ev, s, destUnit, C) end
-	local _SP = _Healing(ev, s, heal, SP);
+	-- a flat add-on (Oath of Light) crits with the rest of the heal but did not come from +Healing
+	local flat = f.FlatBonus and f.FlatBonus(ev, s, destUnit) or 0;
+	local _SP = _Healing(ev, s, math.max(heal - flat, 0), SP);
 	local _C  = _CriticalStrike(s, heal, C, CB);
 	local _H  = _Haste(s, heal, H);
 	local _I  = _Intellect(s, heal, C, CB);

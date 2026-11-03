@@ -133,8 +133,9 @@ function addon:OnPlayerSpellcast(spellID)
 		self.BuffTracker:UnmarkAll(spellID);
 		self.BuffTracker:MarkTarget(self.HealMatcher:SentTarget(spellID), spellID, self.Paladin.OathOfLightDuration);
 	end
-	if not self.inCombat then return end
 	local s = self.Spells:Get(spellID);
+	local back = s and self:CastManaReturn(s) or 0; -- every heal cast, in or out of combat: Litany of Light tracks the previous one
+	if not self.inCombat then return end
 	local now = GetTime();
 
 	-- buffs we cast ourselves are the only ones visible in combat
@@ -171,8 +172,7 @@ function addon:OnPlayerSpellcast(spellID)
 	if s then self:LogEvent("cast", s, self.HealMatcher:SentTarget(spellID), nil, nil, free and 0 or cost) end
 	if cost <= 0 or free then return end
 	if s and s.filler then
-		local net = cost - self:CastManaReturn(s); -- set bonuses return part of the cost on average
-		forEachSegment(function(seg) seg:IncFillerCasts(net) end);
+		forEachSegment(function(seg) seg:IncFillerCasts(cost - back) end); -- Litany and set bonuses return part of the cost
 	end
 	forEachSegment(function(seg) seg:AccumulateFSR(now) end);
 	self.lastManaSpend = now;
