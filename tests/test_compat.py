@@ -2,9 +2,12 @@ import unittest
 from harness import load
 
 
+LEGACY = "C_Spell = nil; C_UnitAuras = nil; C_Item = nil; C_AddOns = nil; MenuUtil = nil; Settings = nil"   # a client without the namespaced APIs
+
+
 class CompatTests(unittest.TestCase):
     def test_legacy_fallbacks(self):
-        lua, addon = load(["Classes/Compat.lua"])
+        lua, addon = load(["Classes/Compat.lua"], setup=LEGACY)
         self.assertEqual(addon.Compat.GetSpellInfo(635), ("spell635", None, "icon635"))
         self.assertEqual(addon.Compat.GetSpellCooldown(635), (0, 0))
         self.assertEqual(addon.Compat.GetSpellHaste(), 0)
@@ -60,7 +63,7 @@ class CompatTests(unittest.TestCase):
         setup = 'C_UnitAuras = { GetAuraDataByIndex = function() error("Auras cannot be accessed when secret") end }'
         lua, addon = load(["Classes/Compat.lua"], setup=setup)
         self.assertEqual(addon.Compat.UnitAura("player", 1), (None, None, None, None, True))
-        lua, addon = load(["Classes/Compat.lua"], setup='function UnitAura() error("secret") end')
+        lua, addon = load(["Classes/Compat.lua"], setup=LEGACY + '; function UnitAura() error("secret") end')
         self.assertEqual(addon.Compat.UnitAura("player", 1), (None, None, None, None, True))
 
     def test_context_menu_prefers_menu_util(self):
@@ -85,10 +88,19 @@ class CompatTests(unittest.TestCase):
         lua, addon = load(["Classes/Compat.lua"], setup="Settings = { OpenToCategory = function(id) OPENED = id end }")
         lua.execute('HSW_TEST_ADDON.Compat.OpenOptionsCategory({ settingsCategoryID = "cat-7" })')
         self.assertEqual(lua.globals().OPENED, "cat-7")
-        lua, addon = load(["Classes/Compat.lua"], setup="OPENS = 0; function InterfaceOptionsFrame_OpenToCategory() OPENS = OPENS + 1 end")
+        lua, addon = load(["Classes/Compat.lua"], setup=LEGACY + "; OPENS = 0; function InterfaceOptionsFrame_OpenToCategory() OPENS = OPENS + 1 end")
         lua.execute("HSW_TEST_ADDON.Compat.OpenOptionsCategory({})")
         self.assertEqual(lua.globals().OPENS, 2)                              # twice: Blizzard first-open bug
 
     def test_legacy_unit_aura(self):
+        lua, addon = load(["Classes/Compat.lua"], setup=LEGACY + "; STUB.auras[1] = { id = 16870, count = 2, expiration = 4 }")
+        self.assertEqual(addon.Compat.UnitAura("player", 1), (2, 4, "player", 16870))
+
+    def test_stub_default_is_the_namespaced_shape(self):
+        # the rest of the suite runs the branches Forever takes: C_Spell, C_UnitAuras, C_Item, MenuUtil, Settings
+        lua, addon = load(["Classes/Compat.lua"], setup="STUB.auras[1] = { id = 16870, count = 2, expiration = 4 }; function GetSpellInfo() error('legacy') end; function UnitAura() error('legacy') end")
+        self.assertEqual(addon.Compat.UnitAura("player", 1), (None, None, None, None, True))   # the C_UnitAuras wrapper calls the (now throwing) global
         lua, addon = load(["Classes/Compat.lua"], setup="STUB.auras[1] = { id = 16870, count = 2, expiration = 4 }")
         self.assertEqual(addon.Compat.UnitAura("player", 1), (2, 4, "player", 16870))
+        self.assertEqual(addon.Compat.GetSpellInfo(635), ("spell635", None, "icon635"))
+        self.assertEqual(addon.Compat.GetAddOnMetadata("HealerStatWeights", "Version"), "test")

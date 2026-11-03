@@ -43,7 +43,7 @@ local historySelected = 0;
 --[[----------------------------------------------------------------------------
 	Labels
 ------------------------------------------------------------------------------]]
-local SegmentLabels = {
+local SegmentLabels = { -- history entry field -> label (OptionsBuilder:AddKVPair)
 	Heal     = "+Healing",
 	HealPct  = "+Healing\nPer 1% HPS",
 	Crt      = "Crit Rating",
@@ -56,17 +56,6 @@ local SegmentLabels = {
 	SpiPct   = "Spirit\nPer 1% HPS",
 	Mp5      = "MP5",
 	Mp5Pct   = "MP5\nPer 1% HPS",
-	Class    = "Class/Spec",
-	Talents  = "Talents",
-	Segment  = "Segment",
-	Duration = "Duration",
-	Name     = "Name",
-	Region   = "Region",
-	Realm    = "Realm",
-	SpecID   = "SpecID",
-	DateTime = "Date/Time",
-	Slot13   = "Trinket 1",
-	Slot14   = "Trinket 2",
 };
 
 local spec_labels = {
@@ -136,7 +125,7 @@ local options = {
 					order = 3,
 					width = "full",
 					get = function(info) return hsw.db.global.logEvents end,
-					set = function(info, val) hsw.db.global.logEvents = val; addon.History.Dirty = true; end,
+					set = function(info, val) hsw.db.global.logEvents = val; addon.History:MarkDirty(); end,
 				},
 				headerUI = {
 					name = "UI Settings",
@@ -514,7 +503,7 @@ function hsw:ChatCommand(input)
 	elseif cmd == "start" then
 		HSW_ENABLE_FOR_TESTING = true;
 		addon:Show();
-		addon:StartFight("test");
+		addon:StartFight("test", true);
 	elseif cmd == "end" then
 		addon:EndFight();
 		HSW_ENABLE_FOR_TESTING = nil;
@@ -561,8 +550,6 @@ function addon:GetStatsForSegment(segment)
 		segment:GetMP5() / t.heal;
 end
 
-local regions = { [1] = "US", [2] = "KR", [3] = "EU", [4] = "TW", [5] = "CN" };
-
 function addon:AddHistoricalSegment(segment)
 	if not segment or not segment.t or segment.t.heal == 0 then return end -- nothing healed
 	if self:InRaidInstance() and not segment.bossFight then return end -- raid trash
@@ -572,11 +559,8 @@ function addon:AddHistoricalSegment(segment)
 	local m = math.floor(duration / 60);
 	local s = math.floor(duration - m * 60);
 	local specId = self:GetSpecId();
-	local pname, realm = UnitFullName("player");
-	local regionID = GetCurrentRegion and GetCurrentRegion() or nil;
 
 	h.tab = segment.bossFight and "" or "    ";
-	h.isDungeon = not self:InRaidInstance();
 	h.Segment = segment.id;
 	h.Duration = m .. ":" .. (s < 10 and "0" or "") .. s;
 	h.Class = spec_labels[specId] or "Unknown";
@@ -601,11 +585,8 @@ function addon:AddHistoricalSegment(segment)
 
 	h.Talents = segment.talentsSnapshot and segment.selectedTalents or {};
 	h.Events = segment.events;
-	h.Name = pname or "Unknown";
-	h.Realm = realm or "Unknown";
-	h.Region = regions[regionID] or "Unknown";
 
-	self.History:Enqueue(h, segment);
+	self.History:Enqueue(h);
 end
 
 -- The casts and heals a history entry was built from, as CSV with a header row.

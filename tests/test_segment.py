@@ -14,6 +14,29 @@ HSW_TEST_ADDON.ply_hst = 0
 """
 
 
+class SegmentManagerTests(unittest.TestCase):
+    def test_for_each_live_visits_the_current_fight_and_total(self):
+        from harness import CORE_FILES
+        lua, addon = load(CORE_FILES)
+        sm = addon.SegmentManager
+        seen = lambda: lua.eval("(function() local t = {} HSW_TEST_ADDON.SegmentManager:ForEachLive(function(s) t[#t + 1] = s.id end) return table.concat(t, ',') end)()")
+        self.assertEqual(seen(), "Total")                       # no fight yet: Total only
+        sm.Enqueue(sm, "Boss")
+        self.assertEqual(seen(), "Boss,Total")
+
+    def test_boss_flag_is_explicit_and_numbering_resets_with_the_list(self):
+        from harness import CORE_FILES
+        lua, addon = load(CORE_FILES)
+        sm = addon.SegmentManager
+        sm.Enqueue(sm, "Boss", True)
+        sm.Enqueue(sm, "Boss")
+        self.assertEqual((sm.Get(sm, 1).bossFight, sm.Get(sm, 0).bossFight), (True, False))
+        self.assertEqual(sm.Get(sm, 0).id, "Boss(2)")
+        sm.ResetAllSegments(sm)
+        sm.Enqueue(sm, "Boss")
+        self.assertEqual(sm.Get(sm, 0).id, "Boss")
+
+
 class SegmentTests(unittest.TestCase):
     def seg(self, extra=""):
         lua, addon = load(FILES, setup=SETUP + extra)

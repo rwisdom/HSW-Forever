@@ -18,10 +18,7 @@ local function near(ts1, ts2)
 end
 
 function CastTracker:IncChainCasts()
-	local cur_seg = addon.SegmentManager:Get(0);
-	local ttl_seg = addon.SegmentManager:Get("Total");
-	if cur_seg then cur_seg:IncChainCasts() end
-	if ttl_seg then ttl_seg:IncChainCasts() end
+	addon.SegmentManager:ForEachLive(function(seg) seg:IncChainCasts() end);
 end
 
 -- UNIT_SPELLCAST_START

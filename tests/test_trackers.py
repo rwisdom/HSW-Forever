@@ -10,13 +10,8 @@ class BuffTrackerTests(unittest.TestCase):
     def auras(self, lua_list):
         self.lua.execute(f"STUB.auras = {{ {lua_list} }}; HSW_TEST_ADDON.BuffTracker:UpdatePlayerBuffs()")
 
-    def test_stacks_apply_and_expire_with_callbacks(self):
-        self.lua.execute("""
-            CALLS = {}
-            HSW_TEST_ADDON.BuffTracker:Track(408510,
-                function(c, old) table.insert(CALLS, "apply:" .. c .. ":" .. old) end,
-                function(c, old) table.insert(CALLS, "expire:" .. c .. ":" .. old) end)
-        """)
+    def test_stacks_follow_the_aura_and_drop_when_it_falls_off(self):
+        self.lua.execute("HSW_TEST_ADDON.BuffTracker:Track(408510)")
         self.assertEqual(self.bt.Get(self.bt, 408510), 0)
         self.auras("{id=408510, count=3}")
         self.assertEqual(self.bt.Get(self.bt, 408510), 3)
@@ -24,8 +19,6 @@ class BuffTrackerTests(unittest.TestCase):
         self.assertEqual(self.bt.Get(self.bt, 408510), 2)
         self.auras("{id=99}")
         self.assertEqual(self.bt.Get(self.bt, 408510), 0)
-        calls = self.lua.globals().CALLS
-        self.assertEqual([calls[i] for i in range(1, 4)], ["apply:3:0", "expire:2:3", "expire:0:2"])
 
     def test_count_zero_is_one_stack_and_expiry_is_honoured(self):
         self.auras("{id=14751, count=0, expiration=5}")      # Inner Focus is tracked by Spells_Manual

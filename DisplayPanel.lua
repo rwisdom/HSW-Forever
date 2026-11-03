@@ -16,20 +16,13 @@ local clearsegments_dialog_name = "HSW_CLEARALLSEGMENTS";
 local clearsegments_title = "Clear all segments?";
 local btn_size = 16;
 
-local function forEachSegment(fn)
-	local cur_seg = addon.SegmentManager:Get(0);
-	local ttl_seg = addon.SegmentManager:Get("Total");
-	if cur_seg then fn(cur_seg) end
-	if ttl_seg then fn(ttl_seg) end
-end
-
 --[[----------------------------------------------------------------------------
 	Display updates (safe to call before SetupFrame)
 ------------------------------------------------------------------------------]]
 function addon:UpdateDisplayStats()
 	if self.inCombat then -- bring the five-second-rule split up to date before showing Spirit
 		local now = GetTime();
-		forEachSegment(function(seg) seg:AccumulateFSR(now) end);
+		self.SegmentManager:ForEachLive(function(seg) seg:AccumulateFSR(now) end);
 	end
 	if not self.frame then return end
 	self.frame.textR:SetFormattedText(pattern_right, self:GetStatsForDisplay());
@@ -252,7 +245,8 @@ local function discoverMsg(text)
 	if addon.discoverSpells then addon:Msg("[HealerStatWeights]: " .. text) end
 end
 
-function addon:StartFight(id)
+-- isBossFight: the segment is logged even as raid trash (an encounter, or one the player asked for).
+function addon:StartFight(id, isBossFight)
 	if self.inCombat then return end
 	discoverMsg("fight start requested (" .. tostring(id) .. ").");
 	if not self:Enabled() then discoverMsg("fight not started: not enabled here."); return end
@@ -260,7 +254,7 @@ function addon:StartFight(id)
 	self:UpdatePlayerStats();
 	self.UnitManager:Cache();
 	self.HealMatcher:Reset();
-	self.SegmentManager:Enqueue(id);
+	self.SegmentManager:Enqueue(id, isBossFight);
 
 	-- the Total segment is live for the duration of every fight
 	local cur_seg = self.SegmentManager:Get(0);
@@ -300,7 +294,7 @@ function addon:ToggleFight()
 		return;
 	end
 	self.manualFight = true;
-	self:StartFight("Manual");
+	self:StartFight("Manual", true);
 	if not self.inCombat then
 		self.manualFight = nil;
 		self:Msg("Current spec is not supported.");

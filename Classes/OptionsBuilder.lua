@@ -7,7 +7,6 @@ local name, addon = ...;
 ------------------------------------------------------------------------------]]
 local OptionsBuilder = {};
 local pattern_decimal = "%.2f";
-local pattern_percent = "%.1f";
 
 
 
@@ -41,7 +40,7 @@ end
 --[[----------------------------------------------------------------------------
     AddKVPair - Create a description KV Pair, formatted using options:
         Width        = 1.05 (default)
-        Type         = "decimal", "integer", "percent", "percentint", "string"
+        Type         = "decimal" (default), "integer", "string"
         KeyColor     = "FFFFFF"
         ValueColor   = "FFF569"
         ValueSuffix  = ""
@@ -56,15 +55,7 @@ local function fmtValue(value,options)
     local value = value or 0.0;
     local str;
 
-    if ( type == "percent" ) then
-        value = tonumber(value) or 0.0;
-        value = value * 100.0;
-        str = string.format(pattern_percent,value);
-    elseif ( type == "percentint" ) then
-        value = tonumber(value) or 0.0;
-        value = math.floor(value * 100.0);
-        str = tostring(value);
-    elseif ( type == "integer" ) then
+    if ( type == "integer" ) then
         value = tonumber(value) or 0.0;
         value = math.floor(value);
         str = tostring(value);
@@ -124,7 +115,7 @@ function OptionsBuilder:AddKVPairRaw(key,value,options)
         self:AddCtrl({
             name = fmtValue(value,options),
             type = "description",  
-            fontSize = options.FontSize or "large",
+            fontSize = "large",
             width=options.Width / 1.05 * 0.3
         });
         self:AddCtrl({

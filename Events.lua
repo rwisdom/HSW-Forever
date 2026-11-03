@@ -5,13 +5,6 @@ addon.currentSegment = 0;
 --[[----------------------------------------------------------------------------
 	Helpers
 ------------------------------------------------------------------------------]]
-local function forEachSegment(fn)
-	local cur_seg = addon.SegmentManager:Get(0);
-	local ttl_seg = addon.SegmentManager:Get("Total");
-	if cur_seg then fn(cur_seg) end
-	if ttl_seg then fn(ttl_seg) end
-end
-
 -- Mana cost of a spell right now: the client API when present (talent reductions,
 -- downranks, Clearcasting), else the table value. 0 when unknown.
 local function SpellManaCost(spellID, s)
@@ -80,7 +73,7 @@ end
 function addon.hsw:ENCOUNTER_START(eventName, encounterId, encounterName)
 	stopCombatPoll();
 	addon:EndFight();
-	addon:StartFight(encounterName);
+	addon:StartFight(encounterName, true);
 	addon.inBossFight = true; -- wait for ENCOUNTER_END to close the segment
 end
 
@@ -96,6 +89,7 @@ end
 local function RefreshCharacter()
 	addon.Util.RebuildTalentCache();
 	addon:SetupConversionFactors();
+	addon:UpdateEquipment();
 	addon:UpdatePlayerStats();
 	addon:AdjustVisibility();
 end
@@ -110,7 +104,7 @@ function addon.hsw:CHARACTER_POINTS_CHANGED() RefreshCharacter() end
 function addon.hsw:PLAYER_TALENT_UPDATE() RefreshCharacter() end
 function addon.hsw:TRAIT_TREE_CURRENCY_INFO_UPDATED() RefreshCharacter() end
 function addon.hsw:COMBAT_RATING_UPDATE() addon:UpdatePlayerStats() end
-function addon.hsw:PLAYER_EQUIPMENT_CHANGED() addon:UpdatePlayerStats() end
+function addon.hsw:PLAYER_EQUIPMENT_CHANGED() addon:UpdateEquipment(); addon:UpdatePlayerStats() end
 
 function addon.hsw:GROUP_ROSTER_UPDATE()
 	if addon.inCombat then -- someone joined/left mid-combat
@@ -172,9 +166,9 @@ function addon:OnPlayerSpellcast(spellID)
 	if s then self:LogEvent("cast", s, self.HealMatcher:SentTarget(spellID), nil, nil, free and 0 or cost) end
 	if cost <= 0 or free then return end
 	if s and s.filler then
-		forEachSegment(function(seg) seg:IncFillerCasts(cost - back) end); -- Litany and set bonuses return part of the cost
+		self.SegmentManager:ForEachLive(function(seg) seg:IncFillerCasts(cost - back) end); -- Litany and set bonuses return part of the cost
 	end
-	forEachSegment(function(seg) seg:AccumulateFSR(now) end);
+	self.SegmentManager:ForEachLive(function(seg) seg:AccumulateFSR(now) end);
 	self.lastManaSpend = now;
 end
 
@@ -184,7 +178,7 @@ end
 local function AccumulateNow()
 	if addon.inCombat then
 		local now = GetTime();
-		forEachSegment(function(seg) seg:AccumulateFSR(now) end);
+		addon.SegmentManager:ForEachLive(function(seg) seg:AccumulateFSR(now) end);
 	end
 end
 

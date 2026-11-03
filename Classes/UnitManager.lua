@@ -11,18 +11,17 @@ local UnitManager = {
 ------------------------------------------------------------------------------]]
 local party = {};
 local raid = {};
-local boss = {};
 local ply = "player";
 do
 	for i=1,5,1 do party[i] = "party"..i end
 	for i=1,40,1 do raid[i] = "raid"..i end
-	for i=1,10,1 do boss[i] = "boss"..i end
 end
-	
+
 
 
 --[[----------------------------------------------------------------------------
-	Cache() - GUID -> unit token, unit name -> unit token, and the group's names.
+	Cache() - GUID -> unit token, unit name -> unit token, and the group's names,
+	for the player and the group: the only units our heals land on.
 	Names matter on Forever: UNIT_SPELLCAST_SENT reports the cast target by name.
 ------------------------------------------------------------------------------]]
 function UnitManager:Cache()
@@ -30,23 +29,22 @@ function UnitManager:Cache()
 	self.names = {};
 	self.groupNames = {};
 	local P = addon.Compat.PlainString;
-	local function add(token, inGroup)
-		local g = P(UnitGUID(token)); -- secret in combat for non-player units (bossN): unusable as a key
+	local function add(token)
+		local g = P(UnitGUID(token)); -- secret for a unit reached through a hostile one: unusable as a key
 		if not g or self.units[g] then return end -- the player also appears as raidN
 		self.units[g] = token;
 		local n = P(UnitName(token));
 		if n then
 			self.names[n] = token;
-			if inGroup then table.insert(self.groupNames, n) end
+			table.insert(self.groupNames, n);
 		end
 	end
 	if UnitInRaid(ply) then
-		for i = 1, GetNumGroupMembers() do add(raid[i], true) end
+		for i = 1, GetNumGroupMembers() do add(raid[i]) end
 	elseif UnitInParty(ply) then
-		for i = 1, GetNumGroupMembers() do add(party[i], true) end
+		for i = 1, GetNumGroupMembers() do add(party[i]) end
 	end
-	for i = 1, 10 do add(boss[i], false) end
-	add(ply, true);
+	add(ply);
 end
 
 --[[----------------------------------------------------------------------------
@@ -54,12 +52,6 @@ end
 	GroupNames() - names of the player and every group member (party-wide HoTs).
 ------------------------------------------------------------------------------]]
 function UnitManager:Find(guid)
-	if not self.units[guid] then
-		local boss1guid = addon.Compat.PlainString(UnitGUID("boss1")); -- secret in combat: no match
-		if guid == boss1guid then
-			self.units[guid] = "boss1";
-		end
-	end
 	return self.units[guid];
 end
 

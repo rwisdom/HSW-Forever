@@ -47,7 +47,7 @@ class ContentGates(unittest.TestCase):
 class Fights(unittest.TestCase):
     def test_start_and_end_fight(self):
         lua, addon = start(extra=ALWAYS)
-        addon.StartFight(addon, "Boss")
+        addon.StartFight(addon, "Boss", True)
         self.assertTrue(addon.inCombat)
         cur, ttl = seg(addon), seg(addon, "Total")
         self.assertEqual((cur.id, cur.bossFight), ("Boss", True))
@@ -62,7 +62,7 @@ class Fights(unittest.TestCase):
         addon.StartFight(addon, "Trash")
         addon.StartFight(addon, "Again")                                        # already in combat: ignored
         self.assertEqual(addon.SegmentManager.Size(addon.SegmentManager), 2)
-        self.assertEqual(seg(addon).id, "Trash")
+        self.assertEqual((seg(addon).id, seg(addon).bossFight), ("Trash", False))   # named is not boss
 
 
 class Display(unittest.TestCase):

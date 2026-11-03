@@ -6,13 +6,8 @@ local name, addon = ...;
 ------------------------------------------------------------------------------]]
 local BuffTracker = {};
 
-function BuffTracker:Track(spellId, fApply, fExpires)
-	self[spellId] = {
-		expiration = 0,
-		stacks = 0,
-		onApply = fApply or nil,
-		onExpires = fExpires or nil,
-	};
+function BuffTracker:Track(spellId)
+	self[spellId] = { expiration = 0, stacks = 0 };
 end
 
 function BuffTracker:UpdatePlayerBuffs()
@@ -26,19 +21,12 @@ function BuffTracker:UpdatePlayerBuffs()
 			t.expiration = expiration or 0;
 			found[id] = true;
 			if not count or not tonumber(count) or count == 0 then count = 1 end
-			local old = t.stacks;
 			t.stacks = count;
-			if count > old and t.onApply then t.onApply(count, old) end
-			if count < old and t.onExpires then t.onExpires(count, old) end
 		end
 	end
 	-- tracked buffs that fell off
 	for id, t in pairs(self) do
-		if type(t) == "table" and not found[id] and t.stacks ~= 0 then
-			local old = t.stacks;
-			t.stacks = 0;
-			if t.onExpires then t.onExpires(0, old) end
-		end
+		if type(t) == "table" and not found[id] then t.stacks = 0 end
 	end
 end
 
@@ -58,19 +46,15 @@ end
 function BuffTracker:MarkCast(spellId, duration)
 	local t = self[spellId];
 	if not t then return end
-	local old = t.stacks;
 	t.stacks = 1;
 	t.expiration = GetTime() + duration;
-	if old == 0 and t.onApply then t.onApply(1, 0) end
 end
 
 function BuffTracker:Consume(spellId)
 	local t = self[spellId];
-	if not t or t.stacks == 0 then return end
-	local old = t.stacks;
+	if not t then return end
 	t.stacks = 0;
 	t.expiration = 0;
-	if t.onExpires then t.onExpires(0, old) end
 end
 
 local targetMarks = {}; -- unit name -> { [spellId] = expiration }

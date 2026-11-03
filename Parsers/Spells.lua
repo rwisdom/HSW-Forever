@@ -3,7 +3,7 @@ local name, addon = ...;
 --[[----------------------------------------------------------------------------
 	SpellType - which spec a spell belongs to. Retail spec ids are kept so
 	history/SpecInfo keep working. PRIEST marks spells shared by Holy and
-	Discipline; SHARED is for consumables/trinkets usable by every spec.
+	Discipline.
 ------------------------------------------------------------------------------]]
 local SpellType = {
 	DRUID = 105,
@@ -12,7 +12,6 @@ local SpellType = {
 	DPRIEST = 256,
 	PALADIN = 65,
 	PRIEST = 5,
-	SHARED = 1,
 	IGNORED = -1,
 };
 local classTypeOfSpec = { [SpellType.HPRIEST] = SpellType.PRIEST, [SpellType.DPRIEST] = SpellType.PRIEST };
@@ -56,7 +55,6 @@ function Spells:Define(id, spellType, spellName, o)
 		party = o.party == true,
 		cd = cd,
 		manaCost = mana,
-		manaCostPctBase = o.manaPct,
 		filler = (mana > 0 or o.manaPct ~= nil) and not cd,
 	};
 	self[id] = s;
@@ -75,9 +73,7 @@ function Spells:Get(id)
 end
 
 function Spells:IsForSpec(s, specId)
-	return s.spellType == specId
-		or s.spellType == SpellType.SHARED
-		or s.spellType == classTypeOfSpec[specId];
+	return s.spellType == specId or s.spellType == classTypeOfSpec[specId];
 end
 
 --[[----------------------------------------------------------------------------

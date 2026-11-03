@@ -83,10 +83,7 @@ function addon:UpdatePlayerStats()
 	self.ply_int = P(select(2, UnitStat("player", 4))) or self.ply_int or 0;   -- effective (buffed) Intellect
 	self.ply_spi = P(select(2, UnitStat("player", 5))) or self.ply_spi or 0;
 	self.ply_maxmana = P(UnitPowerMax("player", 0)) or self.ply_maxmana or 0;
-	if not self.inCombat then -- item data may be secret in combat; gear cannot change there
-		self.ply_mp5 = self:EquippedMP5();
-		if class == "SHAMAN" then self.ply_earthfury = self:EquippedPieces(self.Shaman.Earthfury.pieces) end
-	end
+	if self.equipmentDirty and not self.inCombat then self:UpdateEquipment() end -- a swap made in combat
 	-- per-second rates; the ratio includes regen talents and Innervate. Gear MP5 sits in full in both
 	-- (verified 2026-10-22): taken out, what is left is Spirit regen. Buff MP5 (Mana Spring, Wisdom) is not.
 	local base, casting = GetManaRegen();
@@ -103,6 +100,16 @@ function addon:UpdatePlayerStats()
 	-- The Human Spirit is 10% since the racial pass of 26 Oct 2026 (was 5%).
 	self.ply_spiritmult = 1 + 0.05 * self:GetTalentRank("Living Spirit") + (UnitRace("player") == "Human" and 0.10 or 0);
 	self.RegenPerSpirit = self:GetRegenPerSpirit();
+end
+
+-- Gear MP5 and set pieces, read on PLAYER_EQUIPMENT_CHANGED rather than on every aura change. Item
+-- data may be secret in combat (a weapon swap can happen there): the read waits for combat to end.
+function addon:UpdateEquipment()
+	if self.inCombat then self.equipmentDirty = true; return end
+	self.equipmentDirty = nil;
+	local _, class = UnitClass("player");
+	self.ply_mp5 = self:EquippedMP5();
+	if class == "SHAMAN" then self.ply_earthfury = self:EquippedPieces(self.Shaman.Earthfury.pieces) end
 end
 
 -- Mana per 5 s on the equipped items.
@@ -181,20 +188,11 @@ function StatParser:IsCurrentSpecSupported()
 	return self:GetParserForCurrentSpec() ~= nil;
 end
 
-local function segments()
-	return addon.SegmentManager:Get(0), addon.SegmentManager:Get("Total");
-end
-
 function StatParser:IncHealing(heal, updateFiller, updateTotal)
-	local cur_seg, ttl_seg = segments();
-	if cur_seg then
-		if updateFiller then cur_seg:IncFillerHealing(heal) end
-		if updateTotal then cur_seg:IncTotalHealing(heal) end
-	end
-	if ttl_seg then
-		if updateFiller then ttl_seg:IncFillerHealing(heal) end
-		if updateTotal then ttl_seg:IncTotalHealing(heal) end
-	end
+	addon.SegmentManager:ForEachLive(function(seg)
+		if updateFiller then seg:IncFillerHealing(heal) end
+		if updateTotal then seg:IncTotalHealing(heal) end
+	end);
 end
 
 --[[----------------------------------------------------------------------------
@@ -215,9 +213,7 @@ function addon:LogEvent(kind, s, target, amount, crit, cost)
 end
 
 function StatParser:IncManaRestore(mana)
-	local cur_seg, ttl_seg = segments();
-	if cur_seg then cur_seg:IncManaRestore(mana) end
-	if ttl_seg then ttl_seg:IncManaRestore(mana) end
+	addon.SegmentManager:ForEachLive(function(seg) seg:IncManaRestore(mana) end);
 end
 
 --[[----------------------------------------------------------------------------
@@ -237,15 +233,12 @@ function StatParser:Allocate(ev, s, heal, destUnit, f, SP, C, CB, H)
 	local _H  = _Haste(s, heal, H);
 	local _I  = _Intellect(s, heal, C, CB);
 
-	local function allocate(seg)
+	addon.SegmentManager:ForEachLive(function(seg)
 		local c  = f.CriticalStrike and f.CriticalStrike(ev, s, heal, destUnit, C, CB, seg) or 0;
 		local i  = f.Intellect and f.Intellect(ev, s, heal, destUnit, _SP, seg) or 0;
 		local sp = f.Spirit and f.Spirit(ev, s, heal, destUnit, _SP, seg) or 0;
 		seg:AllocateHeal(_SP, _C + c, _H, _I + i, sp, s.spellID);
-	end
-	local cur_seg, ttl_seg = segments();
-	if cur_seg then allocate(cur_seg) end
-	if ttl_seg then allocate(ttl_seg) end
+	end);
 
 	addon:UpdateDisplayStats();
 end
@@ -264,7 +257,7 @@ function StatParser:DecompHealingForCurrentSpec(ev, destGUID, spellID, critFlag,
 	end
 	if not addon.Spells:IsForSpec(s, specId) then return end
 
-	local destUnit = addon.UnitManager:Find(destGUID); -- excludes pets/npcs
+	local destUnit = addon.UnitManager:Find(destGUID); -- the player and the group only
 	if not destUnit then return end
 
 	if addon.hsw.db.global.excludeRaidHealingCooldowns and s.cd then return end

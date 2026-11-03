@@ -137,6 +137,31 @@ DEFAULT_CHAT_FRAME = { AddMessage = noop };
 UIParent = {};
 function StaticPopup_Show() end
 function EasyMenu() end
-function UnitFullName() return "Me", "Realm" end
-function GetCurrentRegion() return 1 end
 function string.trim(s) return (s:gsub("^%s*(.-)%s*$", "%1")) end
+
+--[[ Forever's namespaced APIs, the branches Compat takes in game. Each wraps the legacy global above at
+     call time, so a test that redefines the global (GetItemInfo, UnitAura) is still in effect. The
+     legacy-only tests in test_compat.py nil these out. ]]
+C_Spell = {
+	GetSpellInfo = function(id)
+		local n, _, icon = GetSpellInfo(id)
+		if not n then return nil end
+		return { name = n, iconID = icon, spellID = id }
+	end,
+	GetSpellCooldown = function(id) local s, d = GetSpellCooldown(id); return { startTime = s, duration = d } end,
+	GetSpellPowerCost = function(id) return GetSpellPowerCost(id) end,
+};
+C_UnitAuras = {
+	GetAuraDataByIndex = function(unit, i, filter)
+		local _, _, count, _, _, expiration, source, _, _, id = UnitAura(unit, i, filter)
+		if not id then return nil end
+		return { applications = count, expirationTime = expiration, sourceUnit = source, spellId = id }
+	end,
+};
+C_Item = {
+	GetItemInfo = function(link) return GetItemInfo(link) end,
+	GetItemStats = function(link) return GetItemStats and GetItemStats(link) or nil end,
+};
+C_AddOns = { GetAddOnMetadata = function() return "test" end };
+MenuUtil = { CreateContextMenu = function(owner, build) build(owner, { CreateTitle = noop, CreateButton = noop }) end };
+Settings = { OpenToCategory = noop };

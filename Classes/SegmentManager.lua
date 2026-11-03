@@ -37,20 +37,22 @@ function SegmentManager:ResetAllSegments()
 		while (self:Size() > 0) do
 			self:Dequeue()
 		end
+		wipe(ids); -- numbering ("Boss(2)") starts over with the list
 	end
 end
 
 
 
 --[[----------------------------------------------------------------------------
-	Enqueue - Create & add a new segment to the front of the queue
+	Enqueue - Create & add a new segment to the front of the queue. isBossFight
+	marks a segment that is logged even as raid trash (encounters, manual segments).
 ------------------------------------------------------------------------------]]
-function SegmentManager:Enqueue(id)
+function SegmentManager:Enqueue(id, isBossFight)
 	self.front = self.front + 1;
 	self.segments[self.front] = addon.Segment.Create(id or "Unknown");
-	
+
 	if ( id ) then
-		self:SetCurrentId(id or "Unknown",true);
+		self:SetCurrentId(id, isBossFight);
 	end
 	
 	if ( self:Size() > addon.hsw.db.global.maxSegments ) then
@@ -94,6 +96,18 @@ function SegmentManager:Get(i)
 	end
 	
 	return nil;
+end
+
+
+
+--[[----------------------------------------------------------------------------
+	ForEachLive - Calls fn(segment) on the current fight and the Total segment,
+	the two every heal, cast and tick of time is credited to.
+------------------------------------------------------------------------------]]
+function SegmentManager:ForEachLive(fn)
+	local cur_seg = self:Get(0);
+	if cur_seg then fn(cur_seg) end
+	fn(self.Total);
 end
 
 

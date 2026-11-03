@@ -23,9 +23,9 @@ WHITELIST = {
                           "Desperate Prayer", "Divine Grace"]),
     "Shaman": ("SHAMAN", ["Healing Wave", "Lesser Healing Wave", "Chain Heal", "Riptide", "Healing Stream Totem"]),
 }
-# Seconds between HoT ticks. Not in the JSON — verify in game (Task 17) and regenerate if wrong.
-TICK_INTERVAL = {"Rejuvenation": 3, "Regrowth": 3, "Renew": 3, "Riptide": 3, "Wild Growth": 1,
-                 "Tranquility": 2, "Penance": 1, "Healing Stream Totem": 2}
+# Seconds between HoT ticks for spells whose tooltip says only "N over D sec" (verify in game and
+# regenerate if wrong). Spells that say "every I sec" carry their interval in the text.
+TICK_INTERVAL = {"Rejuvenation": 3, "Regrowth": 3, "Renew": 3, "Riptide": 3, "Wild Growth": 1}
 RAID_COOLDOWN = {"Tranquility", "Lay on Hands", "Divine Grace", "Desperate Prayer"}   # excluded by the "raid cooldowns" option
 NO_CRIT = {"Power Word: Shield", "Lay on Hands"}
 # Seconds a periodic effect lasts when its tooltip does not say (totems stay until replaced; 5 min).

@@ -129,10 +129,14 @@ end
 --[[----------------------------------------------------------------------------
 	SnapshotTalentsAndEquipment
 ------------------------------------------------------------------------------]]
+-- Item data is secret in combat (a boss pull ends the trash segment mid-fight): a slot that cannot
+-- be read plainly is left out rather than written to the saved variables.
 local function FetchItemInfoFromSlot(t, id)
-	local link = GetInventoryItemLink("player", id);
+	local P, N = addon.Compat.PlainString, addon.Compat.PlainNumber;
+	local link = P(GetInventoryItemLink("player", id));
 	if link then
 		local iname, _, _, ilvl, _, _, _, _, _, icon = addon.Compat.GetItemInfo(link);
+		iname, ilvl, icon = P(iname), N(ilvl), N(icon) or P(icon);
 		if ilvl and icon and iname then
 			t[id] = { link = link, name = iname, ilvl = ilvl, icon = icon };
 		end

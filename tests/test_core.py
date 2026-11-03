@@ -20,7 +20,7 @@ def fought_segment(lua, addon, seconds=100):
     """A finished boss segment: one Holy Light R9 heal of 1000 after 660 mana of filler casts, `seconds` long."""
     lua.execute(f"""
         local a = HSW_TEST_ADDON
-        a.SegmentManager:Enqueue("Boss")
+        a.SegmentManager:Enqueue("Boss", true)
         local s = a.SegmentManager:Get(0)
         s:IncFillerCasts(660)
         a.StatParser:DecompHealingForCurrentSpec("SPELL_HEAL", "Player-1", 25292, false, 1000, 0)
@@ -80,7 +80,7 @@ class History(unittest.TestCase):
         self.assertAlmostEqual(h.HealPct, 1000 / 100 / seg.t.heal)
         self.assertAlmostEqual(h.Mp5Pct, 1000 / 100 / seg.GetMP5(seg))
         self.assertEqual((h.Talents[1].name, h.Talents[1].rank), ("Illumination", 5))
-        self.assertEqual((h.Name, h.Realm, h.Region), ("Me", "Realm", "US"))
+        self.assertIsNone(h.Name)                                                 # no player/realm/region in the log
         names = addon.GetHistoricalSegmentsList(addon)
         self.assertIn("Boss 1:40", names[0])
         self.assertIn("Spell_Holy_HolyBolt", names[0])
@@ -136,6 +136,14 @@ class History(unittest.TestCase):
         self.assertIsNone(h.Slot14)
         names = [v.name for _, v in addon.BuildOptionsTableForHistorySegment(addon, 0).items() if v.name]
         self.assertTrue(any("icon_charm" in n and "45" in n and "Lucky Charm" in n for n in names), names)
+
+    def test_secret_item_data_in_combat_is_not_snapshotted(self):
+        trinket = ('issecretvalue = function(v) return v == "SECRET" end'
+                   '; function GetInventoryItemLink(_, slot) return slot == 13 and "|Hitem:1|h[Lucky Charm]|h" or nil end'
+                   '; function GetItemInfo(link) return "SECRET", link, 3, 45, 40, "Armor", "Trinket", 1, "INVTYPE_TRINKET", "icon_charm" end')
+        lua, addon = start(extra=trinket)
+        addon.AddHistoricalSegment(addon, fought_segment(lua, addon))
+        self.assertIsNone(addon.History.Get(addon.History, 0).Slot13)
 
     def test_history_entry_exports_its_casts_and_heals_as_csv(self):
         lua, addon = start(extra="HSW_TEST_SAVED = { logEvents = true }")   # off by default

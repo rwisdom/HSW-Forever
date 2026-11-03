@@ -31,6 +31,7 @@ function Queue.CreateHistoryQueue()
 		g.front, g.back = 0, 0;
 		self.Dirty = true;
 	end
+	t.MarkDirty = function(self) self.Dirty = true end
 	t.ClearDirty = function(self) self.Dirty = false end
 	t.GetDirty = function(self) return self.Dirty end
 	t.Size = function(self)

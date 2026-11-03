@@ -19,7 +19,6 @@ class SchemaTests(unittest.TestCase):
         self.assertEqual((s.coeff, s.base, s.coeffTick, s.baseTick, s.manaCost), (0.5, 10, 0, 0, 35))
         self.assertEqual((s.canCrit, s.hstHPCT, s.cd, s.filler), (True, True, False, True))
         self.assertEqual((s.castTime, s.duration, s.tick, s.targets, s.party), (2.5, 0, 0, 1, False))
-        self.assertIsNone(s.manaCostPctBase)
 
     def test_timing_and_target_fields(self):
         s = self.define(10, "{ coeffTick = 0.2, baseTick = 8, mana = 25, duration = 12, tick = 3 }")
@@ -37,7 +36,7 @@ class SchemaTests(unittest.TestCase):
         s = self.define(5, "{ canCrit = false }")
         self.assertEqual((s.canCrit, s.filler), (False, False))                    # no mana cost: not a filler
         s = self.define(6, "{ manaPct = 0.2 }")
-        self.assertEqual((s.filler, s.manaCostPctBase, s.manaCost), (True, 0.2, 0))
+        self.assertEqual((s.filler, s.manaCost), (True, 0))                         # priced by the client at cast
 
     def test_alias_and_get(self):
         self.define(20473, "{ coeff = 0.429 }")
@@ -50,11 +49,9 @@ class SchemaTests(unittest.TestCase):
     def test_is_for_spec(self):
         pri = self.define(7, "{}", "PRIEST")
         pal = self.define(8, "{}", "PALADIN")
-        shared = self.define(9, "{}", "SHARED")
         f = lambda s, spec: self.S.IsForSpec(self.S, s, spec)
         self.assertEqual((f(pri, 256), f(pri, 257), f(pri, 65)), (True, True, False))
         self.assertEqual((f(pal, 65), f(pal, 105)), (True, False))
-        self.assertEqual((f(shared, 105), f(shared, 264)), (True, True))
 
     def test_discover_ignored(self):
         self.addon.DiscoverIgnoredSpell(self.addon, 424242)

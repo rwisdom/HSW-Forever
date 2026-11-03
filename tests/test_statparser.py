@@ -24,7 +24,7 @@ def start(cls, overrides="{}", extra=""):
     lua.execute(f"""
         local a = HSW_TEST_ADDON
         a.StatParser:Create(a:GetSpecId(), {overrides})
-        a.Util.RebuildTalentCache(); a:SetupConversionFactors(); a:UpdatePlayerStats()
+        a.Util.RebuildTalentCache(); a:SetupConversionFactors(); a:UpdateEquipment(); a:UpdatePlayerStats()
         a.SegmentManager:Enqueue("fight"); a.UnitManager.units["Player-1"] = "player"
     """)
     return lua, addon, addon.SegmentManager.Get(addon.SegmentManager, 0)
@@ -117,6 +117,18 @@ class SpiritRegen(unittest.TestCase):
         addon.UpdatePlayerStats(addon)
         self.assertEqual(addon.ply_mp5, 5)
         self.assertEqual((addon.ply_regen_base, addon.ply_regen_cast), (20, 8))
+
+    def test_a_swap_in_combat_is_read_once_combat_ends(self):
+        lua, addon, _ = start("PALADIN", extra='function GetInventoryItemLink(_, slot) return slot == 1 and "item1" or nil end'
+                                                '; C_Item = { GetItemStats = function() return { ITEM_MOD_MANA_REGENERATION_SHORT = 4 } end }')
+        self.assertEqual(addon.ply_mp5, 4)
+        lua.execute("HSW_TEST_ADDON.inCombat = true; C_Item.GetItemStats = function() return { ITEM_MOD_MANA_REGENERATION_SHORT = 9 } end")
+        addon.UpdateEquipment(addon)                              # PLAYER_EQUIPMENT_CHANGED in combat: deferred
+        addon.UpdatePlayerStats(addon)
+        self.assertEqual(addon.ply_mp5, 4)
+        lua.execute("HSW_TEST_ADDON.inCombat = false")
+        addon.UpdatePlayerStats(addon)                            # first stats refresh out of combat picks it up
+        self.assertEqual(addon.ply_mp5, 9)
 
 
 class Derivatives(unittest.TestCase):
