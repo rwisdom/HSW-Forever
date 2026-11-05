@@ -225,7 +225,12 @@ class Chat(unittest.TestCase):
         self.assertEqual(self.msgs(), ["Spec: none (this class has no healing spec), supported: false"])
 
     def test_spec_on_a_healer_with_no_points_yet(self):
-        # In game 2026-10-23: a level-10 paladin before its first point read "this class has no healing spec"
+        # In game 2026-11-04: a level-3 shaman could not start a segment ("Current spec is not supported")
         self.lua.execute('STUB.talents[1].talents[1].rank = 0; HSW_TEST_ADDON.Util.RebuildTalentCache()')
         self.chat("spec")
-        self.assertEqual(self.msgs(), ["Spec: none (no talent points spent yet), supported: false"])
+        self.assertEqual(self.msgs(), ["Spec: id 65 (Holy Paladin), supported: true"])
+
+    def test_spec_before_talent_data_loads(self):
+        self.lua.execute('C_ClassTalents.GetActiveConfigID = function() return nil end; HSW_TEST_ADDON.Util.RebuildTalentCache()')
+        self.chat("spec")
+        self.assertEqual(self.msgs(), ["Spec: none (talent data not loaded yet), supported: false"])

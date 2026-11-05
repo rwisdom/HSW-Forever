@@ -30,7 +30,14 @@ class SpecDetection(unittest.TestCase):
     def test_unsupported(self):
         self.assertIsNone(self.spec(talents("WARRIOR", [("Arms", [("Deflection", 5)])])))
         self.assertIsNone(self.spec(talents("DRUID", [("Balance", [("Improved Wrath", 5)]), ("Feral Combat", []), ("Restoration", [])])))
-        self.assertIsNone(self.spec(talents("PRIEST", [("Discipline", []), ("Holy", [])])))
+
+    def test_no_points_falls_back_to_healing_spec(self):
+        # under level 10, or right after a talent reset: no points anywhere, assume the healing spec
+        self.assertEqual(self.spec(talents("SHAMAN", [("Elemental", []), ("Enhancement", []), ("Restoration", [])])), 264)
+        self.assertEqual(self.spec(talents("PALADIN", [("Holy", []), ("Protection", []), ("Retribution", [])])), 65)
+        self.assertEqual(self.spec(talents("DRUID", [("Balance", []), ("Feral Combat", []), ("Restoration", [])])), 105)
+        self.assertEqual(self.spec(talents("PRIEST", [("Discipline", []), ("Holy", [])])), 257)
+        self.assertIsNone(self.spec(talents("WARRIOR", [("Arms", []), ("Fury", []), ("Protection", [])])))
 
 
 class TalentCache(unittest.TestCase):

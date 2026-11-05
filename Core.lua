@@ -513,7 +513,7 @@ function hsw:ChatCommand(input)
 		if specId then
 			label = "id " .. specId .. " (" .. tostring(spec_labels[specId]) .. ")";
 		elseif addon.Util.ClassHasHealingSpec() then
-			label = "none (no talent points spent yet)";
+			label = "none (talent data not loaded yet)";
 		else
 			label = "none (this class has no healing spec)";
 		end

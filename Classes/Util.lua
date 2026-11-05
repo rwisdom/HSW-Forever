@@ -19,7 +19,9 @@ end
 	only knows a class-level "spec", so:
 	- tab membership comes from addon.TalentTab (Parsers/Talents_Generated.lua),
 	- spec = class + tab with the most points; retail spec ids are kept so
-	  SpellType / SpecInfo / history keep working.
+	  SpellType / SpecInfo / history keep working,
+	- no points anywhere (under level 10, after a reset) = the class's healing
+	  spec, Holy for priests.
 	The tree walk is cached. RebuildTalentCache runs on the talent-change events;
 	the getters build the cache on first use.
 ------------------------------------------------------------------------------]]
@@ -29,6 +31,7 @@ local SPEC_BY_CLASS_TAB = {
 	SHAMAN  = { [3] = 264 },
 	DRUID   = { [3] = 105 },
 };
+local SPEC_NO_POINTS = { PALADIN = 65, PRIEST = 257, SHAMAN = 264, DRUID = 105 };
 
 local talentRanks = {};   -- name -> rank
 local rankedTalents = {}; -- { {name=, icon=, rank=}, ... } with rank > 0, in tree order
@@ -83,7 +86,9 @@ function Util.GetSpecId()
 		local pts = tabPoints[tab] or 0;
 		if pts > bestPts then bestTab, bestPts = tab, pts end
 	end
-	return bestTab and map[bestTab] or nil;
+	if bestTab then return map[bestTab] end
+	-- trait data not loaded yet is not the same as no points spent
+	return cacheBuilt and SPEC_NO_POINTS[class] or nil;
 end
 
 -- True for the four classes with a healing tree, points spent or not.
