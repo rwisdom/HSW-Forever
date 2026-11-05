@@ -20,7 +20,7 @@ logged segment's page has a "Casts and Heals" box with a CSV of every cast and a
 to copy. `/hsw show`, `/hsw hide`, `/hsw lock`,
 `/hsw unlock` control the panel. `/hsw regen` prints the Spirit-regen rate in use (Forever: 0.25 mana/s
 per Spirit under 50 Spirit, 0.125 from 50, gear MP5 taken out) and `/hsw discover on` logs unknown
-healing spell IDs to chat.
+healing spell IDs, unattributed heals and heals whose amount the client hides (secret values) to chat.
 
 Diagnostics: `/hsw spec` prints the detected spec, `/hsw stats` the character values in use.
 `/hsw start` opens a test segment anywhere and prints every heal it allocates; `/hsw end` closes it

@@ -234,7 +234,12 @@ end
 -- UNIT_COMBAT(unitToken, action, flag, amount, school)
 function HealMatcher:OnUnitCombat(unitToken, action, flag, amount, now)
 	if action ~= "HEAL" or not addon.inCombat then return end
-	amount = addon.Compat.PlainNumber(amount);
+	local plainAmount = addon.Compat.PlainNumber(amount);
+	if not plainAmount and amount ~= nil and addon.discoverSpells then
+		-- release build: the client hides heal amounts in the open world; nothing to price
+		addon:Msg("[HealerStatWeights]: heal on " .. tostring(unitToken) .. " has a secret amount, dropped.");
+	end
+	amount = plainAmount;
 	if not amount or amount <= 0 then return end
 	-- secret in combat for a unit reached through a hostile one ("targettarget"): drop it, the
 	-- same heal also arrives on the unit's own group token.

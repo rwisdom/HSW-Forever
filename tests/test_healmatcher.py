@@ -236,11 +236,18 @@ class SecretValues(unittest.TestCase):
         hm.OnUnitCombat(hm, "player", "HEAL", "", 500, 0.1)
         self.assertEqual(heals(lua), [("SPELL_HEAL", "Player-1", HS, False, 500)])
 
-    def test_secret_amount_is_dropped(self):
+    def test_secret_amount_is_dropped_and_reported_under_discover(self):
+        # Release build 2026-11-04: open-world heal amounts on the player are secret; say so instead of staying silent
         lua, addon, hm = start('issecretvalue = function(v) return v == -777 end')
+        lua.execute('MSGS = {}; function HSW_TEST_ADDON:Msg(s) table.insert(MSGS, tostring(s)) end')
         hm.OnCastSent(hm, HS, "", 0)
         hm.OnUnitCombat(hm, "player", "HEAL", "", -777, 0.1)
         self.assertEqual(heals(lua), [])
+        self.assertEqual(len(list(lua.globals().MSGS.keys())), 0)                   # discover off: silent
+        lua.execute('HSW_TEST_ADDON.discoverSpells = true')
+        hm.OnUnitCombat(hm, "player", "HEAL", "", -777, 0.2)
+        self.assertEqual(heals(lua), [])
+        self.assertEqual(list(lua.globals().MSGS.values()), ["[HealerStatWeights]: heal on player has a secret amount, dropped."])
 
     def test_heal_on_a_secret_unit_is_dropped(self):
         # the player seen through the hostile target's target: secret GUID and name; the "player" token delivers the same heal
