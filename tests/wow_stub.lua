@@ -14,6 +14,9 @@ STUB = {
 	group = nil, groupSize = 0,        -- "party" | "raid" | nil
 	combat = {},                       -- unit token -> UnitAffectingCombat
 	tickers = {},                      -- C_Timer.NewTicker callbacks, run by STUB.tick()
+	sessions = {},                     -- C_DamageMeter sessions: { sessionID=, name=, durationSeconds=, heals = { [guid] = { [spellID] = total } } }
+	secret = false,                    -- true: every number C_DamageMeter returns is the string "secret" (Compat.PlainNumber rejects it)
+	lockdown = false, restriction = 0, -- InCombatLockdown() and the combat AddOnRestriction state
 };
 
 function GetTime() return STUB.time end
@@ -94,6 +97,33 @@ C_Timer = {
 	end,
 };
 function STUB.tick() for t in pairs(STUB.tickers) do t.fn() end end
+function InCombatLockdown() return STUB.lockdown end
+Enum = { AddOnRestrictionType = { Combat = 0 }, DamageMeterType = { HealingDone = 2 } };
+C_RestrictedActions = { GetAddOnRestrictionState = function() return STUB.restriction end };
+-- Blizzard's damage meter: secret in combat, plain afterwards. Only the calls the addon makes.
+local function dm(n) if STUB.secret then return "secret" end return n end
+C_DamageMeter = {
+	GetAvailableCombatSessions = function()
+		local t = {}
+		for _, s in ipairs(STUB.sessions) do
+			t[#t + 1] = { sessionID = dm(s.sessionID), name = s.name, durationSeconds = dm(s.durationSeconds or 0) }
+		end
+		return t
+	end,
+	GetCombatSessionSourceFromID = function(id, _, guid)
+		for _, s in ipairs(STUB.sessions) do
+			if s.sessionID == id then
+				local spells, total = {}, 0
+				for spellID, amount in pairs((s.heals or {})[guid] or {}) do
+					spells[#spells + 1] = { spellID = dm(spellID), totalAmount = dm(amount), overkillAmount = 0 }
+					total = total + amount
+				end
+				return { combatSpells = spells, totalAmount = dm(total), maxAmount = dm(total) }
+			end
+		end
+		return nil
+	end,
+};
 -- Deliberately absent, as on Classic-family clients: MAX_TALENT_TIERS, NUM_TALENT_COLUMNS, C_ChallengeMode, GetSpecialization.
 
 -- STUB.casting = { startMS=, endMS=, spellID= } while a cast is in progress
