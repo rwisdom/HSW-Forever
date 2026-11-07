@@ -10,6 +10,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 CORE_FILES = [
     "Classes/Compat.lua",
+    "Classes/SessionTotals.lua",
     "Classes/Util.lua",
     "Classes/BuffTracker.lua",
     "Classes/CastTracker.lua",
