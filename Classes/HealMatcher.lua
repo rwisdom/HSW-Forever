@@ -5,7 +5,8 @@ local name, addon = ...;
 	Forever closes COMBAT_LOG_EVENT_UNFILTERED to addons. What is left:
 	  UNIT_SPELLCAST_SENT       what we cast and on whom (target name)
 	  UNIT_SPELLCAST_SUCCEEDED  the cast finished
-	  UNIT_COMBAT               a unit was healed: amount and crit flag, no source, no spell
+	  UNIT_COMBAT               a unit was healed: crit flag, no source, no spell; the amount is
+	                            a secret value on the release client (the session totals price it)
 	Direct heals: a landing expectation opens at SENT for the cast target (any unit
 	for multi-target spells) and is matched to the next heal on that unit.
 	HoT ticks: registered at SUCCEEDED per target (or per group member) and matched
@@ -20,7 +21,6 @@ local HealMatcher = {};
 local LANDING_WINDOW = 1.0;             -- seconds after the cast time in which a direct heal must land
 local SEEN_WINDOW = 1.0;                -- how long dedupe keys are kept
 local TICK_WINDOW = 0.5;                -- seconds a HoT tick may land off its due time
-local TICK_MAX = 3;                     -- a heal over this many expected ticks is not a tick of ours
 local TOTEM = "Healing Stream Totem";
 
 local expectations = {}; -- { spellID=, target=, remaining=, jumps=, landed=, expires= }, newest last
@@ -28,7 +28,7 @@ local sentTarget = {};   -- spellID -> target name of the last UNIT_SPELLCAST_SE
 local hots = {};         -- unit name -> { [spellID] = { nextTick=, interval=, expires= } }
 local totem = nil;       -- { spellID=, expires= } while our totem is down
 local seen = {};         -- "guid:amount" -> time of the last heal attributed or held with that key
-local held = {};         -- heals of the current frame that may be jumps: { guid=, unitName=, crit=, amount=, at= }
+local held = {};         -- heals of the current frame that may be jumps: { guid=, unitName=, crit=, at= }
 
 local function playerName() return UnitName("player") end
 
@@ -45,14 +45,14 @@ function HealMatcher:Reset()
 	totem = nil;
 end
 
-local function unattributed(amount, unitName)
+local function unattributed(unitName)
 	if addon.discoverSpells then
-		addon:Msg("[HealerStatWeights]: unattributed heal of " .. tostring(amount) .. " on " .. unitName .. ".");
+		addon:Msg("[HealerStatWeights]: unattributed heal on " .. unitName .. ".");
 	end
 end
 
-local function credit(ev, guid, spellID, crit, amount)
-	addon.StatParser:DecompHealingForCurrentSpec(ev, guid, spellID, crit, amount);
+local function credit(ev, guid, spellID, crit)
+	addon.StatParser:DecompHealingForCurrentSpec(ev, guid, spellID, crit);
 end
 
 -- Target name of the last UNIT_SPELLCAST_SENT for a spell (the player when none).
@@ -140,7 +140,7 @@ local function expire(now)
 	for i = #held, 1, -1 do
 		local h = held[i];
 		if h.at < now then
-			if totem then credit("SPELL_PERIODIC_HEAL", h.guid, totem.spellID, h.crit, h.amount) else unattributed(h.amount, h.unitName) end
+			if totem then credit("SPELL_PERIODIC_HEAL", h.guid, totem.spellID, h.crit) else unattributed(h.unitName) end
 			table.remove(held, i);
 		end
 	end
@@ -158,14 +158,12 @@ end
 
 -- The expectation due soonest that can land on unitName (multi-target spells land anywhere).
 -- A queued cast is sent before the previous one lands, so the newest is rarely the one landing.
--- A single-target heal under a third of the spell's base is someone's tick, not our cast; the
--- amount includes overheal, so a weak heal is a debuff, never a full-health target.
 -- Returns the spell id and, when the heal was the main heal of a jumping spell, its expectation.
-local function takeExpectation(unitName, amount, now)
+local function takeExpectation(unitName, now)
 	local best, bestIdx;
 	for i, e in ipairs(expectations) do
 		local s = addon.Spells:Get(e.spellID);
-		local fits = s and not e.landed and (s.targets > 1 or (e.target == unitName and amount * 3 >= s.base));
+		local fits = s and not e.landed and (s.targets > 1 or e.target == unitName);
 		if fits and (not best or e.expires < best.expires) then
 			best, bestIdx = e, i;
 		end
@@ -204,9 +202,9 @@ local function creditHeld(e)
 	for _, h in ipairs(held) do
 		if e.jumps > 0 and h.unitName ~= e.target then
 			e.jumps = e.jumps - 1;
-			credit("SPELL_HEAL", h.guid, e.spellID, h.crit, h.amount);
+			credit("SPELL_HEAL", h.guid, e.spellID, h.crit);
 		else
-			unattributed(h.amount, h.unitName);
+			unattributed(h.unitName);
 		end
 	end
 	wipe(held);
@@ -214,68 +212,60 @@ end
 
 -- Our HoT on unitName with a tick due now, nearest first; its next tick moves one interval on.
 -- Due means within TICK_WINDOW of the tick grid (so a tick lost to another match does not lose the
--- HoT) and an amount a tick could reach: another healer's direct heal on the unit is not a tick.
-local function takeHotTick(unitName, amount, now)
+-- HoT).
+local function takeHotTick(unitName, now)
 	local byId = hots[unitName];
 	if not byId then return nil end
 	local bestId, bestDist;
 	for id, h in pairs(byId) do
-		local s = addon.Spells:Get(id);
-		local expected = s.baseTick + s.coeffTick * (addon.ply_sp or 0);
 		local phase = (now - h.nextTick) % h.interval;
 		local dist = math.min(phase, h.interval - phase);
-		local fits = dist <= TICK_WINDOW and (expected <= 0 or amount <= TICK_MAX * expected);
-		if fits and (not bestDist or dist < bestDist) then bestId, bestDist = id, dist end
+		if dist <= TICK_WINDOW and (not bestDist or dist < bestDist) then bestId, bestDist = id, dist end
 	end
 	if bestId then byId[bestId].nextTick = now + byId[bestId].interval end
 	return bestId;
 end
 
--- UNIT_COMBAT(unitToken, action, flag, amount, school)
+-- UNIT_COMBAT(unitToken, action, flag, amount, school). The amount is a secret value on the
+-- release client and is not read: the heal is counted, the session totals price it at fight end.
 function HealMatcher:OnUnitCombat(unitToken, action, flag, amount, now)
 	if action ~= "HEAL" or not addon.inCombat then return end
-	local plainAmount = addon.Compat.PlainNumber(amount);
-	if not plainAmount and amount ~= nil and addon.discoverSpells then
-		-- release build: the client hides heal amounts in the open world; nothing to price
-		addon:Msg("[HealerStatWeights]: heal on " .. tostring(unitToken) .. " has a secret amount, dropped.");
-	end
-	amount = plainAmount;
-	if not amount or amount <= 0 then return end
 	-- secret in combat for a unit reached through a hostile one ("targettarget"): drop it, the
 	-- same heal also arrives on the unit's own group token.
 	local P = addon.Compat.PlainString;
 	local guid, unitName = P(UnitGUID(unitToken)), P(UnitName(unitToken));
 	if not guid or not unitName then return end
 	now = now or GetTime();
+	local crit = flag == "CRITICAL";
 
-	-- one heal arrives once per unit token that points at the unit: same unit, amount and frame.
+	-- one heal arrives once per unit token that points at the unit: same unit, crit flag and frame.
+	-- Two different heals on one unit in one frame with the same flag merge into one count.
 	-- Only attributed and held heals are remembered, so an unattributed heal never shadows a later one.
-	local key = guid .. ":" .. amount;
+	local key = guid .. ":" .. (crit and "1" or "0");
 	if seen[key] == now then return end
 	expire(now);
 
-	local crit = flag == "CRITICAL";
-	local ev, spellID, landed = "SPELL_HEAL", takeExpectation(unitName, amount, now);
+	local ev, spellID, landed = "SPELL_HEAL", takeExpectation(unitName, now);
 	if not spellID then
-		ev, spellID = "SPELL_PERIODIC_HEAL", takeHotTick(unitName, amount, now);
+		ev, spellID = "SPELL_PERIODIC_HEAL", takeHotTick(unitName, now);
 	end
 	if not spellID then
 		ev, spellID = "SPELL_HEAL", takeJump(unitName, now);
 	end
 	if not spellID and mayJump(unitName) then
 		seen[key] = now;
-		table.insert(held, { guid = guid, unitName = unitName, crit = crit, amount = amount, at = now });
+		table.insert(held, { guid = guid, unitName = unitName, crit = crit, at = now });
 		return;
 	end
 	if not spellID and totem then
 		ev, spellID = "SPELL_PERIODIC_HEAL", totem.spellID;
 	end
 	if not spellID then
-		unattributed(amount, unitName);
+		unattributed(unitName);
 		return;
 	end
 	seen[key] = now;
-	credit(ev, guid, spellID, crit, amount);
+	credit(ev, guid, spellID, crit);
 	if landed then creditHeld(landed) end
 end
 

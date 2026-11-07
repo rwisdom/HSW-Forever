@@ -110,24 +110,25 @@ class UnitEvents(unittest.TestCase):
         addon.hsw.PLAYER_REGEN_ENABLED(addon.hsw)
         self.assertFalse(addon.inCombat)
 
-    def test_heal_and_crit_heal_are_decomposed(self):
+    def test_heal_and_crit_heal_are_counted(self):
         lua, addon, seg = start()
         cast(addon, HL)
-        fire(addon, "UNIT_COMBAT", "player", "HEAL", "", 1000, 2)
-        self.assertGreater(seg.t.heal, 0)
-        self.assertEqual((seg.totalHealing, seg.fillerHealing), (1000, 1000))
-        before = seg.t.crit
+        fire(addon, "UNIT_COMBAT", "player", "HEAL", "", "secret", 2)        # release client: the amount is a secret value
+        self.assertEqual((seg.hits[HL].direct.n, seg.hits[HL].direct.crit), (1, 0))
+        self.assertEqual(seg.totalHealing, 0)                                 # priced at fight end, not here
         cast(addon, HL)
-        fire(addon, "UNIT_COMBAT", "player", "HEAL", "CRITICAL", 1500, 2)   # crit for 1500 == non-crit 1000
-        self.assertAlmostEqual(seg.t.crit, before * 2)
+        fire(addon, "UNIT_COMBAT", "player", "HEAL", "CRITICAL", "secret", 2)
+        self.assertEqual((seg.hits[HL].direct.n, seg.hits[HL].direct.crit), (2, 1))
+        ttl = addon.SegmentManager.Get(addon.SegmentManager, "Total")
+        self.assertEqual(ttl.hits[HL].direct.n, 2)
 
     def test_heals_on_others_need_a_cast_on_them(self):
         lua, addon, seg = start(extra=PARTY)
         fire(addon, "UNIT_COMBAT", "party1", "HEAL", "", 1000, 2)           # not ours
-        self.assertEqual(seg.totalHealing, 0)
+        self.assertEqual(len(list(seg.hits.keys())), 0)
         cast(addon, HL, "Bob")
         fire(addon, "UNIT_COMBAT", "party1", "HEAL", "", 1000, 2)
-        self.assertEqual(seg.totalHealing, 1000)
+        self.assertEqual(seg.hits[HL].targets.Bob, 1)
 
     def test_quiet_failure_of_a_duplicate_sent_leaves_one_expectation(self):
         # Forever sends a queued cast twice and fails one copy quietly
@@ -136,8 +137,8 @@ class UnitEvents(unittest.TestCase):
         fire(addon, "UNIT_SPELLCAST_SENT", "player", "Bob", "cast-B", HL)
         fire(addon, "UNIT_SPELLCAST_FAILED_QUIET", "player", "cast-B", HL)
         fire(addon, "UNIT_COMBAT", "party1", "HEAL", "", 1000, 2)
-        fire(addon, "UNIT_COMBAT", "party1", "HEAL", "", 900, 2)            # someone else's heal on Bob
-        self.assertEqual(seg.totalHealing, 1000)
+        fire(addon, "UNIT_COMBAT", "party1", "HEAL", "CRITICAL", 900, 2)     # someone else's heal on Bob, same frame
+        self.assertEqual(seg.hits[HL].direct.n, 1)
 
     def test_filler_cast_records_mana(self):
         lua, addon, seg = start()
@@ -204,6 +205,7 @@ class UnitEvents(unittest.TestCase):
         self.assertTrue(addon.BuffTracker.TargetHas(addon.BuffTracker, "player", WEAKENED_SOUL))
         fire(addon, "UNIT_COMBAT", "player", "HEAL", "", 500, 1)             # no expectation was opened for the shield
         self.assertEqual(seg.totalHealing, 928 + 0.10 * 200)
+        self.assertEqual(len(list(seg.hits.keys())), 0)
 
     def test_self_cast_buffs_are_marked_and_inner_focus_consumed(self):
         lua, addon, seg = start(PRIEST, 256)
@@ -227,7 +229,7 @@ class UnitEvents(unittest.TestCase):
         fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", 424242)      # unknown spell: not logged
         rows = list(seg.events.values())
         self.assertEqual(rows, ["0.00,cast,25292,Holy Light,Bob,,,660",
-                                "2.50,heal,25292,Holy Light,Bob,1500,1,",
+                                "2.50,heal,25292,Holy Light,Bob,,1,",
                                 "2.50,cast,633,Lay on Hands,Me,,,0"])
         ttl = addon.SegmentManager.Get(addon.SegmentManager, "Total")
         self.assertEqual(len(list(ttl.events.values())), 0)                 # the Total segment keeps no log
@@ -245,14 +247,14 @@ class UnitEvents(unittest.TestCase):
         fire(addon, "UNIT_SPELLCAST_SENT", "player", "", "g", HL)
         fire(addon, "UNIT_SPELLCAST_FAILED", "player", "g", HL)
         fire(addon, "UNIT_COMBAT", "player", "HEAL", "", 1000, 2)
-        self.assertEqual(seg.totalHealing, 0)
+        self.assertEqual(len(list(seg.hits.keys())), 0)
 
     def test_ignored_out_of_combat(self):
         lua, addon, seg = start()
         addon.inCombat = False
         cast(addon, HL)
         fire(addon, "UNIT_COMBAT", "player", "HEAL", "", 1000, 2)
-        self.assertEqual(seg.totalHealing, 0)
+        self.assertEqual(len(list(seg.hits.keys())), 0)
 
 
 class FiveSecondRule(unittest.TestCase):
@@ -327,12 +329,12 @@ class Handlers(unittest.TestCase):
         lua.execute(PARTY)                                           # Bob joins mid-fight
         cast(addon, HL, "Bob")
         fire(addon, "UNIT_COMBAT", "party1", "HEAL", "", 1000, 2)
-        self.assertEqual(seg.totalHealing, 0)                        # Bob's GUID is not cached yet
+        self.assertEqual(len(list(seg.hits.keys())), 0)              # Bob's GUID is not cached yet
         addon.hsw.GROUP_ROSTER_UPDATE(addon.hsw)
         lua.execute("STUB.time = 10")
         cast(addon, HL, "Bob")
         fire(addon, "UNIT_COMBAT", "party1", "HEAL", "", 1000, 12)
-        self.assertEqual(seg.totalHealing, 1000)
+        self.assertEqual(seg.hits[HL].targets.Bob, 1)
 
     def test_re_entering_combat_cancels_the_poll(self):
         lua, addon, seg = start(extra=PARTY)
