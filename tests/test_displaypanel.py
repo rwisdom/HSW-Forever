@@ -4,7 +4,9 @@ from harness import load, CORE_FILES
 FILES = CORE_FILES + ["Parsers/HolyPaladin.lua", "DisplayPanel.lua", "Core.lua"]
 PALADIN = 'STUB.class = "PALADIN"; STUB.talents = { {name="Holy", talents={ {name="Illumination", rank=5, max=5} }}, {name="Protection", talents={}}, {name="Retribution", talents={}} }'
 ALWAYS = "HSW_TEST_SAVED = { alwaysEnabled = true }"
-HEAL = 'local a = HSW_TEST_ADDON; a.SegmentManager:Get(0):IncFillerCasts(660); a.StatParser:DecompHealingForCurrentSpec("SPELL_HEAL", "Player-1", 25292, false, 1000, 0)'
+HEAL = ('local a = HSW_TEST_ADDON; a.SegmentManager:Get(0):IncFillerCasts(660)'
+        '; a.StatParser:DecompHealingForCurrentSpec("SPELL_HEAL", "Player-1", 25292, false)'
+        '; a.StatParser:ApplyTotals(a.SegmentManager:Get(0), { [25292] = 1000 })')
 
 
 def start(extra=""):
@@ -56,6 +58,7 @@ class Fights(unittest.TestCase):
         addon.EndFight(addon)
         self.assertFalse(addon.inCombat)
         self.assertEqual(addon.History.Size(addon.History), 1)
+        self.assertEqual(len(list(addon.pendingSegments.keys())), 0)            # no sessions in the stub: finalised at once
         self.assertAlmostEqual(cur.totalDuration, 100)
         self.assertAlmostEqual(ttl.totalDuration, 100)
         self.assertAlmostEqual(ttl.timeOutsideFSR, 100)
@@ -219,6 +222,110 @@ class FightButton(unittest.TestCase):
         self.assertFalse(addon.inCombat)
         self.assertIsNone(addon.manualFight)
         self.assertEqual(list(lua.globals().MSGS.values()), ["Current spec is not supported."])
+
+
+SESSION = """STUB.sessions = { { sessionID = 7, name = "Mob", durationSeconds = 9, heals = { ["Player-1"] = { [25292] = 1000 } } } }"""
+
+
+class Finaliser(unittest.TestCase):
+    """EndFight parks the segment; the ticker prices it once the session totals are readable."""
+
+    def tickers(self, lua):
+        return len(list(lua.globals().STUB.tickers.keys()))
+
+    def test_segment_is_priced_from_the_sessions_opened_during_the_fight(self):
+        lua, addon = start(extra=ALWAYS + '; STUB.sessions = { { sessionID = 3, name = "Earlier", heals = { ["Player-1"] = { [25292] = 5000 } } } }')
+        addon.StartFight(addon, "Boss", True)
+        self.assertEqual(seg(addon).sessionFrom, 3)
+        lua.execute('local a = HSW_TEST_ADDON; a.StatParser:DecompHealingForCurrentSpec("SPELL_HEAL", "Player-1", 25292, false)')
+        lua.execute('STUB.sessions[2] = { sessionID = 4, name = "Mob", heals = { ["Player-1"] = { [25292] = 1000 } } }; STUB.time = 30')
+        cur = seg(addon)
+        addon.EndFight(addon)
+        self.assertEqual(cur.sessionTo, 4)
+        self.assertEqual(cur.totalHealing, 1000)                                 # session 3 was before the fight
+        self.assertGreater(cur.t.heal, 0)
+        self.assertEqual(addon.History.Size(addon.History), 1)
+        self.assertEqual(self.tickers(lua), 0)
+        self.assertIsNone(cur.pendingSince)
+
+    def test_secret_totals_keep_the_segment_pending_until_released(self):
+        lua, addon = start(extra=ALWAYS + "; STUB.secret = true")                  # in combat: ids and amounts secret
+        addon.StartFight(addon, "Boss", True)
+        self.assertEqual(seg(addon).sessionFrom, 0)                                 # watermark: nothing seen yet
+        lua.execute(SESSION + "; STUB.time = 10")                                   # session 7 opened during the fight
+        cur = seg(addon)
+        addon.EndFight(addon)
+        self.assertFalse(addon.inCombat)
+        self.assertIsNone(cur.sessionTo)                                            # list unreadable at the boundary
+        self.assertEqual(addon.History.Size(addon.History), 0)
+        self.assertEqual(self.tickers(lua), 1)
+        self.assertIsNotNone(cur.pendingSince)
+        lua.execute("STUB.tick()")                                                  # still secret
+        self.assertEqual(addon.History.Size(addon.History), 0)
+        lua.execute("STUB.secret = false; STUB.restriction = 1; STUB.tick()")       # readable but the client still restricts addons
+        self.assertEqual(addon.History.Size(addon.History), 0)
+        lua.execute("STUB.restriction = 0; STUB.lockdown = true; STUB.tick()")
+        self.assertEqual(addon.History.Size(addon.History), 0)
+        lua.execute("STUB.lockdown = false; STUB.tick()")
+        self.assertEqual(cur.sessionTo, 7)                                          # resolved once readable
+        self.assertEqual(addon.History.Size(addon.History), 1)
+        self.assertEqual(cur.totalHealing, 1000)
+        self.assertEqual(addon.sessionWatermark, 7)
+        self.assertEqual(self.tickers(lua), 0)
+
+    def test_stale_pending_segment_is_dropped(self):
+        lua, addon = start(extra=ALWAYS + "; " + SESSION + "; STUB.secret = true")
+        lua.execute('MSGS = {}; function HSW_TEST_ADDON:Msg(s) table.insert(MSGS, tostring(s)) end; HSW_TEST_ADDON.discoverSpells = true')
+        addon.StartFight(addon, "Boss", True)
+        lua.execute("STUB.time = 10")
+        addon.EndFight(addon)
+        lua.execute("STUB.time = 71; STUB.tick()")
+        self.assertEqual(addon.History.Size(addon.History), 0)
+        self.assertEqual(self.tickers(lua), 0)
+        self.assertTrue(any("dropped" in m for m in lua.globals().MSGS.values()))
+
+    def test_consecutive_fights_with_readable_boundaries_get_their_own_sessions(self):
+        lua, addon = start(extra=ALWAYS)
+        addon.StartFight(addon, "First", True)
+        lua.execute('STUB.sessions[1] = { sessionID = 1, name = "A", heals = { ["Player-1"] = { [25292] = 100 } } }; STUB.time = 10')
+        first = seg(addon)
+        addon.EndFight(addon)
+        addon.StartFight(addon, "Second", True)
+        self.assertEqual(seg(addon).sessionFrom, 1)
+        lua.execute('STUB.sessions[2] = { sessionID = 2, name = "B", heals = { ["Player-1"] = { [25292] = 200 } } }; STUB.time = 20')
+        second = seg(addon)
+        addon.EndFight(addon)
+        self.assertEqual((first.totalHealing, second.totalHealing), (100, 200))
+        self.assertEqual(addon.History.Size(addon.History), 2)
+
+    def test_a_fight_started_while_one_is_pending_begins_after_it(self):
+        # Both boundaries secret: the second fight starts on the stale watermark, so the finaliser moves
+        # its start to the first fight's resolved end. Sessions opened before the first fight is priced
+        # land in the first fight; that is the accepted limit of a pull chained within the release delay.
+        lua, addon = start(extra=ALWAYS + "; STUB.secret = true")
+        addon.StartFight(addon, "First", True)
+        lua.execute('STUB.sessions[1] = { sessionID = 1, name = "A", heals = { ["Player-1"] = { [25292] = 100 } } }; STUB.time = 10')
+        first = seg(addon)
+        addon.EndFight(addon)
+        addon.StartFight(addon, "Second", True)
+        second = seg(addon)
+        self.assertEqual(second.sessionFrom, 0)                                   # stale watermark
+        lua.execute("STUB.secret = false; STUB.tick()")                           # first is priced: sessions up to 1
+        self.assertEqual((first.sessionTo, first.totalHealing), (1, 100))
+        self.assertEqual(second.sessionFrom, 1)                                   # moved past the first fight
+        lua.execute('STUB.sessions[2] = { sessionID = 2, name = "B", heals = { ["Player-1"] = { [25292] = 200 } } }; STUB.time = 20')
+        addon.EndFight(addon)
+        self.assertEqual(second.totalHealing, 200)
+
+    def test_testing_flag_outlives_a_pending_test_segment(self):
+        lua, addon = start(extra=SESSION + "; STUB.secret = true")
+        addon.hsw.ChatCommand(addon.hsw, "start")
+        lua.execute("STUB.time = 5")
+        addon.hsw.ChatCommand(addon.hsw, "end")
+        self.assertFalse(addon.inCombat)
+        self.assertTrue(lua.globals().HSW_ENABLE_FOR_TESTING)                   # still pending: allocate lines must print
+        lua.execute("STUB.secret = false; STUB.tick()")
+        self.assertIsNone(lua.globals().HSW_ENABLE_FOR_TESTING)
 
 
 class Encounters(unittest.TestCase):

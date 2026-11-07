@@ -505,8 +505,9 @@ function hsw:ChatCommand(input)
 		addon:Show();
 		addon:StartFight("test", true);
 	elseif cmd == "end" then
-		addon:EndFight();
-		HSW_ENABLE_FOR_TESTING = nil;
+		addon.testingSegment = addon.inCombat and addon.SegmentManager:Get(0) or nil;
+		addon:EndFight(); -- clears the flag itself once the test segment is priced
+		if not addon.testingSegment then HSW_ENABLE_FOR_TESTING = nil end
 	elseif cmd == "spec" then
 		local specId = addon:GetSpecId();
 		local label;

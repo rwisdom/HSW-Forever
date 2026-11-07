@@ -23,8 +23,9 @@ def fought_segment(lua, addon, seconds=100):
         a.SegmentManager:Enqueue("Boss", true)
         local s = a.SegmentManager:Get(0)
         s:IncFillerCasts(660)
-        a.StatParser:DecompHealingForCurrentSpec("SPELL_HEAL", "Player-1", 25292, false, 1000, 0)
+        a.StatParser:DecompHealingForCurrentSpec("SPELL_HEAL", "Player-1", 25292, false)
         STUB.time = {seconds}
+        a.StatParser:ApplyTotals(s, {{ [25292] = 1000 }})
         s:End()
     """)
     return addon.SegmentManager.Get(addon.SegmentManager, 0)
@@ -90,7 +91,8 @@ class History(unittest.TestCase):
         lua.execute("""
             local a = HSW_TEST_ADDON
             a.SegmentManager:Enqueue(); a.SegmentManager:SetCurrentId("Trash")
-            a.StatParser:DecompHealingForCurrentSpec("SPELL_HEAL", "Player-1", 25292, false, 1000, 0)
+            a.StatParser:DecompHealingForCurrentSpec("SPELL_HEAL", "Player-1", 25292, false)
+            a.StatParser:ApplyTotals(a.SegmentManager:Get(0), { [25292] = 1000 })
             a.SegmentManager:Get(0):End()
         """)
         addon.AddHistoricalSegment(addon, addon.SegmentManager.Get(addon.SegmentManager, 0))
@@ -151,7 +153,8 @@ class History(unittest.TestCase):
         h = addon.History.Get(addon.History, 0)
         csv = addon.EventsCSV(addon, h)
         self.assertEqual(csv.split("\n"), ["time,event,spell_id,spell,target,amount,crit,mana",
-                                           "0.00,heal,25292,Holy Light,Me,1000,0,"])
+                                           "0.00,heal,25292,Holy Light,Me,,0,",
+                                           "100.00,total,25292,Holy Light,,1000,,"])
         t = addon.BuildOptionsTableForHistorySegment(addon, 0)
         boxes = [v for _, v in t.items() if v.type == "input" and v.multiline]
         self.assertEqual(len(boxes), 1)
@@ -172,7 +175,7 @@ class History(unittest.TestCase):
         t = addon.BuildOptionsTableForHistorySegment(addon, 0)
         self.assertTrue(any(v.type == "input" and v.multiline for _, v in t.items()))
         addon.AddHistoricalSegment(addon, fought_segment(lua, addon))
-        self.assertEqual(len(list(addon.History.Get(addon.History, 0).Events.values())), 1)   # recording now
+        self.assertEqual(len(list(addon.History.Get(addon.History, 0).Events.values())), 2)   # recording now: the heal and its total
 
     def test_calibration_inputs_are_validated(self):
         lua, addon = start()

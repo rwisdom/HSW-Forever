@@ -245,6 +245,75 @@ local function discoverMsg(text)
 	if addon.discoverSpells then addon:Msg("[HealerStatWeights]: " .. text) end
 end
 
+--[[----------------------------------------------------------------------------
+	Finaliser. The damage meter's numbers are secret until the player is out of
+	combat lockdown with no combat restriction; a segment that just ended waits here
+	until its session totals read plainly, then is priced and logged.
+------------------------------------------------------------------------------]]
+addon.pendingSegments = {};
+addon.sessionWatermark = 0;  -- newest session id seen while the list was readable
+local PENDING_TIMEOUT = 60; -- seconds before a segment whose totals never clear is given up
+local finalizer;
+
+local function restricted()
+	if InCombatLockdown and InCombatLockdown() then return true end
+	if C_RestrictedActions and Enum and Enum.AddOnRestrictionType then
+		local state = addon.Compat.PlainNumber(C_RestrictedActions.GetAddOnRestrictionState(Enum.AddOnRestrictionType.Combat));
+		if state and state > 0 then return true end
+	end
+	return false;
+end
+
+-- The test segment /hsw end closed: HSW_ENABLE_FOR_TESTING stays on until it is priced.
+local function releaseTesting(seg)
+	if addon.testingSegment == seg then
+		addon.testingSegment = nil;
+		HSW_ENABLE_FOR_TESTING = nil;
+	end
+end
+
+function addon:FinalizePending()
+	if restricted() then return end
+	local keep = {};
+	local floor; -- end of the last segment priced this pass: a later one that began on a stale watermark starts there
+	for _, seg in ipairs(self.pendingSegments) do
+		if floor and seg.sessionFrom < floor then seg.sessionFrom = floor end
+		if not seg.sessionTo then seg.sessionTo = self.SessionTotals.Newest() end
+		local totals = seg.sessionTo and self.SessionTotals.Read(seg.sessionFrom, seg.sessionTo);
+		if totals then
+			self:UpdatePlayerStats();
+			self.StatParser:ApplyTotals(seg, totals);
+			seg.pendingSince = nil;
+			self:AddHistoricalSegment(seg);
+			discoverMsg("segment " .. tostring(seg.id) .. " finalised.");
+			releaseTesting(seg);
+			floor = seg.sessionTo;
+			if seg.sessionTo > self.sessionWatermark then self.sessionWatermark = seg.sessionTo end
+			local live = self.inCombat and self.SegmentManager:Get(0);
+			if live and live.sessionFrom < seg.sessionTo then live.sessionFrom = seg.sessionTo end
+		elseif GetTime() - seg.pendingSince > PENDING_TIMEOUT then
+			seg.pendingSince = nil;
+			discoverMsg("segment " .. tostring(seg.id) .. " dropped: session totals never became readable.");
+			releaseTesting(seg);
+		else
+			table.insert(keep, seg);
+		end
+	end
+	self.pendingSegments = keep;
+	if #keep == 0 and finalizer then
+		finalizer:Cancel();
+		finalizer = nil;
+	end
+	self:UpdateDisplayStats();
+end
+
+function addon:StartFinalizer()
+	self:FinalizePending();
+	if #self.pendingSegments > 0 and not finalizer then
+		finalizer = C_Timer.NewTicker(0.5, function() addon:FinalizePending() end);
+	end
+end
+
 -- isBossFight: the segment is logged even as raid trash (an encounter, or one the player asked for).
 function addon:StartFight(id, isBossFight)
 	if self.inCombat then return end
@@ -255,6 +324,11 @@ function addon:StartFight(id, isBossFight)
 	self.UnitManager:Cache();
 	self.HealMatcher:Reset();
 	self.SegmentManager:Enqueue(id, isBossFight);
+	-- the meter's sessions opened after this one are ours; in combat the list can be unreadable,
+	-- then the newest id seen while readable (the watermark) stands in
+	local newest = self.SessionTotals.Newest();
+	if newest then self.sessionWatermark = newest end
+	self.SegmentManager:Get(0).sessionFrom = self.sessionWatermark;
 
 	-- the Total segment is live for the duration of every fight
 	local cur_seg = self.SegmentManager:Get(0);
@@ -278,13 +352,17 @@ function addon:EndFight()
 	local ttl_seg = self.SegmentManager:Get("Total");
 	if cur_seg then
 		cur_seg:End();
-		self:AddHistoricalSegment(cur_seg);
+		-- amounts arrive from the damage meter once the client releases them: park the segment
+		cur_seg.sessionTo = self.SessionTotals.Newest(); -- nil while the list is secret: the finaliser resolves it
+		cur_seg.pendingSince = GetTime();
+		table.insert(self.pendingSegments, cur_seg);
 	end
 	if ttl_seg then
 		ttl_seg:End();
 	end
 	self:UpdateFightButton();
 	self:AdjustVisibility(); -- a manual segment showed the panel outside enabled content
+	self:StartFinalizer();
 end
 
 -- The window's start/end button. manualFight lets StartFight through the instance gate.
