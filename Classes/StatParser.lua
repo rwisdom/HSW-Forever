@@ -188,13 +188,6 @@ function StatParser:IsCurrentSpecSupported()
 	return self:GetParserForCurrentSpec() ~= nil;
 end
 
-function StatParser:IncHealing(heal, updateFiller, updateTotal)
-	addon.SegmentManager:ForEachLive(function(seg)
-		if updateFiller then seg:IncFillerHealing(heal) end
-		if updateTotal then seg:IncTotalHealing(heal) end
-	end);
-end
-
 --[[----------------------------------------------------------------------------
 	Event log - one CSV row per cast and per attributed heal on the live segment,
 	the inputs the weights are built from. Columns: addon.EventsHeader.
@@ -216,11 +209,21 @@ function StatParser:IncManaRestore(mana)
 	addon.SegmentManager:ForEachLive(function(seg) seg:IncManaRestore(mana) end);
 end
 
+local function liveSegments()
+	local t = {};
+	addon.SegmentManager:ForEachLive(function(seg) t[#t + 1] = seg end);
+	return t;
+end
+
+local function critBonus(f, ev, s, destUnit)
+	return f.CritBonus and f.CritBonus(ev, s, destUnit, addon.ply_crtbonus) or addon.ply_crtbonus;
+end
+
 --[[----------------------------------------------------------------------------
-	Allocate - compute derivatives for one effective heal and add them to the
-	current and Total segments. heal is already crit-normalised.
+	Allocate - compute derivatives for one effective heal and add them to `segments`.
+	heal is already crit-normalised.
 ------------------------------------------------------------------------------]]
-function StatParser:Allocate(ev, s, heal, destUnit, f, SP, C, CB, H)
+function StatParser:Allocate(ev, s, heal, destUnit, f, SP, C, CB, H, segments)
 	if HSW_ENABLE_FOR_TESTING then
 		addon:Msg("allocate spellid=" .. tostring(s.spellID) .. " destunit=" .. tostring(destUnit) .. " amount=" .. heal);
 	end
@@ -233,20 +236,37 @@ function StatParser:Allocate(ev, s, heal, destUnit, f, SP, C, CB, H)
 	local _H  = _Haste(s, heal, H);
 	local _I  = _Intellect(s, heal, C, CB);
 
-	addon.SegmentManager:ForEachLive(function(seg)
+	for _, seg in ipairs(segments) do
 		local c  = f.CriticalStrike and f.CriticalStrike(ev, s, heal, destUnit, C, CB, seg) or 0;
 		local i  = f.Intellect and f.Intellect(ev, s, heal, destUnit, _SP, seg) or 0;
 		local sp = f.Spirit and f.Spirit(ev, s, heal, destUnit, _SP, seg) or 0;
 		seg:AllocateHeal(_SP, _C + c, _H, _I + i, sp, s.spellID);
-	end);
+	end
 
 	addon:UpdateDisplayStats();
 end
 
 --[[----------------------------------------------------------------------------
-	DecompHealingForCurrentSpec - entry point from SPELL_HEAL / SPELL_PERIODIC_HEAL
+	AllocateHeal - credit `total` effective healing of spell s on `segments` and price
+	`normalised` (the non-crit equivalent) through Allocate.
 ------------------------------------------------------------------------------]]
-function StatParser:DecompHealingForCurrentSpec(ev, destGUID, spellID, critFlag, heal)
+function StatParser:AllocateHeal(ev, s, total, normalised, destUnit, f, segments)
+	-- a "% of base mana" spell has no table cost: it is a filler only while the client prices it,
+	-- the same condition under which its cast recorded filler mana (Events.lua)
+	local filler = s.filler and (s.manaCost > 0 or (addon.Compat.GetSpellManaCost(s.spellID) or 0) > 0);
+	for _, seg in ipairs(segments) do
+		if filler then seg:IncFillerHealing(total) end
+		seg:IncTotalHealing(total);
+	end
+	self:Allocate(ev, s, normalised, destUnit, f, addon.ply_sp, addon.ply_crt, critBonus(f, ev, s, destUnit), addon.ply_hst, segments);
+end
+
+--[[----------------------------------------------------------------------------
+	DecompHealingForCurrentSpec - entry point from HealMatcher for every heal it
+	attributes. The amount is secret on the release client, so the heal is counted on
+	the live segments and priced from the session totals when the fight ends.
+------------------------------------------------------------------------------]]
+function StatParser:DecompHealingForCurrentSpec(ev, destGUID, spellID, critFlag)
 	local f, specId = self:GetParserForCurrentSpec();
 	if not f then return end
 
@@ -261,33 +281,89 @@ function StatParser:DecompHealingForCurrentSpec(ev, destGUID, spellID, critFlag,
 	if not destUnit then return end
 
 	if addon.hsw.db.global.excludeRaidHealingCooldowns and s.cd then return end
-	addon:LogEvent(ev == "SPELL_PERIODIC_HEAL" and "tick" or "heal", s, addon.Compat.PlainString(UnitName(destUnit)), heal, critFlag and true or false);
-
-	-- reduce crit heals to the non-crit amount
-	local CB = f.CritBonus and f.CritBonus(ev, s, destUnit, addon.ply_crtbonus) or addon.ply_crtbonus;
-	local origHeal = heal;
-	if critFlag then
-		heal = heal / (1 + CB);
+	local crit = critFlag and true or false;
+	local tick = ev == "SPELL_PERIODIC_HEAL";
+	local targetName = addon.Compat.PlainString(UnitName(destUnit));
+	addon:LogEvent(tick and "tick" or "heal", s, targetName, nil, crit);
+	if HSW_ENABLE_FOR_TESTING then
+		addon:Msg("count spellid=" .. tostring(s.spellID) .. " destunit=" .. tostring(destUnit) .. " tick=" .. (tick and 1 or 0) .. " crit=" .. (crit and 1 or 0));
 	end
-
-	-- a "% of base mana" spell has no table cost: it is a filler only while the client prices it,
-	-- the same condition under which its cast recorded filler mana (Events.lua)
-	local filler = s.filler and (s.manaCost > 0 or (addon.Compat.GetSpellManaCost(s.spellID) or 0) > 0);
-	self:IncHealing(origHeal, filler, true);
-	-- no energize events on Forever: mana returned by this crit is credited analytically
-	if critFlag and f.ManaReturn then
-		local mana = f.ManaReturn(ev, s, origHeal, destUnit);
+	-- no energize events on Forever: mana returned by this crit is credited analytically, now,
+	-- while the buff that decides it (Water Shield) is in the state it had at the crit
+	if crit and f.ManaReturn then
+		local mana = f.ManaReturn(ev, s, nil, destUnit);
 		if mana and mana > 0 then self:IncManaRestore(mana) end
 	end
-	self:Allocate(ev, s, heal, destUnit, f, addon.ply_sp, addon.ply_crt, CB, addon.ply_hst);
+	addon.SegmentManager:ForEachLive(function(seg) seg:CountHeal(s.spellID, ev, targetName, crit) end);
+end
+
+-- One "total" row per spell part at fight end; the time column is the segment duration.
+local function logTotal(seg, s, amount)
+	if not addon.hsw.db.global.logEvents then return end
+	table.insert(seg.events, string.format("%.2f,total,%d,%s,,%g,,", seg:GetDuration(), s.spellID, s.name, amount));
+end
+
+--[[----------------------------------------------------------------------------
+	ApplyTotals - price a finished segment from the player's per-spell effective
+	healing (SessionTotals.Read) and the hits counted during the fight. With n hits
+	and k crits a part's total is about h * (n + k * CB) for a non-crit heal h, so the
+	crit-normalised total is T * n / (n + k * CB). A spell with direct and periodic
+	parts splits T by (n + k * CB) * expected size. Credits this segment and the Total.
+------------------------------------------------------------------------------]]
+function StatParser:ApplyTotals(seg, totals)
+	local f, specId = self:GetParserForCurrentSpec();
+	if not f then return end
+	local segments = { seg, addon.SegmentManager:Get("Total") };
+	local sp = addon.ply_sp or 0;
+	local excludeCd = addon.hsw.db.global.excludeRaidHealingCooldowns;
+
+	for spellID, T in pairs(totals) do
+		local s = addon.Spells:Get(spellID);
+		if not s then
+			addon:DiscoverIgnoredSpell(spellID);
+		elseif T > 0 and addon.Spells:IsForSpec(s, specId) and not (excludeCd and s.cd) then
+			local h = seg.hits[s.spellID];
+			local top = seg:TopTarget(s.spellID);
+			local destUnit = top and addon.UnitManager:FindByName(top) or "player";
+			local CB = critBonus(f, "SPELL_HEAL", s, destUnit);
+			local d = h and h.direct or { n = 0, crit = 0 };
+			local t = h and h.tick or { n = 0, crit = 0 };
+			local wd = (d.n + d.crit * CB) * (s.base + s.coeff * sp);
+			local wt = (t.n + t.crit * CB) * (s.baseTick + s.coeffTick * sp);
+			local Td, Tt = 0, 0;
+			if wd > 0 and wt > 0 then
+				Td = T * wd / (wd + wt); Tt = T - Td;
+			elseif wd > 0 then
+				Td = T;
+			elseif wt > 0 then
+				Tt = T;
+			else -- healing the matcher never saw: one non-crit heal of the part the spell has
+				if s.coeff > 0 or s.base > 0 or s.tick == 0 then Td, d = T, { n = 1, crit = 0 } else Tt, t = T, { n = 1, crit = 0 } end
+				if addon.discoverSpells then addon:Msg("[HealerStatWeights]: healing by " .. s.name .. " had no matched heals.") end
+			end
+			if Td > 0 then
+				logTotal(seg, s, Td);
+				self:AllocateHeal("SPELL_HEAL", s, Td, Td * d.n / (d.n + d.crit * CB), destUnit, f, segments);
+			end
+			if Tt > 0 then
+				logTotal(seg, s, Tt);
+				self:AllocateHeal("SPELL_PERIODIC_HEAL", s, Tt, Tt * t.n / (t.n + t.crit * CB), destUnit, f, segments);
+			end
+		end
+	end
 end
 
 -- Power Word: Shield: absorbs are not observable on Forever, so the shield is credited at cast
 -- time with its expected size (base + coeff * +Healing) as direct, non-crit healing.
 function StatParser:DecompShieldCast(destGUID, spellID)
+	local f, specId = self:GetParserForCurrentSpec();
 	local s = addon.Spells:Get(spellID);
-	if not s then return end
-	self:DecompHealingForCurrentSpec("SPELL_HEAL", destGUID, spellID, false, s.base + s.coeff * (addon.ply_sp or 0));
+	if not f or not s or not addon.Spells:IsForSpec(s, specId) then return end
+	local destUnit = addon.UnitManager:Find(destGUID);
+	if not destUnit then return end
+	local expected = s.base + s.coeff * (addon.ply_sp or 0);
+	addon:LogEvent("heal", s, addon.Compat.PlainString(UnitName(destUnit)), expected, false);
+	self:AllocateHeal("SPELL_HEAL", s, expected, expected, destUnit, f, liveSegments());
 end
 
 addon.StatParser = StatParser;

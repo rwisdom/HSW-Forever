@@ -83,11 +83,7 @@ class HolyPaladinTests(unittest.TestCase):
         illumination = 0.01 * 1.0 * 0.5 * 730 * (1000 / 730) / 14
         self.assertAlmostEqual(seg.t.crit, crit_per_pct(1000, 0.10, CB) / 14 + illumination)
 
-    def test_no_illumination_on_ticks_or_without_talent(self):
-        _, addon, seg = start("PALADIN", HOLY, FILES)
-        seg.IncFillerCasts(seg, 660)
-        heal(addon, "SPELL_PERIODIC_HEAL", HL, 1000)            # periodic: crit value, no Illumination
-        self.assertAlmostEqual(seg.t.crit, crit_per_pct(1000, 0.10, CB) / 14)
+    def test_no_illumination_without_the_talent(self):
         _, addon, seg = start("PALADIN", [("Holy", [("Holy Power", 2)]), ("Protection", []), ("Retribution", [])], FILES)
         seg.IncFillerCasts(seg, 660)
         heal(addon, "SPELL_HEAL", HL, 1000)

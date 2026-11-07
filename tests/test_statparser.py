@@ -1,7 +1,7 @@
 import unittest
 from harness import load
 
-FILES = ["Classes/Compat.lua", "Classes/Util.lua", "Classes/BuffTracker.lua", "Classes/Segment.lua",
+FILES = ["Classes/Compat.lua", "Classes/SessionTotals.lua", "Classes/Util.lua", "Classes/BuffTracker.lua", "Classes/Segment.lua",
          "Classes/SegmentManager.lua", "Classes/StatParser.lua", "Classes/UnitManager.lua",
          "Parsers/Spells.lua", "Parsers/Spells_Generated.lua", "Parsers/Spells_Manual.lua", "Parsers/Talents_Generated.lua"]
 
@@ -26,12 +26,19 @@ def start(cls, overrides="{}", extra=""):
         a.StatParser:Create(a:GetSpecId(), {overrides})
         a.Util.RebuildTalentCache(); a:SetupConversionFactors(); a:UpdateEquipment(); a:UpdatePlayerStats()
         a.SegmentManager:Enqueue("fight"); a.UnitManager.units["Player-1"] = "player"
+        function a.TestTotal(spell, amount)
+            local seg, ttl = a.SegmentManager:Get(0), a.SegmentManager:Get("Total")
+            a.StatParser:ApplyTotals(seg, {{ [spell] = amount }})
+            seg.hits = {{}}; ttl.hits = {{}}
+        end
     """)
     return lua, addon, addon.SegmentManager.Get(addon.SegmentManager, 0)
 
 
 def heal(addon, ev, spell, amount, crit=False, dest="Player-1"):
-    addon.StatParser.DecompHealingForCurrentSpec(addon.StatParser, ev, dest, spell, crit, amount)
+    """One heal of `amount` on `dest`: counted at landing, priced from a session total of `amount`."""
+    addon.StatParser.DecompHealingForCurrentSpec(addon.StatParser, ev, dest, spell, crit)
+    addon.TestTotal(spell, amount)
 
 
 class Conversions(unittest.TestCase):
@@ -56,7 +63,7 @@ class Conversions(unittest.TestCase):
     def test_unsupported_class_has_no_parser(self):
         _, addon = load(FILES, setup='STUB.class = "WARRIOR"; STUB.talents = { {name="Arms", talents={ {name="Deflection", rank=5, max=5} }} }')
         self.assertFalse(addon.StatParser.IsCurrentSpecSupported(addon.StatParser))
-        heal(addon, "SPELL_HEAL", HL, 1000)                      # no parser: silently ignored, no error
+        addon.StatParser.DecompHealingForCurrentSpec(addon.StatParser, "SPELL_HEAL", "Player-1", HL, False)   # no parser: silently ignored, no error
 
 
 class PlayerStats(unittest.TestCase):
@@ -184,7 +191,8 @@ class Derivatives(unittest.TestCase):
         addon.StatParser.DecompShieldCast(addon.StatParser, "Player-1", PWS)
         lua.execute("HSW_TEST_ADDON.hsw.db.global.excludeRaidHealingCooldowns = true")
         heal(addon, "SPELL_HEAL", 19236, 300)                               # Desperate Prayer: excluded, not logged
-        self.assertEqual(list(seg.events.values()), ["0.00,tick,25315,Renew,Me,200,0,",
+        self.assertEqual(list(seg.events.values()), ["0.00,tick,25315,Renew,Me,,0,",
+                                                     "0.00,total,25315,Renew,,200,,",
                                                      "0.00,heal,10901,Power Word: Shield,Me,948,0,"])
 
     def test_tick_without_a_coefficient_counts_in_totals_only(self):
@@ -201,13 +209,15 @@ class Derivatives(unittest.TestCase):
     def test_filter_rules(self):
         lua, addon, seg = start("PALADIN")
         heal(addon, "SPELL_HEAL", REJUV, 500)                     # druid spell on a paladin: ignored
-        heal(addon, "SPELL_HEAL", HL, 500, dest="Creature-7")     # unknown unit: ignored
         self.assertEqual((seg.t.heal, seg.totalHealing), (0, 0))
+        heal(addon, "SPELL_HEAL", HL, 500, dest="Creature-7")     # unknown unit: not counted, but the total is ours
+        self.assertEqual(seg.totalHealing, 500)
+        self.assertEqual(len(list(seg.hits.keys())), 0)
         heal(addon, "SPELL_HEAL", 999999, 500)                    # unknown spell: discovered as IGNORED
         self.assertEqual(addon.Spells.Get(addon.Spells, 999999).spellType, -1)
         lua.execute("HSW_TEST_ADDON.hsw.db.global.excludeRaidHealingCooldowns = true")
         heal(addon, "SPELL_HEAL", 633, 500)                       # Lay on Hands: raid cooldown excluded
-        self.assertEqual(seg.totalHealing, 0)
+        self.assertEqual(seg.totalHealing, 500)
 
 
 class Overrides(unittest.TestCase):
@@ -229,3 +239,100 @@ class Overrides(unittest.TestCase):
         self.assertAlmostEqual(seg.t.spirit, 0.5 * seg.t.heal)
         heal(addon, "SPELL_HEAL", HL, 2000, crit=True)            # a crit heal is normalised with the overridden bonus
         self.assertAlmostEqual(seg.t.heal, 2 * 0.714 * 1000 / (1580 + 0.714 * 200))
+
+
+class ApplyTotals(unittest.TestCase):
+    """Pricing a finished segment from per-spell effective totals and the hits counted during the fight."""
+
+    def count(self, addon, spell, ev="SPELL_HEAL", crit=False, dest="Player-1"):
+        addon.StatParser.DecompHealingForCurrentSpec(addon.StatParser, ev, dest, spell, crit)
+
+    def apply(self, lua, spell, amount):
+        lua.execute(f"local a = HSW_TEST_ADDON; a.StatParser:ApplyTotals(a.SegmentManager:Get(0), {{ [{spell}] = {amount} }})")
+
+    def test_total_without_hits_is_priced_as_one_non_crit_heal(self):
+        lua, addon, seg = start("PALADIN")
+        lua.execute('MSGS = {}; function HSW_TEST_ADDON:Msg(s) table.insert(MSGS, tostring(s)) end; HSW_TEST_ADDON.discoverSpells = true')
+        self.apply(lua, HL, 1580 + 0.714 * 200)
+        self.assertAlmostEqual(seg.t.heal, 0.714)
+        self.assertEqual(seg.totalHealing, 1580 + 0.714 * 200)
+        self.assertIn("had no matched heals", lua.globals().MSGS[1])
+
+    def test_crits_normalise_the_total(self):
+        lua, addon, seg = start("PALADIN")                       # CB 0.5
+        for crit in (False, True, True, False):
+            self.count(addon, HL, crit=crit)
+        self.apply(lua, HL, 5000)                                 # 4 hits, 2 crits: about h * (4 + 2 * 0.5) = 5 h
+        _, addon2, seg2 = start("PALADIN")                         # four non-crit heals of 1000 must price the same
+        heal(addon2, "SPELL_HEAL", HL, 1000); heal(addon2, "SPELL_HEAL", HL, 1000)
+        heal(addon2, "SPELL_HEAL", HL, 1000); heal(addon2, "SPELL_HEAL", HL, 1000)
+        self.assertAlmostEqual(seg.t.heal, seg2.t.heal)
+        self.assertAlmostEqual(seg.t.crit, seg2.t.crit)
+        self.assertEqual(seg.totalHealing, 5000)                   # totals keep the effective amount
+
+    def test_direct_and_tick_parts_split_by_expected_size(self):
+        lua, addon, seg = start("DRUID")                           # SP 200; Regrowth R9: direct 1021 + .286 sp, tick 142 + .071 sp
+        self.count(addon, 9858)
+        for _ in range(7):
+            self.count(addon, 9858, ev="SPELL_PERIODIC_HEAL")
+        ed, et = 1021 + 0.286 * 200, 142 + 0.071 * 200
+        self.apply(lua, 9858, ed + 7 * et)
+        self.assertAlmostEqual(seg.t.heal, 0.286 + 7 * 0.071)
+        self.assertAlmostEqual(seg.t.haste_hpct, (ed + 7 * et) / 100)   # a cast-time spell carries haste on both parts, as before
+
+    def test_tick_only_and_direct_only_spells(self):
+        lua, addon, seg = start("DRUID")
+        for _ in range(4):
+            self.count(addon, REJUV, ev="SPELL_PERIODIC_HEAL")
+        self.apply(lua, REJUV, 4 * (194 + 0.2 * 200))
+        self.assertAlmostEqual(seg.t.heal, 0.8)
+        lua, addon, seg = start("PALADIN")
+        self.count(addon, HL)
+        self.apply(lua, HL, 1000)
+        self.assertEqual(seg.hits[HL].tick.n, 0)
+        self.assertEqual(seg.totalHealing, 1000)
+
+    def test_alias_unknown_and_filtered_ids(self):
+        lua, addon, seg = start("PALADIN")
+        self.apply(lua, 25903, 1000)                               # Holy Shock R4 heal id -> book 20930
+        self.assertGreater(seg.t.heal, 0)
+        self.apply(lua, 999999, 1000)                              # unknown: discovered, not priced
+        self.assertEqual(addon.Spells.Get(addon.Spells, 999999).spellType, -1)
+        before = seg.totalHealing
+        self.apply(lua, REJUV, 1000)                               # a druid spell on a paladin
+        lua.execute("HSW_TEST_ADDON.hsw.db.global.excludeRaidHealingCooldowns = true")
+        self.apply(lua, 633, 1000)                                 # Lay on Hands under the exclusion
+        self.assertEqual(seg.totalHealing, before)
+
+    def test_top_target_drives_the_destination_unit(self):
+        lua, addon, seg = start("PALADIN", overrides='{ FlatBonus = function(ev, s, destUnit) return destUnit == "party1" and 400 or 0 end }',
+                                extra='STUB.guids.party1 = "Player-2"; STUB.names.party1 = "Bob"')
+        lua.execute('local a = HSW_TEST_ADDON; a.UnitManager.units["Player-2"] = "party1"; a.UnitManager.names = { Me = "player", Bob = "party1" }')
+        self.count(addon, HL, dest="Player-2"); self.count(addon, HL, dest="Player-2"); self.count(addon, HL)
+        self.apply(lua, HL, 3000)
+        self.assertAlmostEqual(seg.t.heal, 0.714 * (3000 - 400) / (1580 + 0.714 * 200))   # Bob is the top target: the Oath's 400 comes off
+
+    def test_total_segment_is_credited_once(self):
+        lua, addon, seg = start("PALADIN")
+        self.count(addon, HL)
+        self.apply(lua, HL, 1000)
+        ttl = addon.SegmentManager.Get(addon.SegmentManager, "Total")
+        self.assertAlmostEqual(ttl.t.heal, seg.t.heal)
+        self.assertEqual(ttl.totalHealing, 1000)
+
+    def test_mana_return_is_credited_at_the_crit(self):
+        ov = '{ ManaReturn = function(ev, s, heal, destUnit) return 50 end }'
+        lua, addon, seg = start("PALADIN", overrides=ov)
+        self.count(addon, HL)
+        self.assertEqual(seg.manaRestore, 0)
+        self.count(addon, HL, crit=True)
+        self.assertEqual(seg.manaRestore, 50)                      # before any total arrives
+
+    def test_count_logs_and_prints_under_testing(self):
+        lua, addon, seg = start("PALADIN")
+        lua.execute('MSGS = {}; function HSW_TEST_ADDON:Msg(s) table.insert(MSGS, tostring(s)) end; HSW_ENABLE_FOR_TESTING = true')
+        self.count(addon, HL, crit=True)
+        self.assertEqual(list(seg.events.values()), ["0.00,heal,25292,Holy Light,Me,,1,"])
+        self.assertEqual(lua.globals().MSGS[1], "count spellid=25292 destunit=player tick=0 crit=1")
+        self.apply(lua, HL, 1500)
+        self.assertEqual(lua.globals().MSGS[2], "allocate spellid=25292 destunit=player amount=1000")
