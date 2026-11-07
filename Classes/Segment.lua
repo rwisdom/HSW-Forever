@@ -39,6 +39,7 @@ function Segment.Create(id)
 	self.debug = {};
 	self.bossFight = false;
 	self.events = {};           -- CSV rows of every cast and attributed heal (addon:LogEvent), exported from the history tab
+	self.hits = {};             -- spellID -> { direct = { n=, crit= }, tick = { n=, crit= }, targets = { [name] = count } }, counted by HealMatcher; priced at fight end (StatParser:ApplyTotals)
 	return self;
 end
 
@@ -111,6 +112,32 @@ function Segment:AllocateHeal(heal, crit, haste_hpct, int, spirit, spellId)
 	if HSW_ENABLE_FOR_TESTING and spellId then
 		self.debug[spellId] = (self.debug[spellId] or 0) + heal;
 	end
+end
+
+--[[----------------------------------------------------------------------------
+	CountHeal - one heal attributed by HealMatcher. Amounts are secret on the release
+	client, so the segment keeps counts and is priced from the session totals later.
+------------------------------------------------------------------------------]]
+function Segment:CountHeal(spellID, ev, targetName, crit)
+	local h = self.hits[spellID];
+	if not h then
+		h = { direct = { n = 0, crit = 0 }, tick = { n = 0, crit = 0 }, targets = {} };
+		self.hits[spellID] = h;
+	end
+	local part = ev == "SPELL_PERIODIC_HEAL" and h.tick or h.direct;
+	part.n = part.n + 1;
+	if crit then part.crit = part.crit + 1 end
+	if targetName then h.targets[targetName] = (h.targets[targetName] or 0) + 1 end
+end
+
+-- The unit a spell hit most often this segment; nil when it hit nobody we could name.
+function Segment:TopTarget(spellID)
+	local h = self.hits[spellID];
+	local best, bestN;
+	for unitName, n in pairs(h and h.targets or {}) do
+		if not bestN or n > bestN then best, bestN = unitName, n end
+	end
+	return best;
 end
 
 function Segment:GetDuration()
@@ -187,6 +214,11 @@ function Segment:Debug()
 	print(string.format("duration = %.5f", self:GetDuration()));
 	print("Healing per spellID");
 	for k, v in pairs(self.debug) do print(string.format("%s = %.5f", k, v)) end
+	print("Hits per spellID (direct n/crit, tick n/crit)");
+	for id, h in pairs(self.hits) do
+		print(string.format("%s: direct %d/%d tick %d/%d top=%s", id, h.direct.n, h.direct.crit, h.tick.n, h.tick.crit, tostring(self:TopTarget(id))));
+	end
+	print("pending = " .. tostring(self.pendingSince ~= nil));
 end
 
 addon.Segment = Segment;

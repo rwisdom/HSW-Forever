@@ -120,3 +120,22 @@ class SegmentTests(unittest.TestCase):
         self.assertFalse(s.bossFight)
         s.End(s)
         self.assertTrue(s.talentsSnapshot)
+
+    def test_count_heal_buckets_direct_and_tick_with_crits_and_targets(self):
+        lua, _, s = self.seg()
+        self.assertEqual(len(list(s.hits.keys())), 0)
+        s.CountHeal(s, 331, "SPELL_HEAL", "Bob", False)
+        s.CountHeal(s, 331, "SPELL_HEAL", "Bob", True)
+        s.CountHeal(s, 331, "SPELL_PERIODIC_HEAL", "Me", False)
+        s.CountHeal(s, 331, "SPELL_HEAL", None, False)                 # a secret target name: counted, no target
+        h = s.hits[331]
+        self.assertEqual((h.direct.n, h.direct.crit, h.tick.n, h.tick.crit), (3, 1, 1, 0))
+        self.assertEqual((h.targets.Bob, h.targets.Me), (2, 1))
+        self.assertEqual(s.TopTarget(s, 331), "Bob")
+        self.assertIsNone(s.TopTarget(s, 547))
+
+    def test_hits_are_per_segment(self):
+        lua, addon, s = self.seg()
+        s.CountHeal(s, 331, "SPELL_HEAL", "Me", False)
+        other = addon.Segment.Create("other")
+        self.assertEqual(len(list(other.hits.keys())), 0)
