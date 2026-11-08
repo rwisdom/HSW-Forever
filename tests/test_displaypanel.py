@@ -95,12 +95,12 @@ class Display(unittest.TestCase):
         lua.execute(HEAL)
         addon.SetCurrentSegment(addon, 0)
         s = addon.GetPawnString(addon)
-        self.assertTrue(s.startswith('( Pawn: v1: "PALADIN-HSW-Boss": Class=PALADIN, Spec=1, HealingPower=1.00, SpellCritRating='), s)
+        self.assertTrue(s.startswith('( Pawn: v1: "PALADIN-HSW-Boss": Class=PALADIN, Spec=1, Healing=1.00, SpellCritRating='), s)   # Pawn on Forever: "Healing"
         self.assertTrue(s.endswith(")") and "Mp5=" in s and "Versatility" not in s, s)
         lua.execute("STUB.time = 50")
         addon.EndFight(addon)
         h = addon.GetPawnStringFromHistory(addon, 0)
-        self.assertTrue(h.startswith('( Pawn: v1: "Boss": Class=PALADIN, Spec=1, HealingPower=1.00'), h)
+        self.assertTrue(h.startswith('( Pawn: v1: "Boss": Class=PALADIN, Spec=1, Healing=1.00'), h)
 
     def test_pawn_dialogs_fill_the_popup_edit_box(self):
         lua, addon = start(extra=ALWAYS)

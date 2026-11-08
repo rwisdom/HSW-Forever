@@ -7,8 +7,8 @@ local media = LibStub("LibSharedMedia-3.0");
 local pattern_title = "%s";
 local pattern_left = "+Healing\nCrit Rating\nHaste (HPCT)\nIntellect\nSpirit\nMP5";
 local pattern_right = "%.2f\n%.2f\n%.2f\n%.2f\n%.2f\n%.2f";
--- Pawn stat identifiers as used by Classic-family Pawn; verify on Forever (Task 17).
-local pawn_pattern = [[( Pawn: v1: "%s": Class=%s, Spec=%s, HealingPower=%.2f, SpellCritRating=%.2f, SpellHaste=%.2f, Intellect=%.2f, Spirit=%.2f, Mp5=%.2f)]];
+-- Pawn stat identifiers as Pawn on Forever exports them (sample from Ryan, 2026-11-07): "Healing", not Classic's "HealingPower".
+local pawn_pattern = [[( Pawn: v1: "%s": Class=%s, Spec=%s, Healing=%.2f, SpellCritRating=%.2f, SpellHaste=%.2f, Intellect=%.2f, Spirit=%.2f, Mp5=%.2f)]];
 local pawn_str_name = "%s-HSW-%s";
 local pawn_title = "Pawn String (Ctrl+A to select all, Ctrl+C to copy):";
 local pawn_dialog_name = "HSW_GETPAWNSTRING";
