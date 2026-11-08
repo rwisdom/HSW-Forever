@@ -72,18 +72,18 @@ end
 -- The target is remembered out of combat too (Oath of Light is sworn before the pull); expectations
 -- open only in a fight.
 function HealMatcher:OnCastSent(spellID, targetName, now, castGUID)
+	local s = addon.Spells:Get(spellID);
 	local plain = addon.Compat.PlainString(targetName);
 	if plain or targetName == nil then
 		targetName = bareName(plain) or playerName();
 	else
 		targetName = selectedGroupMember() or playerName();
-		if addon.discoverSpells then
+		if addon.discoverSpells and s then -- a hostile target's name is secret too: say nothing for attacks
 			addon:Msg("[HealerStatWeights]: secret cast target for spell " .. tostring(spellID) .. ", using " .. targetName .. ".");
 		end
 	end
 	sentTarget[spellID] = targetName;
 	if not addon.inCombat then return end
-	local s = addon.Spells:Get(spellID);
 	if not s or addon.AbsorbSpells[spellID] then return end -- shields are credited at cast (Events.lua)
 	now = now or GetTime();
 	local direct = (s.coeff > 0 or s.base > 0 or s.tick == 0) and s.name ~= TOTEM;

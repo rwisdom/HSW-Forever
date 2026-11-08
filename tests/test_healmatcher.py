@@ -234,6 +234,15 @@ class SecretValues(unittest.TestCase):
         hm.OnUnitCombat(hm, "player", "HEAL", "", 500, 0.1)
         self.assertEqual(heals(lua), [("SPELL_HEAL", "Player-1", HS, False)])
 
+    def test_secret_target_of_a_non_healing_spell_is_not_reported(self):
+        # Dungeon 2026-11-07: Flame Shock on a mob (secret name) printed "secret cast target" on every cast
+        lua, addon, hm = start(SECRET)
+        lua.execute('MSGS = {}; function HSW_TEST_ADDON:Msg(s) table.insert(MSGS, tostring(s)) end; HSW_TEST_ADDON.discoverSpells = true')
+        hm.OnCastSent(hm, 8050, "SECRET", 0)                                 # Flame Shock: not in the database
+        self.assertEqual(len(list(lua.globals().MSGS.keys())), 0)
+        hm.OnCastSent(hm, HS, "SECRET", 0)
+        self.assertEqual(len(list(lua.globals().MSGS.keys())), 1)
+
     def test_secret_amount_is_attributed_like_any_other(self):
         # Release build: amounts are secret everywhere; the heal still counts, the session total prices it later
         lua, addon, hm = start('issecretvalue = function(v) return v == -777 end')
