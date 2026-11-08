@@ -9,7 +9,6 @@ local pattern_left = "+Healing\nCrit Rating\nHaste (HPCT)\nIntellect\nSpirit\nMP
 local pattern_right = "%.2f\n%.2f\n%.2f\n%.2f\n%.2f\n%.2f";
 -- Pawn stat identifiers as Pawn on Forever exports them (sample from Ryan, 2026-11-07): "Healing", not Classic's "HealingPower".
 local pawn_pattern = [[( Pawn: v1: "%s": Class=%s, Spec=%s, Healing=%.2f, SpellCritRating=%.2f, SpellHaste=%.2f, Intellect=%.2f, Spirit=%.2f, Mp5=%.2f)]];
-local pawn_str_name = "%s-HSW-%s";
 local pawn_title = "Pawn String (Ctrl+A to select all, Ctrl+C to copy):";
 local pawn_dialog_name = "HSW_GETPAWNSTRING";
 local clearsegments_dialog_name = "HSW_CLEARALLSEGMENTS";
@@ -159,7 +158,7 @@ function addon:GetPawnString()
 	local segment = self.SegmentManager:Get(self.currentSegment);
 	local class = UnitClass("player");
 	local specIndex = addon.PawnSpecIndex[self:GetSpecId() or 0] or 1;
-	local title = string.format(pawn_str_name, class, segment and segment.id or "Unknown");
+	local title = segment and segment.id or "Unknown"; -- the scale is named after the segment, as the history export is
 	return self:GetPawnStringRaw(title, class, specIndex, self:GetStatsForDisplay());
 end
 
