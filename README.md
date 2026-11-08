@@ -18,7 +18,8 @@ In game, `/hsw` opens the options and history window. With "Log Casts and Heals 
 logged segment's page has a "Casts and Heals" box with a CSV of every cast, every attributed heal (no
 amount: the client hides them) and one total row per spell (time, spell, target, amount, crit, mana)
 the weights were built from; click in it, Ctrl+A, Ctrl+C to copy. `/hsw show`, `/hsw hide`, `/hsw lock`,
-`/hsw unlock` control the panel. `/hsw regen` prints the Spirit-regen rate in use (Forever: 0.25 mana/s
+`/hsw unlock` control the panel. The window's Clear button saves the Total segment (every fight since
+login or the last clear) to history as "Total (N fights)" before resetting. `/hsw regen` prints the Spirit-regen rate in use (Forever: 0.25 mana/s
 per Spirit under 50 Spirit, 0.125 from 50, gear MP5 taken out) and `/hsw discover on` logs unknown
 healing spell IDs, unattributed heals and the fight's pricing steps to chat.
 
