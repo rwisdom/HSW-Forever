@@ -40,6 +40,7 @@ function Segment.Create(id)
 	self.bossFight = false;
 	self.events = {};           -- CSV rows of every cast and attributed heal (addon:LogEvent), exported from the history tab
 	self.hits = {};             -- spellID -> { direct = { n=, crit= }, tick = { n=, crit= }, targets = { [name] = count } }, counted by HealMatcher; priced at fight end (StatParser:ApplyTotals)
+	self.fights = 0;            -- Total only: fights priced with healing since it began (named in the history entry)
 	return self;
 end
 

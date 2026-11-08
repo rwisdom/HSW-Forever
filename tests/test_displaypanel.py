@@ -331,6 +331,19 @@ class Finaliser(unittest.TestCase):
         addon.EndFight(addon)
         self.assertEqual(second.totalHealing, 200)
 
+    def test_total_counts_priced_fights_with_healing(self):
+        lua, addon = start(extra=ALWAYS)
+        ttl = seg(addon, "Total")
+        self.assertEqual(ttl.fights, 0)
+        addon.StartFight(addon, "A", True)
+        lua.execute('STUB.sessions[1] = { sessionID = 1, name = "A", heals = { ["Player-1"] = { [25292] = 100 } } }; STUB.time = 10')
+        addon.EndFight(addon)
+        self.assertEqual(ttl.fights, 1)
+        addon.StartFight(addon, "B", True)                                       # no healing: not a fight that counts
+        lua.execute("STUB.time = 20")
+        addon.EndFight(addon)
+        self.assertEqual(ttl.fights, 1)
+
     def test_testing_flag_outlives_a_pending_test_segment(self):
         lua, addon = start(extra=SESSION + "; STUB.secret = true")
         addon.hsw.ChatCommand(addon.hsw, "start")

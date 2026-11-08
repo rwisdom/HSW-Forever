@@ -282,6 +282,10 @@ function addon:FinalizePending()
 		if totals then
 			self:UpdatePlayerStats();
 			self.StatParser:ApplyTotals(seg, totals);
+			if seg.t.heal > 0 then
+				local ttl = self.SegmentManager:Get("Total");
+				ttl.fights = ttl.fights + 1;
+			end
 			seg.pendingSince = nil;
 			self:AddHistoricalSegment(seg);
 			discoverMsg("segment " .. tostring(seg.id) .. " finalised.");
