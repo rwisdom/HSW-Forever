@@ -251,7 +251,6 @@ end
 	until its session totals read plainly, then is priced and logged.
 ------------------------------------------------------------------------------]]
 addon.pendingSegments = {};
-addon.sessionWatermark = 0;  -- newest session id seen while the list was readable
 local PENDING_TIMEOUT = 60; -- seconds before a segment whose totals never clear is given up
 local finalizer;
 
@@ -288,7 +287,7 @@ function addon:FinalizePending()
 			discoverMsg("segment " .. tostring(seg.id) .. " finalised.");
 			releaseTesting(seg);
 			floor = seg.sessionTo;
-			if seg.sessionTo > self.sessionWatermark then self.sessionWatermark = seg.sessionTo end
+			self.SessionTotals.Advance(seg.sessionTo);
 			local live = self.inCombat and self.SegmentManager:Get(0);
 			if live and live.sessionFrom < seg.sessionTo then live.sessionFrom = seg.sessionTo end
 		elseif GetTime() - seg.pendingSince > PENDING_TIMEOUT then
@@ -324,11 +323,9 @@ function addon:StartFight(id, isBossFight)
 	self.UnitManager:Cache();
 	self.HealMatcher:Reset();
 	self.SegmentManager:Enqueue(id, isBossFight);
-	-- the meter's sessions opened after this one are ours; in combat the list can be unreadable,
-	-- then the newest id seen while readable (the watermark) stands in
-	local newest = self.SessionTotals.Newest();
-	if newest then self.sessionWatermark = newest end
-	self.SegmentManager:Get(0).sessionFrom = self.sessionWatermark;
+	-- the meter has already opened this fight's session by now, so "newest" is not a boundary:
+	-- everything above the watermark (last out-of-combat reading) is ours
+	self.SegmentManager:Get(0).sessionFrom = self.SessionTotals.watermark;
 
 	-- the Total segment is live for the duration of every fight
 	local cur_seg = self.SegmentManager:Get(0);

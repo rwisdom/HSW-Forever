@@ -13,6 +13,12 @@ local name, addon = ...;
 ------------------------------------------------------------------------------]]
 local SessionTotals = {};
 
+-- Newest session id seen at an out-of-combat moment: login, a fight priced, an untracked combat
+-- over. The meter opens a fight's session before PLAYER_REGEN_DISABLED reaches the addon (seen in
+-- a dungeon 2026-11-07), so a fight cannot read "newest" at its start: every session above the
+-- watermark belongs to the fight running or starting.
+SessionTotals.watermark = 0;
+
 local function healingDone()
 	return Enum and Enum.DamageMeterType and Enum.DamageMeterType.HealingDone or 2;
 end
@@ -31,6 +37,12 @@ function SessionTotals.Newest()
 		if id > newest then newest = id end
 	end
 	return newest;
+end
+
+-- Raise the watermark to `id`, or to the newest readable session when none is given.
+function SessionTotals.Advance(id)
+	id = id or SessionTotals.Newest();
+	if id and id > SessionTotals.watermark then SessionTotals.watermark = id end
 end
 
 local function read(from, to)

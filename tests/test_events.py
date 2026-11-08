@@ -104,6 +104,20 @@ class UnitEvents(unittest.TestCase):
         addon.hsw.ENCOUNTER_START(addon.hsw, "ENCOUNTER_START", 1, "Lucifron")
         self.assertEqual(list(lua.globals().FIGHTS.values()), ["start:Lucifron"])
 
+    def test_untracked_combat_and_entering_world_advance_the_session_watermark(self):
+        lua, addon, seg = start()
+        lua.execute('STUB.sessions = { { sessionID = 5, name = "Boar" } }')
+        addon.inCombat = False                                                # no fight open: the content gate refused it
+        addon.hsw.PLAYER_REGEN_ENABLED(addon.hsw)
+        self.assertEqual(addon.SessionTotals.watermark, 5)
+        lua.execute('STUB.sessions[2] = { sessionID = 6, name = "Wolf" }')
+        addon.hsw.PLAYER_ENTERING_WORLD(addon.hsw)
+        self.assertEqual(addon.SessionTotals.watermark, 6)
+        lua.execute('STUB.sessions[3] = { sessionID = 7, name = "Rabbit" }; function HSW_TEST_ADDON:EndFight() self.inCombat = false end')
+        addon.inCombat = True                                                 # a tracked fight: its sessions are the finaliser's to claim
+        addon.hsw.PLAYER_REGEN_ENABLED(addon.hsw)
+        self.assertEqual(addon.SessionTotals.watermark, 6)
+
     def test_secret_combat_flag_counts_as_out_of_combat(self):
         lua, addon, seg = start(extra=PARTY + '; issecretvalue = function(v) return v == "SECRET" end')
         lua.execute('function HSW_TEST_ADDON:EndFight() self.inCombat = false end; STUB.combat.party1 = "SECRET"')

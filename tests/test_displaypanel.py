@@ -235,6 +235,7 @@ class Finaliser(unittest.TestCase):
 
     def test_segment_is_priced_from_the_sessions_opened_during_the_fight(self):
         lua, addon = start(extra=ALWAYS + '; STUB.sessions = { { sessionID = 3, name = "Earlier", heals = { ["Player-1"] = { [25292] = 5000 } } } }')
+        addon.SessionTotals.Advance()                                            # out of combat: the earlier session is nobody's
         addon.StartFight(addon, "Boss", True)
         self.assertEqual(seg(addon).sessionFrom, 3)
         lua.execute('local a = HSW_TEST_ADDON; a.StatParser:DecompHealingForCurrentSpec("SPELL_HEAL", "Player-1", 25292, false)')
@@ -270,8 +271,21 @@ class Finaliser(unittest.TestCase):
         self.assertEqual(cur.sessionTo, 7)                                          # resolved once readable
         self.assertEqual(addon.History.Size(addon.History), 1)
         self.assertEqual(cur.totalHealing, 1000)
-        self.assertEqual(addon.sessionWatermark, 7)
+        self.assertEqual(addon.SessionTotals.watermark, 7)
         self.assertEqual(self.tickers(lua), 0)
+
+    def test_session_already_open_when_the_fight_starts_is_included(self):
+        # Dungeon 2026-11-07: the meter had opened session 29 before PLAYER_REGEN_DISABLED, StartFight read it as
+        # "before the fight" and the pull priced to nothing. The fight starts at the watermark, not at "newest".
+        lua, addon = start(extra=ALWAYS + '; STUB.sessions = { { sessionID = 28, name = "Earlier", heals = { ["Player-1"] = { [25292] = 5000 } } } }')
+        addon.SessionTotals.Advance()                                            # 28 seen out of combat
+        lua.execute('STUB.sessions[2] = { sessionID = 29, name = "Pull", heals = { ["Player-1"] = { [25292] = 1000 } } }')   # opened as combat begins
+        addon.StartFight(addon, "Boss", True)
+        self.assertEqual(seg(addon).sessionFrom, 28)
+        cur = seg(addon)
+        lua.execute("STUB.time = 20")
+        addon.EndFight(addon)
+        self.assertEqual((cur.sessionTo, cur.totalHealing), (29, 1000))
 
     def test_stale_pending_segment_is_dropped(self):
         lua, addon = start(extra=ALWAYS + "; " + SESSION + "; STUB.secret = true")

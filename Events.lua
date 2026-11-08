@@ -53,6 +53,11 @@ end
 
 function addon.hsw:PLAYER_REGEN_ENABLED()
 	if addon.inBossFight then return end
+	if not addon.inCombat then
+		-- a combat the addon did not track (content gate off): its meter sessions are nobody's
+		addon.SessionTotals.Advance();
+		return;
+	end
 	if addon.discoverSpells then
 		addon:Msg("[HealerStatWeights]: player left combat, group " .. (groupInCombat() and "still fighting." or "out of combat."));
 	end
@@ -96,6 +101,7 @@ end
 
 function addon.hsw:PLAYER_ENTERING_WORLD()
 	addon.inBossFight = false; -- ENCOUNTER_END never came (zoned out mid-encounter)
+	addon.SessionTotals.Advance(); -- meter sessions from before the login or zone-in are not a fight's
 	addon:SetupFrame();
 	RefreshCharacter();
 end
