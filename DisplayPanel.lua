@@ -13,7 +13,7 @@ local pawn_str_name = "%s-HSW-%s";
 local pawn_title = "Pawn String (Ctrl+A to select all, Ctrl+C to copy):";
 local pawn_dialog_name = "HSW_GETPAWNSTRING";
 local clearsegments_dialog_name = "HSW_CLEARALLSEGMENTS";
-local clearsegments_title = "Clear all segments?";
+local clearsegments_title = "Clear all segments? The Total is saved to history first.";
 local btn_size = 16;
 
 --[[----------------------------------------------------------------------------
@@ -213,8 +213,7 @@ StaticPopupDialogs[clearsegments_dialog_name] = {
 	button1 = YES,
 	button2 = NO,
 	OnAccept = function()
-		addon.SegmentManager:ResetAllSegments();
-		addon:SetCurrentSegment(0);
+		addon:ClearAllSegments();
 	end,
 	timeout = 0,
 	exclusive = 1,
@@ -315,6 +314,23 @@ function addon:StartFinalizer()
 	if #self.pendingSegments > 0 and not finalizer then
 		finalizer = C_Timer.NewTicker(0.5, function() addon:FinalizePending() end);
 	end
+end
+
+--[[----------------------------------------------------------------------------
+	Clear all segments. The Total ends here, so it goes to history first: one entry
+	named by its fight count, logged even in a raid (bossFight), dated from when it began.
+------------------------------------------------------------------------------]]
+function addon:ClearAllSegments()
+	if self.inCombat then return end
+	self:FinalizePending(); -- a fight priced moments ago belongs in the Total
+	local ttl = self.SegmentManager:Get("Total");
+	if ttl.t.heal > 0 then
+		ttl.id = "Total (" .. ttl.fights .. (ttl.fights == 1 and " fight)" or " fights)");
+		ttl.bossFight = true; -- the Total is discarded below, so the entry can take its name and flag from it
+		self:AddHistoricalSegment(ttl);
+	end
+	self.SegmentManager:ResetAllSegments();
+	self:SetCurrentSegment(0);
 end
 
 -- isBossFight: the segment is logged even as raid trash (an encounter, or one the player asked for).
@@ -498,7 +514,7 @@ function addon:SetupFrame()
 	frame.textR = text;
 	frame.buttons = {};
 
-	makeButton(frame, "Clear", "Clear out all segments.", "Interface\\Buttons\\UI-StopButton", function()
+	makeButton(frame, "Clear", "Clear out all segments. The Total is saved to history first.", "Interface\\Buttons\\UI-StopButton", function()
 		if not addon.inCombat then
 			StaticPopup_Show(clearsegments_dialog_name);
 		else

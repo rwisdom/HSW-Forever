@@ -355,6 +355,70 @@ class Finaliser(unittest.TestCase):
         self.assertIsNone(lua.globals().HSW_ENABLE_FOR_TESTING)
 
 
+class ClearSegments(unittest.TestCase):
+    """The Clear button archives the Total to history before the reset."""
+
+    def fight(self, lua, addon, name, session, healing, end_time):
+        addon.StartFight(addon, name, True)
+        lua.execute(f'STUB.sessions[#STUB.sessions + 1] = {{ sessionID = {session}, name = "{name}", heals = {{ ["Player-1"] = {{ [25292] = {healing} }} }} }}; STUB.time = {end_time}')
+        addon.EndFight(addon)
+
+    def test_total_is_archived_then_reset(self):
+        lua, addon = start(extra=ALWAYS)
+        self.fight(lua, addon, "A", 1, 100, 10)
+        self.fight(lua, addon, "B", 2, 300, 40)                                  # 10 + 30 seconds of fights
+        ttl = seg(addon, "Total")
+        heal_per_pct = ttl.totalHealing / 100 / ttl.t.heal
+        addon.ClearAllSegments(addon)
+        self.assertEqual(addon.History.Size(addon.History), 3)
+        h = addon.History.Get(addon.History, 0)
+        self.assertEqual((h.Segment, h.tab, h.Duration, h.Heal), ("Total (2 fights)", "", "0:40", 1))
+        self.assertAlmostEqual(h.HealPct, heal_per_pct)
+        self.assertEqual(addon.History.Get(addon.History, 1).Segment, "B")
+        self.assertEqual(addon.SegmentManager.Size(addon.SegmentManager), 0)
+        new_total = seg(addon, "Total")
+        self.assertEqual((new_total.fights, new_total.t.heal), (0, 0))
+        self.assertEqual(addon.currentSegment, 0)
+
+    def test_one_fight_is_singular(self):
+        lua, addon = start(extra=ALWAYS)
+        self.fight(lua, addon, "A", 1, 100, 10)
+        addon.ClearAllSegments(addon)
+        self.assertEqual(addon.History.Get(addon.History, 0).Segment, "Total (1 fight)")
+
+    def test_raid_trash_is_skipped_but_the_total_is_kept(self):
+        lua, addon = start(extra='STUB.instance = { name = "MC", type = "raid", difficultyId = 14 }')
+        addon.StartFight(addon, "Trash")                                          # not a boss: raid trash
+        lua.execute('STUB.sessions[1] = { sessionID = 1, name = "Trash", heals = { ["Player-1"] = { [25292] = 100 } } }; STUB.time = 10')
+        addon.EndFight(addon)
+        self.assertEqual(addon.History.Size(addon.History), 0)
+        addon.ClearAllSegments(addon)
+        self.assertEqual(addon.History.Size(addon.History), 1)
+        self.assertEqual(addon.History.Get(addon.History, 0).Segment, "Total (1 fight)")
+
+    def test_empty_total_adds_nothing_and_still_resets(self):
+        lua, addon = start(extra=ALWAYS)
+        addon.StartFight(addon, "A", True)
+        lua.execute("STUB.time = 10")
+        addon.EndFight(addon)                                                     # nothing healed
+        addon.ClearAllSegments(addon)
+        self.assertEqual(addon.History.Size(addon.History), 0)
+        self.assertEqual(addon.SegmentManager.Size(addon.SegmentManager), 0)
+
+    def test_in_combat_nothing_happens(self):
+        lua, addon = start(extra=ALWAYS)
+        self.fight(lua, addon, "A", 1, 100, 10)
+        addon.StartFight(addon, "B", True)
+        addon.ClearAllSegments(addon)
+        self.assertEqual(addon.History.Size(addon.History), 1)                     # fight A only
+        self.assertEqual(addon.SegmentManager.Size(addon.SegmentManager), 2)
+        self.assertTrue(addon.inCombat)
+
+    def test_dialog_text_says_the_total_is_saved(self):
+        lua, addon = start()
+        self.assertIn("saved to history", lua.globals().StaticPopupDialogs["HSW_CLEARALLSEGMENTS"].text)
+
+
 class Encounters(unittest.TestCase):
     """Events.lua on top of the real StartFight/EndFight: a boss pulled during trash gets its own segment."""
 
