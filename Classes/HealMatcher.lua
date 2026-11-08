@@ -119,12 +119,20 @@ local function registerHot(s, targetName, now)
 	end
 end
 
--- UNIT_SPELLCAST_SUCCEEDED: periodic parts start now.
+-- UNIT_SPELLCAST_SUCCEEDED: the cast finished now. Spell pushback stretches a cast past the window
+-- opened at SENT, so the oldest pending expectation of the spell gets a fresh landing window; the
+-- periodic parts start now.
 function HealMatcher:OnCastSucceeded(spellID, now)
 	if not addon.inCombat then return end
 	local s = addon.Spells:Get(spellID);
 	if not s then return end
 	now = now or GetTime();
+	for _, e in ipairs(expectations) do
+		if e.spellID == spellID and not e.landed then
+			e.expires = math.max(e.expires, now + LANDING_WINDOW);
+			break;
+		end
+	end
 	if s.name == TOTEM then
 		totem = { spellID = spellID, expires = now + s.duration };
 	elseif s.tick > 0 and s.duration > 0 then

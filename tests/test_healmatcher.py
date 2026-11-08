@@ -87,6 +87,28 @@ class DirectHeals(unittest.TestCase):
         hm.OnUnitCombat(hm, "player", "HEAL", "", 1000, 3.6)
         self.assertEqual(heals(lua), [])
 
+    def test_succeeded_reopens_the_window_for_a_cast_stretched_by_pushback(self):
+        # Dungeon 2026-11-07: a Healing Wave cast while being hit finished late and its heal went unattributed
+        lua, addon, hm = start()
+        hm.OnCastSent(hm, HL, "", 0)                                   # window would close at 3.5
+        hm.OnCastSucceeded(hm, HL, 4.0)                                # pushback: the cast finished at 4.0
+        hm.OnUnitCombat(hm, "player", "HEAL", "", 1000, 4.5)
+        self.assertEqual(heals(lua), [("SPELL_HEAL", "Player-1", HL, False)])
+        hm.OnCastSent(hm, HL, "", 10)
+        hm.OnCastSucceeded(hm, HL, 14.0)
+        hm.OnUnitCombat(hm, "player", "HEAL", "", 1000, 15.1)         # more than a second after the finish: not ours
+        self.assertEqual(len(heals(lua)), 1)
+
+    def test_succeeded_extends_the_oldest_pending_cast_of_the_spell(self):
+        lua, addon, hm = start()
+        hm.OnCastSent(hm, HL, "", 0)
+        hm.OnCastSent(hm, HL, "", 2.4)                                 # queued
+        hm.OnCastSucceeded(hm, HL, 4.0)                                # the first one, late
+        hm.OnUnitCombat(hm, "player", "HEAL", "", 1000, 4.5)
+        hm.OnCastSucceeded(hm, HL, 6.5)                                # the queued cast ran after the first: its own late finish
+        hm.OnUnitCombat(hm, "player", "HEAL", "", 1000, 7.0)
+        self.assertEqual(len(heals(lua)), 2)
+
     def test_queued_cast_does_not_steal_the_landing_heal(self):
         lua, addon, hm = start()
         hm.OnCastSent(hm, HL, "", 0)
