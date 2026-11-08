@@ -325,7 +325,8 @@ function addon:ClearAllSegments()
 	local ttl = self.SegmentManager:Get("Total");
 	if ttl.t.heal > 0 then
 		ttl.id = "Total (" .. ttl.fights .. (ttl.fights == 1 and " fight)" or " fights)");
-		ttl.bossFight = true; -- the Total is discarded below, so the entry can take its name and flag from it
+		ttl.bossFight = true; -- the Total is discarded below, so the entry can take its name and flags from it
+		ttl.isTotal = true;
 		self:AddHistoricalSegment(ttl);
 	end
 	self.SegmentManager:ResetAllSegments();

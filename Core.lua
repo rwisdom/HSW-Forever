@@ -586,12 +586,14 @@ function addon:AddHistoricalSegment(segment)
 
 	h.Talents = segment.talentsSnapshot and segment.selectedTalents or {};
 	h.Events = segment.events;
+	h.IsTotal = segment.isTotal or nil; -- an archived Total (ClearAllSegments): its rows live in the fights' entries
 
 	self.History:Enqueue(h);
 end
 
 -- The casts and heals a history entry was built from, as CSV with a header row.
 function addon:EventsCSV(h)
+	if h.IsTotal then return "The Total keeps no rows of its own: each fight's casts and heals are in that fight's entry." end
 	if not h.Events or #h.Events == 0 then return "No casts or heals were recorded for this segment." end
 	return self.EventsHeader .. "\n" .. table.concat(h.Events, "\n");
 end
