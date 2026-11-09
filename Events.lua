@@ -44,7 +44,8 @@ function addon.hsw:PLAYER_REGEN_DISABLED()
 	stopCombatPoll(); -- back in combat: the fight is still open, nothing to end
 	addon:StartFight(nil);
 	-- no combat log to name the fight from: use the hostile target we have, if any. Its name is
-	-- a secret string once combat has started (then the fight stays "Unknown").
+	-- a secret string once combat has started (then the fight stays "Trash" until the finaliser
+	-- names it after its meter session).
 	if addon.inCombat and UnitExists("target") and UnitCanAttack("player", "target") then
 		local targetName = addon.Compat.PlainString(UnitName("target"));
 		if targetName then addon.SegmentManager:SetCurrentId(targetName) end

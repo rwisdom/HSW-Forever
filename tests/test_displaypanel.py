@@ -317,6 +317,34 @@ class Finaliser(unittest.TestCase):
         self.assertFalse(any("no healing" in m for m in msgs), msgs)
         self.assertTrue(any("segment Priced finalised." in m for m in msgs), msgs)
 
+    def test_unnamed_fight_takes_the_meter_sessions_name_when_priced(self):
+        # Dungeon trash: the hostile's name is secret at PLAYER_REGEN_DISABLED, so the fight starts "Trash".
+        # The meter names its session after the mob, readable once the totals are.
+        lua, addon = start(extra=ALWAYS)
+        addon.StartFight(addon, None)
+        first = seg(addon)
+        self.assertEqual(first.id, "Trash")
+        lua.execute('STUB.sessions[1] = { sessionID = 1, name = "Defias Pillager", durationSeconds = 4, heals = { ["Player-1"] = { [25292] = 50 } } }'
+                    '; STUB.sessions[2] = { sessionID = 2, name = "Defias Trapper", durationSeconds = 9, heals = { ["Player-1"] = { [25292] = 100 } } }; STUB.time = 10')
+        addon.EndFight(addon)
+        self.assertEqual(first.id, "Defias Trapper")                             # the longest session names the pull
+        self.assertEqual(addon.History.Get(addon.History, 0).Segment, "Defias Trapper")
+        addon.StartFight(addon, None)
+        second = seg(addon)
+        lua.execute('STUB.sessions[3] = { sessionID = 3, name = "Defias Trapper", durationSeconds = 5, heals = { ["Player-1"] = { [25292] = 100 } } }; STUB.time = 20')
+        addon.EndFight(addon)
+        self.assertEqual(second.id, "Defias Trapper(2)")                          # numbered like a named repeat
+        addon.StartFight(addon, "Boss", True)
+        third = seg(addon)
+        lua.execute('STUB.sessions[4] = { sessionID = 4, name = "Trash", heals = { ["Player-1"] = { [25292] = 100 } } }; STUB.time = 30')
+        addon.EndFight(addon)
+        self.assertEqual(third.id, "Boss")                                       # a named fight keeps its name
+        addon.StartFight(addon, None)
+        fourth = seg(addon)
+        lua.execute("STUB.time = 40")
+        addon.EndFight(addon)
+        self.assertEqual(fourth.id, "Trash")                                     # no session: nothing to name it after
+
     def test_consecutive_fights_with_readable_boundaries_get_their_own_sessions(self):
         lua, addon = start(extra=ALWAYS)
         addon.StartFight(addon, "First", True)

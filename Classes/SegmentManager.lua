@@ -49,7 +49,7 @@ end
 ------------------------------------------------------------------------------]]
 function SegmentManager:Enqueue(id, isBossFight)
 	self.front = self.front + 1;
-	self.segments[self.front] = addon.Segment.Create(id or "Unknown");
+	self.segments[self.front] = addon.Segment.Create(id or "Trash"); -- unnamed until a mob name is known
 
 	if ( id ) then
 		self:SetCurrentId(id, isBossFight);
@@ -116,16 +116,27 @@ end
 	SetId - Update the name of the current segment & boss flag
 ------------------------------------------------------------------------------]]
 function SegmentManager:SetCurrentId(newId,isBossFight)
-	if ( newId and newId ~= "Unknown" and newId ~= "Total" and not self.segments[self.front].nameSet ) then
-		self.segments[self.front].bossFight = isBossFight and true or false;
-		ids[newId] = ( ids[newId] or 0 ) + 1;
-		if ( ids[newId] > 1 ) then
-			self.segments[self.front].id = newId .. "(" .. tostring(ids[newId]) .. ")";
-		else
-			self.segments[self.front].id = newId;
-		end
-		self.segments[self.front].nameSet = true;
+	local seg = self.segments[self.front];
+	if ( newId and newId ~= "Trash" and newId ~= "Total" and not seg.nameSet ) then
+		seg.bossFight = isBossFight and true or false;
+		self:Name(seg, newId);
 	end
+end
+
+--[[----------------------------------------------------------------------------
+	Name - Give a still-unnamed segment its name, numbered "(2)" for a repeat. Used
+	at fight start (SetCurrentId) and at pricing for a fight whose hostile name was
+	secret, from the meter session's name (addon:FinalizePending).
+------------------------------------------------------------------------------]]
+function SegmentManager:Name(seg, newId)
+	if ( not newId or newId == "Trash" or newId == "Total" or seg.nameSet ) then return end
+	ids[newId] = ( ids[newId] or 0 ) + 1;
+	if ( ids[newId] > 1 ) then
+		seg.id = newId .. "(" .. tostring(ids[newId]) .. ")";
+	else
+		seg.id = newId;
+	end
+	seg.nameSet = true;
 end
 
 

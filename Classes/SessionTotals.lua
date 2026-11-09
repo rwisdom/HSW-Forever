@@ -60,6 +60,26 @@ local function read(from, to)
 	return totals;
 end
 
+-- Name of the longest session with from < id <= to (the mob the meter named it after); nil when
+-- none is in range or a value is still secret. Names a fight whose hostile target was secret.
+function SessionTotals.Name(from, to)
+	if not C_DamageMeter or not C_DamageMeter.GetAvailableCombatSessions then return nil end
+	local P, S = addon.Compat.PlainNumber, addon.Compat.PlainString;
+	local ok, sessions = pcall(C_DamageMeter.GetAvailableCombatSessions);
+	if not ok then return nil end
+	local best, bestDuration;
+	for _, s in ipairs(sessions or {}) do
+		local id = P(s.sessionID);
+		if id and id > from and id <= to then
+			local sname, duration = S(s.name), P(s.durationSeconds) or 0;
+			if sname and sname ~= "" and (not bestDuration or duration > bestDuration) then
+				best, bestDuration = sname, duration;
+			end
+		end
+	end
+	return best;
+end
+
 -- { [spellID] = effective healing } for the player over the sessions from < id <= to.
 -- nil without the API or while any value is secret (iterating a secret table throws: same answer).
 function SessionTotals.Read(from, to)

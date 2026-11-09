@@ -285,6 +285,11 @@ function addon:FinalizePending()
 				ttl.fights = ttl.fights + 1;
 			end
 			seg.pendingSince = nil;
+			-- a hostile's name is secret in a dungeon, so the fight is still "Trash": the meter named
+			-- its session after the mob, and that name is plain once the totals are
+			if not seg.nameSet then
+				self.SegmentManager:Name(seg, self.SessionTotals.Name(seg.sessionFrom, seg.sessionTo));
+			end
 			self:AddHistoricalSegment(seg);
 			if seg.t.heal == 0 and next(seg.hits) then
 				-- the matcher saw heals land but the meter has nothing for them: a session it never

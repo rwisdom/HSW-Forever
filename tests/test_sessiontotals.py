@@ -34,6 +34,22 @@ class Newest(unittest.TestCase):
         self.assertIsNone(st.Newest())                                     # unreadable, not "none"
 
 
+class Name(unittest.TestCase):
+    def test_longest_session_in_range_names_the_fight(self):
+        _, _, st = start(SESSIONS)
+        self.assertEqual(st.Name(0, 3), "Mangy Wolf")                      # 14 s beats 7 s
+        self.assertEqual(st.Name(0, 1), "Forest Spider")
+        self.assertEqual(st.Name(2, 3), "Mangy Wolf")
+        self.assertIsNone(st.Name(3, 3))                                   # empty range
+        self.assertIsNone(st.Name(3, 9))                                   # no such sessions
+
+    def test_nil_while_secret_or_without_the_api(self):
+        _, _, st = start(SESSIONS + "; STUB.secret = true")
+        self.assertIsNone(st.Name(0, 3))
+        _, _, st = start("C_DamageMeter = nil")
+        self.assertIsNone(st.Name(0, 3))
+
+
 class Read(unittest.TestCase):
     def test_sums_the_players_spells_over_the_range(self):
         _, _, st = start(SESSIONS)
