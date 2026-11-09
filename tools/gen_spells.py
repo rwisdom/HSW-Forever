@@ -19,7 +19,7 @@ WHITELIST = {
     "Druid": ("DRUID", ["Healing Touch", "Rejuvenation", "Regrowth", "Wild Growth", "Tranquility", "Swiftmend"]),
     "Paladin": ("PALADIN", ["Holy Light", "Flash of Light", "Holy Shock", "Light's Vigil", "Lay on Hands"]),
     "Priest": ("PRIEST", ["Lesser Heal", "Heal", "Greater Heal", "Flash Heal", "Renew", "Prayer of Healing",
-                          "Holy Nova", "Binding Heal", "Prayer of Mending", "Penance", "Power Word: Shield",
+                          "Holy Nova", "Prayer of Mending", "Penance", "Power Word: Shield",
                           "Desperate Prayer", "Divine Grace"]),
     "Shaman": ("SHAMAN", ["Healing Wave", "Lesser Healing Wave", "Chain Heal", "Riptide", "Healing Stream Totem"]),
 }

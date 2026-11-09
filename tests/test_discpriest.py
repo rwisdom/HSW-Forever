@@ -29,11 +29,12 @@ class DiscPriestTests(unittest.TestCase):
         heal(addon, "SPELL_HEAL", FH, 1000)
         self.assertAlmostEqual(seg.t.crit, (crit_per_pct(1000, 0.10) + crit_per_pct(1000, 0.20)) / 14 + 2 * aegis(1000))
 
-    def test_binding_heal_left_renewed_hope(self):
+    def test_binding_heal_is_gone(self):
         _, addon, seg = start("PRIEST", DISC, FILES)
+        self.assertIsNone(addon.Spells.Get(addon.Spells, 1240774))   # Binding Heal R6: removed from the game (Blizzard's notes of 2 Nov 2026)
         addon.BuffTracker.MarkTarget(addon.BuffTracker, "Me", WEAKENED_SOUL, 15)
-        heal(addon, "SPELL_HEAL", 1240774, 1000)                 # Binding Heal R6: not in the talent's list since 2026-10-30
-        self.assertAlmostEqual(seg.t.crit, crit_per_pct(1000, 0.10) / 14 + aegis(1000))
+        heal(addon, "SPELL_HEAL", 1240774, 1000)                 # an unknown spell credits nothing
+        self.assertEqual(seg.t.crit, 0)
 
     def test_penance_bolts_get_renewed_hope_and_aegis_renew_ticks_do_not(self):
         lua, addon, seg = start("PRIEST", DISC, FILES)

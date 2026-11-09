@@ -143,14 +143,6 @@ S:Define(27799, T.PRIEST, "Holy Nova", { coeff = 0.107, base = 163, mana = 520, 
 S:Define(27800, T.PRIEST, "Holy Nova", { coeff = 0.107, base = 242, mana = 635, targets = 5 }); -- Rank 5
 S:Define(27801, T.PRIEST, "Holy Nova", { coeff = 0.107, base = 311, mana = 750, targets = 5 }); -- Rank 6
 
--- Binding Heal
-S:Define(401937, T.PRIEST, "Binding Heal", { coeff = 0.429, base = 260, mana = 155, cast = 1.5 }); -- Rank 1
-S:Define(1240770, T.PRIEST, "Binding Heal", { coeff = 0.429, base = 324, mana = 185, cast = 1.5 }); -- Rank 2
-S:Define(1240771, T.PRIEST, "Binding Heal", { coeff = 0.429, base = 397, mana = 215, cast = 1.5 }); -- Rank 3
-S:Define(1240772, T.PRIEST, "Binding Heal", { coeff = 0.429, base = 523, mana = 265, cast = 1.5 }); -- Rank 4
-S:Define(1240773, T.PRIEST, "Binding Heal", { coeff = 0.429, base = 662, mana = 315, cast = 1.5 }); -- Rank 5
-S:Define(1240774, T.PRIEST, "Binding Heal", { coeff = 0.429, base = 841, mana = 380, cast = 1.5 }); -- Rank 6
-
 -- Prayer of Mending
 S:Define(401859, T.PRIEST, "Prayer of Mending", { base = 172, mana = 210 }); -- Rank 1 (no coefficient in JSON)
 S:Define(1240826, T.PRIEST, "Prayer of Mending", { base = 298, mana = 305 }); -- Rank 2 (no coefficient in JSON)
@@ -218,9 +210,9 @@ S:Define(10622, T.SHAMAN, "Chain Heal", { coeff = 0.714, base = 349, mana = 315,
 S:Define(10623, T.SHAMAN, "Chain Heal", { coeff = 0.714, base = 506, mana = 405, cast = 2.5, targets = 3 }); -- Rank 3
 
 -- Riptide
-S:Define(408521, T.SHAMAN, "Riptide", { coeffTick = 0.1, baseTick = 89, mana = 245, duration = 15, tick = 3 }); -- Rank 1
-S:Define(1239242, T.SHAMAN, "Riptide", { coeffTick = 0.1, baseTick = 115, mana = 300, duration = 15, tick = 3 }); -- Rank 2
-S:Define(1239243, T.SHAMAN, "Riptide", { coeffTick = 0.1, baseTick = 161, mana = 385, duration = 15, tick = 3 }); -- Rank 3
+S:Define(408521, T.SHAMAN, "Riptide", { coeffTick = 0.1, baseTick = 89, mana = 150, duration = 15, tick = 3 }); -- Rank 1
+S:Define(1239242, T.SHAMAN, "Riptide", { coeffTick = 0.1, baseTick = 115, mana = 180, duration = 15, tick = 3 }); -- Rank 2
+S:Define(1239243, T.SHAMAN, "Riptide", { coeffTick = 0.1, baseTick = 161, mana = 230, duration = 15, tick = 3 }); -- Rank 3
 
 -- Healing Stream Totem
 S:Define(5394, T.SHAMAN, "Healing Stream Totem", { baseTick = 5, mana = 40, duration = 300, tick = 2, party = true }); -- Rank 1 (no coefficient in JSON)

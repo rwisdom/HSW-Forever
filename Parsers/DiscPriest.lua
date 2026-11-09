@@ -18,7 +18,7 @@ addon.SpecInfo[addon.SpellType.DPRIEST] = {
 	Renewed Hope: +2% crit per rank on these heals when the target has Weakened Soul.
 	Penance is listed by the talent, so its bolts count even when logged as periodic.
 ------------------------------------------------------------------------------]]
-local renewedHopeSpells = { ["Flash Heal"] = true, ["Lesser Heal"] = true, ["Heal"] = true, ["Greater Heal"] = true, ["Penance"] = true }; -- Binding Heal left the list on 2026-10-30
+local renewedHopeSpells = { ["Flash Heal"] = true, ["Lesser Heal"] = true, ["Heal"] = true, ["Greater Heal"] = true, ["Penance"] = true }; -- Binding Heal left the list on 2026-10-30 and the game on 2 Nov 2026
 
 local function CritChance(ev, s, destUnit, C)
 	C = addon.Priest.CritChance(ev, s, destUnit, C);
