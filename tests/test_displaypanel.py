@@ -500,13 +500,14 @@ class ClearSegments(unittest.TestCase):
         ttl = seg(addon, "Total")
         heal_per_pct = ttl.totalHealing / 100 / ttl.t.heal
         addon.ClearAllSegments(addon)
-        self.assertEqual(addon.History.Size(addon.History), 3)
+        self.assertEqual(addon.History.Size(addon.History), 4)                  # Total, Boss Total, B, A
         h = addon.History.Get(addon.History, 0)
         self.assertEqual((h.Segment, h.tab, h.Duration, h.Heal), ("Total (2 fights)", "", "0:40", 1))
         self.assertAlmostEqual(h.HealPct, heal_per_pct)
         self.assertTrue(h.IsTotal)
         self.assertIn("each fight's casts and heals are in that fight's entry", addon.EventsCSV(addon, h))
-        b = addon.History.Get(addon.History, 1)
+        self.assertEqual(addon.History.Get(addon.History, 1).Segment, "Boss Total (2 fights)")
+        b = addon.History.Get(addon.History, 2)
         self.assertEqual((b.Segment, b.IsTotal), ("B", None))
         self.assertEqual(addon.SegmentManager.Size(addon.SegmentManager), 0)
         new_total = seg(addon, "Total")
@@ -526,8 +527,9 @@ class ClearSegments(unittest.TestCase):
         addon.EndFight(addon)
         self.assertEqual(addon.History.Size(addon.History), 0)
         addon.ClearAllSegments(addon)
-        self.assertEqual(addon.History.Size(addon.History), 1)
+        self.assertEqual(addon.History.Size(addon.History), 2)
         self.assertEqual(addon.History.Get(addon.History, 0).Segment, "Total (1 fight)")
+        self.assertEqual(addon.History.Get(addon.History, 1).Segment, "Trash Total (1 fight)")
 
     def test_empty_total_adds_nothing_and_still_resets(self):
         lua, addon = start(extra=ALWAYS)
@@ -547,9 +549,37 @@ class ClearSegments(unittest.TestCase):
         self.assertEqual(addon.SegmentManager.Size(addon.SegmentManager), 2)
         self.assertTrue(addon.inCombat)
 
-    def test_dialog_text_says_the_total_is_saved(self):
+    def test_dialog_text_says_totals_are_saved(self):
         lua, addon = start()
-        self.assertIn("saved to history", lua.globals().StaticPopupDialogs["HSW_CLEARALLSEGMENTS"].text)
+        self.assertIn("Totals are saved to history first", lua.globals().StaticPopupDialogs["HSW_CLEARALLSEGMENTS"].text)
+
+    def test_class_totals_are_archived_with_the_total(self):
+        lua, addon = start(extra='STUB.instance = { name = "Deadmines", type = "party", difficultyId = 1 }')
+        self.fight(lua, addon, "VanCleef", 1, 1000, 10)                          # boss (fight() sets the boss flag)
+        addon.StartFight(addon, None)                                             # trash
+        lua.execute('STUB.sessions[#STUB.sessions + 1] = { sessionID = 2, name = "Defias Pillager", heals = { ["Player-1"] = { [25292] = 300 } } }; STUB.time = 20')
+        addon.EndFight(addon)
+        addon.StartFight(addon, None)                                             # trash
+        lua.execute('STUB.sessions[#STUB.sessions + 1] = { sessionID = 3, name = "Defias Trapper", heals = { ["Player-1"] = { [25292] = 200 } } }; STUB.time = 30')
+        addon.EndFight(addon)
+        addon.ClearAllSegments(addon)
+        names = [addon.History.Get(addon.History, i).Segment for i in range(addon.History.Size(addon.History))]
+        self.assertEqual(names[:3], ["Total (3 fights)", "Boss Total (1 fight)", "Trash Total (2 fights)"])
+        self.assertEqual(len(names), 6)
+        for i in range(3):
+            h = addon.History.Get(addon.History, i)
+            self.assertTrue(h.IsTotal)
+            self.assertEqual(h.tab, "")
+        self.assertEqual(addon.History.Get(addon.History, 2).Duration, "0:20")   # the two trash fights
+        for which in ("Total", "Bosses", "Trash"):
+            self.assertEqual((seg(addon, which).fights, seg(addon, which).t.heal), (0, 0))
+
+    def test_empty_class_total_is_not_archived(self):
+        lua, addon = start(extra=ALWAYS)
+        self.fight(lua, addon, "A", 1, 100, 10)                                   # open world: Total and (boss flag) Boss Total
+        addon.ClearAllSegments(addon)
+        names = [addon.History.Get(addon.History, i).Segment for i in range(addon.History.Size(addon.History))]
+        self.assertEqual(names, ["Total (1 fight)", "Boss Total (1 fight)", "A"])
 
 
 class Encounters(unittest.TestCase):

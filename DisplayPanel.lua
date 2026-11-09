@@ -12,7 +12,7 @@ local pawn_pattern = [[( Pawn: v1: "%s": Class=%s, Spec=%s, Healing=%.2f, SpellC
 local pawn_title = "Pawn String (Ctrl+A to select all, Ctrl+C to copy):";
 local pawn_dialog_name = "HSW_GETPAWNSTRING";
 local clearsegments_dialog_name = "HSW_CLEARALLSEGMENTS";
-local clearsegments_title = "Clear all segments? The Total is saved to history first.";
+local clearsegments_title = "Clear all segments? Totals are saved to history first.";
 local btn_size = 16;
 
 --[[----------------------------------------------------------------------------
@@ -328,18 +328,21 @@ function addon:StartFinalizer()
 end
 
 --[[----------------------------------------------------------------------------
-	Clear all segments. The Total ends here, so it goes to history first: one entry
-	named by its fight count, logged even in a raid (bossFight), dated from when it began.
+	Clear all segments. The totals end here, so they go to history first: one entry
+	each, named by fight count, logged even in a raid (bossFight), dated from when they
+	began. Archived in reverse, so history reads Total, Boss Total, Trash Total.
 ------------------------------------------------------------------------------]]
 function addon:ClearAllSegments()
 	if self.inCombat then return end
-	self:FinalizePending(); -- a fight priced moments ago belongs in the Total
-	local ttl = self.SegmentManager:Get("Total");
-	if ttl.t.heal > 0 then
-		ttl.id = "Total (" .. ttl.fights .. (ttl.fights == 1 and " fight)" or " fights)");
-		ttl.bossFight = true; -- the Total is discarded below, so the entry can take its name and flags from it
-		ttl.isTotal = true;
-		self:AddHistoricalSegment(ttl);
+	self:FinalizePending(); -- a fight priced moments ago belongs in the totals
+	for _, which in ipairs({ "Trash", "Bosses", "Total" }) do
+		local ttl = self.SegmentManager:Get(which);
+		if ttl.t.heal > 0 then
+			ttl.id = ttl.id .. " (" .. ttl.fights .. (ttl.fights == 1 and " fight)" or " fights)");
+			ttl.bossFight = true; -- the totals are discarded below, so the entry can take its name and flags from them
+			ttl.isTotal = true;
+			self:AddHistoricalSegment(ttl);
+		end
 	end
 	self.SegmentManager:ResetAllSegments();
 	self:SetCurrentSegment(0);
@@ -533,7 +536,7 @@ function addon:SetupFrame()
 	frame.textR = text;
 	frame.buttons = {};
 
-	makeButton(frame, "Clear", "Clear out all segments. The Total is saved to history first.", "Interface\\Buttons\\UI-StopButton", function()
+	makeButton(frame, "Clear", "Clear out all segments. Totals are saved to history first.", "Interface\\Buttons\\UI-StopButton", function()
 		if not addon.inCombat then
 			StaticPopup_Show(clearsegments_dialog_name);
 		else
