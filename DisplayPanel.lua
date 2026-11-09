@@ -42,9 +42,7 @@ function addon:SetCurrentSegment(segmentID)
 	local id;
 	if segmentID == 0 then
 		id = "Current Fight";
-	elseif segmentID == "Total" then
-		id = "Total";
-	else
+	else -- a total ("Total", "Bosses", "Trash") or a queued fight: titled by its id
 		local segment = self.SegmentManager:Get(segmentID);
 		id = segment and segment.id or "Unknown";
 	end
@@ -64,21 +62,20 @@ end
 function addon:SegmentMenu()
 	local menu = {
 		{ text = "Select a Segment", isTitle = true },
-		{ text = "Total", func = function() addon:SetCurrentSegment("Total") end },
-		{ text = "Current Fight", func = function() addon:SetCurrentSegment(0) end },
+		{ text = "Total", func = function() addon:SetCurrentSegment("Total") end, key = "Total" },
+		{ text = "Boss Total", func = function() addon:SetCurrentSegment("Bosses") end, key = "Bosses" },
+		{ text = "Trash Total", func = function() addon:SetCurrentSegment("Trash") end, key = "Trash" },
+		{ text = "Current Fight", func = function() addon:SetCurrentSegment(0) end, key = 0 },
 	};
 	for i = 1, self.SegmentManager:Size() - 1 do
 		local segment = self.SegmentManager:Get(i);
 		if segment then
-			table.insert(menu, { text = segment.id, func = function() addon:SetCurrentSegment(i) end });
+			table.insert(menu, { text = segment.id, func = function() addon:SetCurrentSegment(i) end, key = i });
 		end
 	end
-	if self.currentSegment == "Total" then
-		menu[2].checked = true;
-	elseif not self.currentSegment or self.currentSegment == 0 then
-		menu[3].checked = true;
-	elseif menu[3 + self.currentSegment] then
-		menu[3 + self.currentSegment].checked = true;
+	local current = self.currentSegment or 0;
+	for _, item in ipairs(menu) do
+		if item.key == current then item.checked = true end
 	end
 	self.menuFrame = self.menuFrame or CreateFrame("Frame", "HSW_SegmentMenu_Frame", UIParent, "UIDropDownMenuTemplate");
 	addon.Compat.ShowContextMenu(menu, self.menuFrame);

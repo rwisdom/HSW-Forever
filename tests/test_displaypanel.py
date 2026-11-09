@@ -126,6 +126,30 @@ class ClassTotals(unittest.TestCase):
         self.assertEqual(seg(addon)["class"], "Bosses")
         addon.EndFight(addon)
 
+    def test_menu_rows_and_titles(self):
+        lua, addon = start(extra=ALWAYS)
+        lua.execute('MENU = nil; function HSW_TEST_ADDON.Compat.ShowContextMenu(items) MENU = items end')
+        addon.StartFight(addon, "Boss", True)
+        addon.SetCurrentSegment(addon, "Bosses")
+        addon.SegmentMenu(addon)
+        rows = [(r.text, r.checked) for r in lua.globals().MENU.values()]
+        self.assertEqual([t for t, _ in rows], ["Select a Segment", "Total", "Boss Total", "Trash Total", "Current Fight"])   # the open fight is "Current Fight"; past fights follow
+        self.assertEqual([t for t, c in rows if c], ["Boss Total"])
+        addon.SetCurrentSegment(addon, "Trash")
+        addon.SegmentMenu(addon)
+        self.assertEqual([r.text for r in lua.globals().MENU.values() if r.checked], ["Trash Total"])
+        addon.SetCurrentSegment(addon, 0)
+        addon.SegmentMenu(addon)
+        self.assertEqual([r.text for r in lua.globals().MENU.values() if r.checked], ["Current Fight"])
+        addon.SetCurrentSegment(addon, 1)                                       # Get(1) is nil with one fight: no row checked
+        addon.SegmentMenu(addon)
+        self.assertEqual([r.text for r in lua.globals().MENU.values() if r.checked], [])
+        lua.execute("TITLES = {}; function HSW_TEST_ADDON:UpdateDisplayTitle(t) table.insert(TITLES, t) end")
+        addon.SetCurrentSegment(addon, "Bosses")
+        addon.SetCurrentSegment(addon, "Trash")
+        addon.SetCurrentSegment(addon, "Total")
+        self.assertEqual(list(lua.globals().TITLES.values()), ["Boss Total", "Trash Total", "Total"])
+
 
 class Display(unittest.TestCase):
     def test_stats_for_display_follow_current_segment(self):
