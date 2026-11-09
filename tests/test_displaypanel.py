@@ -68,6 +68,27 @@ class Fights(unittest.TestCase):
         self.assertEqual((seg(addon).id, seg(addon).bossFight), ("Trash", False))   # named is not boss
 
 
+class ClassTotals(unittest.TestCase):
+    """Boss Total and Trash Total: live segments beside the Total, fed by the fight's class."""
+
+    def test_manager_holds_three_totals(self):
+        lua, addon = start(extra=ALWAYS)
+        self.assertEqual(seg(addon, "Total").id, "Total")
+        self.assertEqual(seg(addon, "Bosses").id, "Boss Total")
+        self.assertEqual(seg(addon, "Trash").id, "Trash Total")
+        self.assertEqual((seg(addon, "Bosses").startTime, seg(addon, "Trash").startTime), (-1, -1))
+        addon.SegmentManager.ResetAllSegments(addon.SegmentManager)
+        self.assertEqual(seg(addon, "Bosses").id, "Boss Total")                 # recreated with the Total
+
+    def test_for_each_live_includes_the_class_total(self):
+        lua, addon = start(extra=ALWAYS)
+        addon.StartFight(addon, "Boss", True)
+        lua.execute('HSW_TEST_ADDON.SegmentManager:Get(0).class = "Bosses"; SEEN = {}; HSW_TEST_ADDON.SegmentManager:ForEachLive(function(s) table.insert(SEEN, s.id) end)')
+        self.assertEqual(list(lua.globals().SEEN.values()), ["Boss", "Total", "Boss Total"])
+        lua.execute('HSW_TEST_ADDON.SegmentManager:Get(0).class = nil; SEEN = {}; HSW_TEST_ADDON.SegmentManager:ForEachLive(function(s) table.insert(SEEN, s.id) end)')
+        self.assertEqual(list(lua.globals().SEEN.values()), ["Boss", "Total"])
+
+
 class Display(unittest.TestCase):
     def test_stats_for_display_follow_current_segment(self):
         lua, addon = start(extra=ALWAYS)

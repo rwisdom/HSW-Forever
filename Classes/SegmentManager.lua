@@ -12,24 +12,30 @@ local SegmentManager = {
 	segments = {},
 	front=0, --front of queue
 	back=0, --back of queue
-	Total = addon.Segment.Create("Total");
 };
-SegmentManager.Total.startTime = -1; -- live only during a fight (StartFight)
 
-
-
---[[----------------------------------------------------------------------------
-	ResetTotalSegment - Resets the "Total" segment
-------------------------------------------------------------------------------]]
-function SegmentManager:ResetTotalSegment() --reset the total segment
-	self.Total = addon.Segment.Create("Total");
-	self.Total.startTime = -1;
+-- The running totals: every fight, boss encounters, trash inside dungeons and raids. A fight's
+-- `class` ("Bosses" | "Trash" | nil, set in addon:StartFight) says which class total it feeds.
+local function newTotal(id)
+	local t = addon.Segment.Create(id);
+	t.startTime = -1; -- live only during a fight (StartFight)
+	return t;
 end
 
+--[[----------------------------------------------------------------------------
+	ResetTotalSegment - Resets the "Total", "Boss Total" and "Trash Total" segments
+------------------------------------------------------------------------------]]
+function SegmentManager:ResetTotalSegment()
+	self.Total = newTotal("Total");
+	self.Bosses = newTotal("Boss Total");
+	self.Trash = newTotal("Trash Total");
+end
+SegmentManager:ResetTotalSegment();
+
 
 
 --[[----------------------------------------------------------------------------
-	ResetAllSegments - Resets the "Total" segment & Removes all other segments
+	ResetAllSegments - Resets the totals & Removes all other segments
 ------------------------------------------------------------------------------]]
 function SegmentManager:ResetAllSegments()
 	if ( not addon.inCombat ) then
@@ -84,30 +90,37 @@ end
 
 
 --[[----------------------------------------------------------------------------
-	Get - Get ith most-recent segment, or the "Total" segment. 0-based.
+	Get - Get ith most-recent segment (0-based), or a total: "Total", "Bosses", "Trash".
 ------------------------------------------------------------------------------]]
 function SegmentManager:Get(i)
-	if ( i == "Total" ) then
-		return self.Total;
+	if ( i == "Total" or i == "Bosses" or i == "Trash" ) then
+		return self[i];
 	end
-	
+
 	if ( tonumber(i) and self.segments[self.front - i] ) then
 		return self.segments[self.front-i];
 	end
-	
+
 	return nil;
+end
+
+-- The class total a fight segment feeds ("Bosses" or "Trash"), nil for an open-world fight.
+function SegmentManager:ClassTotal(seg)
+	return seg and seg.class and self[seg.class] or nil;
 end
 
 
 
 --[[----------------------------------------------------------------------------
-	ForEachLive - Calls fn(segment) on the current fight and the Total segment,
-	the two every heal, cast and tick of time is credited to.
+	ForEachLive - Calls fn(segment) on the current fight, the Total and the fight's
+	class total: the segments every heal, cast and tick of time is credited to.
 ------------------------------------------------------------------------------]]
 function SegmentManager:ForEachLive(fn)
 	local cur_seg = self:Get(0);
 	if cur_seg then fn(cur_seg) end
 	fn(self.Total);
+	local class = self:ClassTotal(cur_seg);
+	if class then fn(class) end
 end
 
 
