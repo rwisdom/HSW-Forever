@@ -85,7 +85,7 @@ local globalResources = {
 	},
 	{
 		key = "Forever\nData",
-		value = "Spell coefficients and talents come from the talentsforever.com beta export. Forever is in beta: numbers can lag live tuning. Use /hsw discover on to report unknown healing spells.",
+		value = "Spell coefficients and talents come from the talentsforever.com export of the Forever client; numbers can lag live tuning. Use /hsw discover on to report unknown healing spells.",
 	},
 };
 
@@ -260,7 +260,7 @@ local options = {
 				},
 				intPerCrit = {
 					name = "Intellect per 1% spell crit for your class (0 = built-in table)",
-					desc = "Built-in values are foreverdb.net level-30 numbers (Paladin 31.9, Priest 26.9, Shaman 28.2, Druid 28.4). Applies to new heals.",
+					desc = "Built-in values are foreverdb.net numbers keyed by level (level 60: Paladin 59.9, Priest 59.5, Shaman 59.2, Druid 59.9; about half that at 30), interpolated for your level. Applies to new heals.",
 					type = "input",
 					order = 31,
 					width = "full",
