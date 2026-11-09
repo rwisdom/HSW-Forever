@@ -48,17 +48,23 @@ class Conversions(unittest.TestCase):
 
     def test_int_per_crit_level_lookup_and_overrides(self):
         lua, addon, _ = start("DRUID", extra="STUB.level = 60")
-        self.assertEqual(addon.IntPerCrit, 28.4)                 # nearest keyed level <= 60
+        self.assertEqual(addon.IntPerCrit, 59.9)                 # level-60 datamine (foreverdb.net)
         lua.execute("STUB.level = 10")
         addon.SetupConversionFactors(addon)
         self.assertEqual(addon.IntPerCrit, 28.4)                 # below the lowest key: lowest key
+        lua.execute("STUB.level = 45")
+        addon.SetupConversionFactors(addon)
+        self.assertAlmostEqual(addon.IntPerCrit, (28.4 + 59.9) / 2)   # halfway between the 30 and 60 keys
+        lua.execute("STUB.level = 70")
+        addon.SetupConversionFactors(addon)
+        self.assertEqual(addon.IntPerCrit, 59.9)                 # above the highest key: highest key
         lua.execute("HSW_TEST_ADDON.hsw.db.global.intPerCritOverride.DRUID = 40; HSW_TEST_ADDON.hsw.db.global.hasteRatingPerPct = 10")
         addon.SetupConversionFactors(addon)
         self.assertEqual((addon.IntPerCrit, addon.HasteConv), (40, 1000))
         _, addon, _ = start("SHAMAN", extra="STUB.level = 29")
-        self.assertEqual(addon.IntPerCrit, 26.3)                 # the level-28 measurement until 30
+        self.assertAlmostEqual(addon.IntPerCrit, (26.3 + 28.2) / 2)   # between the level-28 measurement and the level-30 value
         _, addon, _ = start("PALADIN", extra="STUB.level = 12")
-        self.assertEqual(addon.IntPerCrit, 16.3)                 # the level-10 measurement until 30
+        self.assertAlmostEqual(addon.IntPerCrit, 16.3 + 2 * (31.9 - 16.3) / 20)   # two levels past the level-10 measurement
 
     def test_unsupported_class_has_no_parser(self):
         _, addon = load(FILES, setup='STUB.class = "WARRIOR"; STUB.talents = { {name="Arms", talents={ {name="Deflection", rank=5, max=5} }} }')

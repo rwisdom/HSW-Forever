@@ -8,24 +8,27 @@ addon.CritRatingPerPct = 14;        -- 14 crit rating = 1% crit at every level
 addon.ManaPerInt = 15;
 addon.FSR_SECONDS = 5;              -- five-second rule
 
--- Intellect per 1% spell crit (foreverdb.net/stats, level 30). Keyed by level so
--- level-60 values can be added later; lookup uses the nearest keyed level <= player level.
+-- Intellect per 1% spell crit, keyed by level. 30: foreverdb.net/stats (beta); 60: foreverdb.net/stats
+-- datamined from client build 1.60.1.70862 (2026-11-09). The value grows about one point per level,
+-- so the lookup interpolates linearly between keyed levels and clamps outside them.
 local IntPerCritByLevel = {
-	PALADIN = { [10] = 16.3, [30] = 31.9 }, -- 10: measured in game 2026-10-23 (51 Int -> +3.13% crit after 13 rating)
-	PRIEST  = { [30] = 26.9 },
-	SHAMAN  = { [28] = 26.3, [30] = 28.2 }, -- 28: measured in game 2026-10-22 (33 Int -> +1.254% crit)
-	DRUID   = { [30] = 28.4 },
+	PALADIN = { [10] = 16.3, [30] = 31.9, [60] = 59.9 }, -- 10: measured in game 2026-10-23 (51 Int -> +3.13% crit after 13 rating)
+	PRIEST  = { [30] = 26.9, [60] = 59.5 },
+	SHAMAN  = { [28] = 26.3, [30] = 28.2, [60] = 59.2 }, -- 28: measured in game 2026-10-22 (33 Int -> +1.254% crit)
+	DRUID   = { [30] = 28.4, [60] = 59.9 },
 };
 
 local function lookupIntPerCrit(class, level)
 	local byLevel = IntPerCritByLevel[class];
 	if not byLevel then return 1 end -- unsupported class: never used
-	local best, lowest;
+	local lo, hi; -- nearest keyed levels at or below / at or above the player's
 	for lvl in pairs(byLevel) do
-		if lvl <= level and (not best or lvl > best) then best = lvl end
-		if not lowest or lvl < lowest then lowest = lvl end
+		if lvl <= level and (not lo or lvl > lo) then lo = lvl end
+		if lvl >= level and (not hi or lvl < hi) then hi = lvl end
 	end
-	return byLevel[best or lowest];
+	if not lo then return byLevel[hi] end
+	if not hi or hi == lo then return byLevel[lo] end
+	return byLevel[lo] + (byLevel[hi] - byLevel[lo]) * (level - lo) / (hi - lo);
 end
 
 --[[----------------------------------------------------------------------------
