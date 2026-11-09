@@ -286,7 +286,15 @@ function addon:FinalizePending()
 			end
 			seg.pendingSince = nil;
 			self:AddHistoricalSegment(seg);
-			discoverMsg("segment " .. tostring(seg.id) .. " finalised.");
+			if seg.t.heal == 0 and next(seg.hits) then
+				-- the matcher saw heals land but the meter has nothing for them: a session it never
+				-- opened (Westfall 2026-11-08), or all overheal. Nothing to price either way.
+				local n = 0;
+				for _, h in pairs(seg.hits) do n = n + h.direct.n + h.tick.n end
+				discoverMsg("segment " .. tostring(seg.id) .. " finalised: meter recorded no healing (" .. n .. " hits counted).");
+			else
+				discoverMsg("segment " .. tostring(seg.id) .. " finalised.");
+			end
 			releaseTesting(seg);
 			floor = seg.sessionTo;
 			self.SessionTotals.Advance(seg.sessionTo);
