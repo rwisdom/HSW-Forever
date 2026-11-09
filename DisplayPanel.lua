@@ -283,6 +283,8 @@ function addon:FinalizePending()
 			if seg.t.heal > 0 then
 				local ttl = self.SegmentManager:Get("Total");
 				ttl.fights = ttl.fights + 1;
+				local class = self.SegmentManager:ClassTotal(seg);
+				if class then class.fights = class.fights + 1 end
 			end
 			seg.pendingSince = nil;
 			-- a hostile's name is secret in a dungeon, so the fight is still "Trash": the meter named
@@ -360,12 +362,20 @@ function addon:StartFight(id, isBossFight)
 	-- everything above the watermark (last out-of-combat reading) is ours
 	self.SegmentManager:Get(0).sessionFrom = self.SessionTotals.watermark;
 
-	-- the Total segment is live for the duration of every fight
+	-- the fight's class, set once: a boss encounter (or the window's manual segment), trash inside
+	-- a dungeon or raid, or an open-world pull that feeds the Total only
 	local cur_seg = self.SegmentManager:Get(0);
-	local ttl_seg = self.SegmentManager:Get("Total");
-	if ttl_seg and cur_seg then
-		ttl_seg.startTime = cur_seg.startTime;
-		ttl_seg.fsrLastAccum = cur_seg.startTime;
+	if cur_seg.bossFight then
+		cur_seg.class = "Bosses";
+	else
+		local _, instType = IsInInstance();
+		if instType == "party" or instType == "raid" then cur_seg.class = "Trash" end
+	end
+
+	-- the Total and the class total are live for the duration of the fight
+	for _, total in ipairs({ self.SegmentManager:Get("Total"), self.SegmentManager:ClassTotal(cur_seg) }) do
+		total.startTime = cur_seg.startTime;
+		total.fsrLastAccum = cur_seg.startTime;
 	end
 
 	self.inCombat = true;
@@ -379,7 +389,7 @@ function addon:EndFight()
 	self.inCombat = false;
 	self.manualFight = nil;
 	local cur_seg = self.SegmentManager:Get(0);
-	local ttl_seg = self.SegmentManager:Get("Total");
+	local class_seg = self.SegmentManager:ClassTotal(cur_seg);
 	if cur_seg then
 		cur_seg:End();
 		-- amounts arrive from the damage meter once the client releases them: park the segment
@@ -387,9 +397,8 @@ function addon:EndFight()
 		cur_seg.pendingSince = GetTime();
 		table.insert(self.pendingSegments, cur_seg);
 	end
-	if ttl_seg then
-		ttl_seg:End();
-	end
+	self.SegmentManager:Get("Total"):End();
+	if class_seg then class_seg:End() end
 	self:UpdateFightButton();
 	self:AdjustVisibility(); -- a manual segment showed the panel outside enabled content
 	self:StartFinalizer();

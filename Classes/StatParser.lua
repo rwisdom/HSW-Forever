@@ -311,12 +311,13 @@ end
 	healing (SessionTotals.Read) and the hits counted during the fight. With n hits
 	and k crits a part's total is about h * (n + k * CB) for a non-crit heal h, so the
 	crit-normalised total is T * n / (n + k * CB). A spell with direct and periodic
-	parts splits T by (n + k * CB) * expected size. Credits this segment and the Total.
+	parts splits T by (n + k * CB) * expected size. Credits this segment, the Total and
+	the fight's class total.
 ------------------------------------------------------------------------------]]
 function StatParser:ApplyTotals(seg, totals)
 	local f, specId = self:GetParserForCurrentSpec();
 	if not f then return end
-	local segments = { seg, addon.SegmentManager:Get("Total") };
+	local segments = { seg, addon.SegmentManager:Get("Total"), addon.SegmentManager:ClassTotal(seg) }; -- a nil class total ends the list
 	local sp = addon.ply_sp or 0;
 	local excludeCd = addon.hsw.db.global.excludeRaidHealingCooldowns;
 

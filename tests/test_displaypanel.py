@@ -88,6 +88,44 @@ class ClassTotals(unittest.TestCase):
         lua.execute('HSW_TEST_ADDON.SegmentManager:Get(0).class = nil; SEEN = {}; HSW_TEST_ADDON.SegmentManager:ForEachLive(function(s) table.insert(SEEN, s.id) end)')
         self.assertEqual(list(lua.globals().SEEN.values()), ["Boss", "Total"])
 
+    def fight(self, lua, addon, name, boss, session, healing, end_time):
+        addon.StartFight(addon, name, boss)
+        lua.execute(f'STUB.sessions[#STUB.sessions + 1] = {{ sessionID = {session}, name = "{name}", heals = {{ ["Player-1"] = {{ [25292] = {healing} }} }} }}; STUB.time = {end_time}')
+        addon.EndFight(addon)
+
+    def test_dungeon_boss_feeds_bosses_and_trash_feeds_trash(self):
+        lua, addon = start(extra='STUB.instance = { name = "Deadmines", type = "party", difficultyId = 1 }')
+        self.fight(lua, addon, "VanCleef", True, 1, 1000, 10)
+        self.assertEqual(seg(addon, 0)["class"], "Bosses")
+        self.assertEqual((seg(addon, "Total").totalHealing, seg(addon, "Bosses").totalHealing, seg(addon, "Trash").totalHealing), (1000, 1000, 0))
+        self.assertEqual((seg(addon, "Total").fights, seg(addon, "Bosses").fights, seg(addon, "Trash").fights), (1, 1, 0))
+        self.fight(lua, addon, None, False, 2, 300, 20)
+        self.assertEqual(seg(addon, 0)["class"], "Trash")
+        self.assertEqual((seg(addon, "Total").totalHealing, seg(addon, "Bosses").totalHealing, seg(addon, "Trash").totalHealing), (1300, 1000, 300))
+        self.assertEqual((seg(addon, "Total").fights, seg(addon, "Bosses").fights, seg(addon, "Trash").fights), (2, 1, 1))
+        self.assertAlmostEqual(seg(addon, "Trash").totalDuration, 10)              # live for its fight only
+        self.assertAlmostEqual(seg(addon, "Bosses").totalDuration, 10)
+        self.assertAlmostEqual(seg(addon, "Total").totalDuration, 20)
+
+    def test_open_world_pull_feeds_the_total_only(self):
+        lua, addon = start(extra=ALWAYS)
+        self.fight(lua, addon, "Fleshripper", False, 1, 200, 10)
+        self.assertIsNone(seg(addon, 0)["class"])                                  # right after EndFight the finished fight is still Get(0)
+        self.assertEqual((seg(addon, "Total").totalHealing, seg(addon, "Bosses").totalHealing, seg(addon, "Trash").totalHealing), (200, 0, 0))
+        self.assertEqual((seg(addon, "Bosses").startTime, seg(addon, "Trash").startTime), (-1, -1))
+
+    def test_raid_trash_feeds_the_trash_total_but_is_not_logged(self):
+        lua, addon = start(extra='STUB.instance = { name = "MC", type = "raid", difficultyId = 14 }')
+        self.fight(lua, addon, "Core Hound", False, 1, 500, 10)
+        self.assertEqual(addon.History.Size(addon.History), 0)
+        self.assertEqual((seg(addon, "Trash").totalHealing, seg(addon, "Trash").fights), (500, 1))
+
+    def test_manual_segment_counts_as_boss(self):
+        lua, addon = start(extra=ALWAYS)
+        addon.ToggleFight(addon)                                                 # the window button: boss flag set
+        self.assertEqual(seg(addon)["class"], "Bosses")
+        addon.EndFight(addon)
+
 
 class Display(unittest.TestCase):
     def test_stats_for_display_follow_current_segment(self):
