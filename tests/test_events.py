@@ -167,6 +167,26 @@ class UnitEvents(unittest.TestCase):
         ttl = addon.SegmentManager.Get(addon.SegmentManager, "Total")
         self.assertEqual(ttl.fillerManaSpent, 1160)
 
+    def test_every_cast_with_a_cost_drains_the_pool(self):
+        lua, addon, seg = start(PRIEST, 256)
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", FH)           # filler heal, table cost 380
+        self.assertEqual((seg.manaSpent, seg.fillerManaSpent), (380, 380))
+        lua.execute("STUB.spellCost[424242] = 120")                          # a shock or totem: not in the database
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", 424242)
+        self.assertEqual((seg.manaSpent, seg.fillerManaSpent), (500, 380))
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", INNER_FOCUS)
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", FH)           # free cast: nothing spent
+        self.assertEqual(seg.manaSpent, 500)
+        ttl = addon.SegmentManager.Get(addon.SegmentManager, "Total")
+        self.assertEqual(ttl.manaSpent, 500)
+        addon.inCombat = False
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", FH)           # out of combat: ignored
+        self.assertEqual(seg.manaSpent, 500)
+        lua, addon, seg = start(LITANY, 257)
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", FH)
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", RENEW)        # Litany 2/2: 10% of Renew's 410 comes back
+        self.assertAlmostEqual(seg.manaSpent, 380 + 410 - 41)
+
     def test_earthfury_mana_return_comes_off_the_filler_cost(self):
         lua, addon, seg = start(SHAMAN, 264)
         fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", HW3)          # table cost 80, no set

@@ -172,8 +172,10 @@ function addon:OnPlayerSpellcast(spellID)
 	end
 	if s then self:LogEvent("cast", s, self.HealMatcher:SentTarget(spellID), nil, nil, free and 0 or cost) end
 	if cost <= 0 or free then return end
+	local spent = cost - back; -- Litany and set bonuses return part of the cost
+	self.SegmentManager:ForEachLive(function(seg) seg:IncManaSpent(spent) end); -- heal or not, it drains the pool
 	if s and s.filler then
-		self.SegmentManager:ForEachLive(function(seg) seg:IncFillerCasts(cost - back) end); -- Litany and set bonuses return part of the cost
+		self.SegmentManager:ForEachLive(function(seg) seg:IncFillerCasts(spent) end);
 	end
 	self.SegmentManager:ForEachLive(function(seg) seg:AccumulateFSR(now) end);
 	self.lastManaSpend = now;
