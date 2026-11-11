@@ -27,6 +27,7 @@ function Segment.Create(id)
 	self.fillerCasts = 0;
 	self.fillerManaSpent = 0;   -- absolute mana
 	self.manaRestore = 0;
+	self.manaSpent = 0;         -- every cast that cost mana (heals, shocks, totems): what drains the pool
 	self.timeInFSR = 0;         -- seconds inside the five-second rule
 	self.timeOutsideFSR = 0;
 	self.castPctWeighted = 0;   -- sum of (casting regen / base regen) * dt
@@ -66,14 +67,29 @@ function Segment:GetIntManaValue()
 	return addon.ManaPerInt * (addon.ply_intmult or 1) * self:GetFillerHPM() * math.max(self.fights, 1);
 end
 
--- Healing attributable to the regen from 1 Spirit: full rate outside the FSR,
--- (casting/base) share inside it.
-function Segment:GetSpiritRegenValue()
+-- Seconds of full-rate Spirit regen: the time outside the FSR, the (casting/base) share of the time inside it.
+function Segment:EffectiveRegenSeconds()
 	local total = self.timeInFSR + self.timeOutsideFSR;
 	if total <= 0 then return 0 end
 	local castPctAvg = self.castPctWeighted / total;
-	local effectiveSeconds = self.timeOutsideFSR + castPctAvg * self.timeInFSR;
-	return (addon.RegenPerSpirit or 0) * (addon.ply_spiritmult or 1) * effectiveSeconds * self:GetFillerHPM();
+	return self.timeOutsideFSR + castPctAvg * self.timeInFSR;
+end
+
+-- Healing attributable to the regen from 1 Spirit.
+function Segment:GetSpiritRegenValue()
+	return (addon.RegenPerSpirit or 0) * (addon.ply_spiritmult or 1) * self:EffectiveRegenSeconds() * self:GetFillerHPM();
+end
+
+-- Share of the mana pool this fight emptied, 0 to 1. Current mana is a secret value on Forever
+-- (probe 2026-11-10), so the drain is estimated: mana spent on casts, less the mana crits returned,
+-- less Spirit regen and gear MP5 over the fight. Potions, Mana Tide and buff MP5 are not seen, so
+-- the share reads high in fights with those.
+function Segment:EstimatePoolShare()
+	local maxMana = addon.ply_maxmana or 0;
+	if maxMana <= 0 then return 0 end
+	local regen = (addon.ply_regen_base or 0) * self:EffectiveRegenSeconds() + (addon.ply_mp5 or 0) / 5 * self:GetDuration();
+	local drain = self.manaSpent - self.manaRestore - regen;
+	return math.max(0, math.min(1, drain / maxMana));
 end
 
 -- Haste HPCT: chain-cast based estimate, capped by the per-heal upper bound.
@@ -195,6 +211,8 @@ function Segment:IncFillerCasts(manaCost)
 	self.fillerCasts = self.fillerCasts + 1;
 	self.fillerManaSpent = self.fillerManaSpent + manaCost;
 end
+
+function Segment:IncManaSpent(manaCost) self.manaSpent = self.manaSpent + manaCost end
 
 -- Mana returned on crits: taken off the filler mana spent (GetFillerHPM). Its value per 1% crit is
 -- credited per heal by the parsers.
