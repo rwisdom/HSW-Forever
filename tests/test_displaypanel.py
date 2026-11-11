@@ -494,6 +494,19 @@ class Finaliser(unittest.TestCase):
         addon.EndFight(addon)
         self.assertEqual(ttl.fights, 1)
 
+    def test_total_int_weight_of_equal_fights_matches_one_fight(self):
+        lua, addon = start(extra=ALWAYS)
+        fights = []
+        for i in (1, 2):
+            addon.StartFight(addon, "F%d" % i, True)
+            lua.execute('HSW_TEST_ADDON.SegmentManager:ForEachLive(function(s) s:IncFillerCasts(50) end)')
+            lua.execute('STUB.sessions[%d] = { sessionID = %d, name = "F", heals = { ["Player-1"] = { [25292] = 100 } } }; STUB.time = %d' % (i, i, 10 * i))
+            fights.append(seg(addon))
+            addon.EndFight(addon)
+        one = addon.GetStatsForSegment(addon, fights[0])[3]
+        self.assertGreater(one, 0)
+        self.assertAlmostEqual(addon.GetStatsForSegment(addon, seg(addon, "Total"))[3], one)
+
     def test_testing_flag_outlives_a_pending_test_segment(self):
         lua, addon = start(extra=SESSION + "; STUB.secret = true")
         addon.hsw.ChatCommand(addon.hsw, "start")

@@ -60,9 +60,10 @@ function Segment:GetMP5()
 	return self:GetDuration() / 5 * self:GetFillerHPM();
 end
 
--- Healing attributable to the mana pool from 1 Intellect (spent once per fight).
+-- Healing attributable to the mana pool from 1 Intellect (spent once per fight: a total spends it
+-- once per fight priced into it).
 function Segment:GetIntManaValue()
-	return addon.ManaPerInt * (addon.ply_intmult or 1) * self:GetFillerHPM();
+	return addon.ManaPerInt * (addon.ply_intmult or 1) * self:GetFillerHPM() * math.max(self.fights, 1);
 end
 
 -- Healing attributable to the regen from 1 Spirit: full rate outside the FSR,
