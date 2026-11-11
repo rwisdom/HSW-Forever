@@ -61,8 +61,8 @@ return. Crit includes that returned mana and Divine Aegis absorbs.
 The Intellect mana pool counts for the share of the pool a fight emptied. The client hides current
 mana, so the share is estimated: the mana every cast cost (heals, shocks, totems), less the returned
 mana, mana potions and runes at their tooltip average, Spirit regen and gear MP5 over the fight,
-divided by maximum mana and kept between 0 and 1. A
-short pull that barely touches the pool gives Intellect little; a total adds the shares of its fights.
+divided by maximum mana and kept between 0 and 1. A short pull that barely touches the pool gives
+Intellect little; a total adds the shares of its fights.
 
 Conversions Forever does not expose through the API: 14 crit rating per 1% crit; Intellect per 1%
 spell crit from a per-class table keyed by level (foreverdb.net values at 30 and 60, interpolated

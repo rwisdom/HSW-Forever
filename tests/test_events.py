@@ -180,7 +180,7 @@ class UnitEvents(unittest.TestCase):
         self.assertEqual((seg.manaSpent, seg.fillerManaSpent), (500, 380))
         fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", INNER_FOCUS)
         fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", FH)           # free cast: nothing spent
-        self.assertEqual(seg.manaSpent, 500)
+        self.assertEqual((seg.manaSpent, seg.fillerManaSpent), (500, 380))
         ttl = addon.SegmentManager.Get(addon.SegmentManager, "Total")
         self.assertEqual(ttl.manaSpent, 500)
         addon.inCombat = False

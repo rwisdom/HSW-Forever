@@ -29,7 +29,7 @@ function Segment.Create(id)
 	self.manaRestore = 0;
 	self.manaSpent = 0;         -- every cast that cost mana (heals, shocks, totems): what drains the pool
 	self.manaGained = 0;        -- mana potions and runes drunk in the fight, at their tooltip average (Events.lua)
-	self.poolShare = 0;        -- share of the mana pool the fight emptied, fixed at fight end (addon:EndFight); a total holds the sum of its fights' shares
+	self.poolShare = 0;         -- share of the mana pool the fight emptied, fixed at fight end (addon:EndFight); a total holds the sum of its fights' shares
 	self.timeInFSR = 0;         -- seconds inside the five-second rule
 	self.timeOutsideFSR = 0;
 	self.castPctWeighted = 0;   -- sum of (casting regen / base regen) * dt
