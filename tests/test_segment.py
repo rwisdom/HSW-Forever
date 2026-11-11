@@ -127,6 +127,14 @@ class SegmentTests(unittest.TestCase):
         addon.ply_regen_base = 0; addon.ply_maxmana = 0
         self.assertEqual(s.EstimatePoolShare(s), 0)         # max mana unknown
 
+    def test_mana_gained_from_a_potion_comes_off_the_drain(self):
+        _, addon, s = self.seg()
+        addon.ply_maxmana = 1000
+        s.IncManaSpent(s, 700)
+        self.assertAlmostEqual(s.EstimatePoolShare(s), 0.7)
+        s.IncManaGained(s, 160)                             # the bar ended 160 higher than the spending says
+        self.assertAlmostEqual(s.EstimatePoolShare(s), 0.54)
+
     def test_cast_pct_is_time_weighted(self):
         _, addon, s = self.seg()
         addon.ply_castpct = 1.0; s.AccumulateFSR(s, 2)

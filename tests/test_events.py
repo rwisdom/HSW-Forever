@@ -15,6 +15,10 @@ PWS = 10901    # Power Word: Shield R10
 HW3 = 547      # Healing Wave R3, 80 mana
 CHAIN = 10623  # Chain Heal R3, 405 mana
 INNER_FOCUS, WEAKENED_SOUL, WATER_SHIELD = 14751, 6788, 408510
+POTION, RUNE, EARTH_SHOCK = 437, 16666, 8045   # not in the spell database: recognised by their tooltip text
+DESCS = ('STUB.spellDesc[437] = "Restores 140 to 180 mana."'
+         '; STUB.spellDesc[16666] = "Restores 900 to 1500 mana at the cost of 600 to 1000 life."'
+         '; STUB.spellDesc[8045] = "Instantly shocks the target with concussive force, causing 17 to 19 Nature damage."')
 EARTHFURY5 = ('WORN = { "Earthfury Belt", "Earthfury Boots", "Earthfury Bracers", "Earthfury Epaulets", "Earthfury Gauntlets", "Earthfury Piece 6" }'
               '; function GetInventoryItemLink(_, slot) return WORN[slot] end; function GetItemInfo(link) return link end')
 
@@ -186,6 +190,32 @@ class UnitEvents(unittest.TestCase):
         fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", FH)
         fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", RENEW)        # Litany 2/2: 10% of Renew's 410 comes back
         self.assertAlmostEqual(seg.manaSpent, 380 + 410 - 41)
+
+    def test_mana_potion_adds_its_tooltip_average_to_mana_gained(self):
+        # Seen in game 2026-11-11: a Minor Mana Potion is the player's cast 437, "Restores 140 to 180 mana."
+        lua, addon, seg = start(SHAMAN, 264, extra=DESCS)
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", POTION)
+        self.assertEqual((seg.manaGained, seg.manaSpent), (160, 0))
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", RUNE)         # same wording, 900 to 1500
+        self.assertEqual(seg.manaGained, 1360)
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", EARTH_SHOCK)  # a cast that restores nothing
+        self.assertEqual(seg.manaGained, 1360)
+        ttl = addon.SegmentManager.Get(addon.SegmentManager, "Total")
+        self.assertEqual(ttl.manaGained, 1360)
+        addon.inCombat = False
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", POTION)       # out of combat: ignored
+        self.assertEqual(seg.manaGained, 1360)
+
+    def test_unreadable_potion_text_counts_nothing_and_is_reported_once(self):
+        lua, addon, seg = start(SHAMAN, 264, extra='issecretvalue = function(v) return v == "SECRET" end; STUB.spellDesc[437] = "SECRET"')
+        lua.execute('MSGS = {}; function HSW_TEST_ADDON:Msg(s) table.insert(MSGS, tostring(s)) end; HSW_TEST_ADDON.discoverSpells = true')
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", POTION)
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", POTION)
+        self.assertEqual(seg.manaGained, 0)
+        self.assertEqual(len([m for m in lua.globals().MSGS.values() if "437" in m]), 1)
+        lua.execute('STUB.spellDesc[437] = "Restores 140 to 180 mana."')
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", POTION)       # readable now: counted
+        self.assertEqual(seg.manaGained, 160)
 
     def test_earthfury_mana_return_comes_off_the_filler_cost(self):
         lua, addon, seg = start(SHAMAN, 264)

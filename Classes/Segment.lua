@@ -28,7 +28,8 @@ function Segment.Create(id)
 	self.fillerManaSpent = 0;   -- absolute mana
 	self.manaRestore = 0;
 	self.manaSpent = 0;         -- every cast that cost mana (heals, shocks, totems): what drains the pool
-	self.poolShare = 0;         -- share of the mana pool the fight emptied, fixed at fight end (addon:EndFight); a total holds the sum of its fights' shares
+	self.manaGained = 0;        -- mana potions and runes drunk in the fight, at their tooltip average (Events.lua)
+	self.poolShare = 0;        -- share of the mana pool the fight emptied, fixed at fight end (addon:EndFight); a total holds the sum of its fights' shares
 	self.timeInFSR = 0;         -- seconds inside the five-second rule
 	self.timeOutsideFSR = 0;
 	self.castPctWeighted = 0;   -- sum of (casting regen / base regen) * dt
@@ -83,13 +84,13 @@ end
 
 -- Share of the mana pool this fight emptied, 0 to 1. Current mana is a secret value on Forever
 -- (probe 2026-11-10), so the drain is estimated: mana spent on casts, less the mana crits returned,
--- less Spirit regen and gear MP5 over the fight. Potions, Mana Tide and buff MP5 are not seen, so
--- the share reads high in fights with those.
+-- less the mana potions and runes gave, less Spirit regen and gear MP5 over the fight. Mana Tide
+-- and buff MP5 are not seen, so the share reads high in fights with those.
 function Segment:EstimatePoolShare()
 	local maxMana = addon.ply_maxmana or 0;
 	if maxMana <= 0 then return 0 end
 	local regen = (addon.ply_regen_base or 0) * self:EffectiveRegenSeconds() + (addon.ply_mp5 or 0) / 5 * self:GetDuration();
-	local drain = self.manaSpent - self.manaRestore - regen;
+	local drain = self.manaSpent - self.manaRestore - self.manaGained - regen;
 	return math.max(0, math.min(1, drain / maxMana));
 end
 
@@ -214,6 +215,7 @@ function Segment:IncFillerCasts(manaCost)
 end
 
 function Segment:IncManaSpent(manaCost) self.manaSpent = self.manaSpent + manaCost end
+function Segment:IncManaGained(amount) self.manaGained = self.manaGained + amount end
 
 -- Mana returned on crits: taken off the filler mana spent (GetFillerHPM). Its value per 1% crit is
 -- credited per heal by the parsers.

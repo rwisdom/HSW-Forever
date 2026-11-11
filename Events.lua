@@ -13,6 +13,21 @@ local function SpellManaCost(spellID, s)
 	return s and s.manaCost or 0;
 end
 
+-- Mana a cast of the player's restores, by its tooltip: every mana potion rank reads "Restores X to
+-- Y mana." (seen in game 2026-11-11: 437, 140 to 180) and the runes are worded the same way. The
+-- mana gained is not readable, so the average stands in. nil while the text cannot be read; the
+-- answer is kept per spell id once it can.
+local restoreAmount, restoreWarned = {}, {};
+local function ManaRestoredBy(spellID)
+	local known = restoreAmount[spellID];
+	if known then return known end
+	local text = addon.Compat.GetSpellDescription(spellID);
+	if not text then return nil end
+	local lo, hi = text:match("^Restores (%d+) to (%d+) mana");
+	restoreAmount[spellID] = lo and (tonumber(lo) + tonumber(hi)) / 2 or 0;
+	return restoreAmount[spellID];
+end
+
 --[[----------------------------------------------------------------------------
 	Combat / encounter boundaries
 ------------------------------------------------------------------------------]]
@@ -157,6 +172,17 @@ function addon:OnPlayerSpellcast(spellID)
 	end
 
 	self.HealMatcher:OnCastSucceeded(spellID, now);
+
+	-- a mana potion or rune: mana that came neither from the pool nor from regen
+	if not s then
+		local gained = ManaRestoredBy(spellID);
+		if gained and gained > 0 then
+			self.SegmentManager:ForEachLive(function(seg) seg:IncManaGained(gained) end);
+		elseif not gained and self.discoverSpells and not restoreWarned[spellID] then
+			restoreWarned[spellID] = true;
+			self:Msg("[HealerStatWeights]: spell " .. tostring(spellID) .. " has no readable description: a mana potion would not be counted.");
+		end
+	end
 
 	-- mana: free casts, filler accounting, five-second rule
 	local cost = SpellManaCost(spellID, s);
