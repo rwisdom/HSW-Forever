@@ -397,6 +397,12 @@ function addon:EndFight()
 	local class_seg = self.SegmentManager:ClassTotal(cur_seg);
 	if cur_seg then
 		cur_seg:End();
+		-- the share of the mana pool this fight emptied, fixed now: a total adds its fights' shares
+		-- rather than estimating one over its own counters, which would lose the per-fight clamps
+		local share = cur_seg:EstimatePoolShare();
+		for _, seg in ipairs({ cur_seg, self.SegmentManager:Get("Total"), class_seg }) do -- a nil class total ends the list
+			seg.poolShare = seg.poolShare + share;
+		end
 		-- amounts arrive from the damage meter once the client releases them: park the segment
 		cur_seg.sessionTo = self.SessionTotals.Newest(); -- nil while the list is secret: the finaliser resolves it
 		cur_seg.pendingSince = GetTime();

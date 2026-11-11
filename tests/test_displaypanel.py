@@ -495,17 +495,44 @@ class Finaliser(unittest.TestCase):
         self.assertEqual(ttl.fights, 1)
 
     def test_total_int_weight_of_equal_fights_matches_one_fight(self):
-        lua, addon = start(extra=ALWAYS)
+        lua, addon = start(extra=ALWAYS + "; STUB.regen = { base = 0, cast = 0 }")
         fights = []
         for i in (1, 2):
             addon.StartFight(addon, "F%d" % i, True)
-            lua.execute('HSW_TEST_ADDON.SegmentManager:ForEachLive(function(s) s:IncFillerCasts(50) end)')
+            # 600 of the stub's 3000 mana: a 0.2 share per fight
+            lua.execute('HSW_TEST_ADDON.SegmentManager:ForEachLive(function(s) s:IncFillerCasts(50); s:IncManaSpent(600) end)')
             lua.execute('STUB.sessions[%d] = { sessionID = %d, name = "F", heals = { ["Player-1"] = { [25292] = 100 } } }; STUB.time = %d' % (i, i, 10 * i))
             fights.append(seg(addon))
             addon.EndFight(addon)
+        self.assertGreater(fights[0].GetIntManaValue(fights[0]), 0)
         one = addon.GetStatsForSegment(addon, fights[0])[3]
-        self.assertGreater(one, 0)
         self.assertAlmostEqual(addon.GetStatsForSegment(addon, seg(addon, "Total"))[3], one)
+
+    def test_fight_end_fixes_the_pool_share_and_adds_it_to_the_totals(self):
+        lua, addon = start(extra=ALWAYS + '; STUB.instance.type = "party"; STUB.maxMana = 1000; STUB.regen = { base = 0, cast = 0 }')
+        spend = 'HSW_TEST_ADDON.SegmentManager:ForEachLive(function(s) s:IncManaSpent(%d) end)'
+        addon.StartFight(addon, "Boss", True)
+        lua.execute(spend % 400 + "; STUB.time = 10")
+        boss = seg(addon)
+        self.assertEqual(boss.poolShare, 0)                                       # live: not known yet
+        addon.EndFight(addon)
+        self.assertAlmostEqual(boss.poolShare, 0.4)
+        addon.StartFight(addon, None)                                             # dungeon trash
+        lua.execute(spend % 250 + "; STUB.time = 20")
+        trash = seg(addon)
+        addon.EndFight(addon)
+        self.assertAlmostEqual(trash.poolShare, 0.25)
+        self.assertAlmostEqual(seg(addon, "Total").poolShare, 0.65)               # the sum, not an estimate over 650 mana
+        self.assertAlmostEqual(seg(addon, "Bosses").poolShare, 0.4)
+        self.assertAlmostEqual(seg(addon, "Trash").poolShare, 0.25)
+
+    def test_open_world_fight_adds_its_pool_share_to_the_total_only(self):
+        lua, addon = start(extra=ALWAYS + "; STUB.maxMana = 1000; STUB.regen = { base = 0, cast = 0 }")
+        addon.StartFight(addon, None)
+        lua.execute('HSW_TEST_ADDON.SegmentManager:ForEachLive(function(s) s:IncManaSpent(300) end); STUB.time = 10')
+        addon.EndFight(addon)
+        self.assertAlmostEqual(seg(addon, "Total").poolShare, 0.3)
+        self.assertEqual((seg(addon, "Bosses").poolShare, seg(addon, "Trash").poolShare), (0, 0))
 
     def test_testing_flag_outlives_a_pending_test_segment(self):
         lua, addon = start(extra=SESSION + "; STUB.secret = true")

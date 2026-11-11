@@ -49,17 +49,15 @@ class SegmentTests(unittest.TestCase):
         lua.execute("STUB.time = 100")
         self.assertAlmostEqual(s.GetFillerHPM(s), 5.0)
         self.assertAlmostEqual(s.GetMP5(s), 100.0)          # 100s/5 * 5 healing per mana
-        self.assertAlmostEqual(s.GetIntManaValue(s), 75.0)  # 15 mana * HPM 5
+        self.assertEqual(s.GetIntManaValue(s), 0)           # no pool share until the fight ends
+        s.poolShare = 1
+        self.assertAlmostEqual(s.GetIntManaValue(s), 75.0)  # 15 mana * HPM 5 * one full pool
+        s.poolShare = 0.4
+        self.assertAlmostEqual(s.GetIntManaValue(s), 30.0)
+        s.poolShare = 2.3                                   # a total: the sum of its fights' shares
+        self.assertAlmostEqual(s.GetIntManaValue(s), 172.5)
         addon.ply_intmult = 1.1
-        self.assertAlmostEqual(s.GetIntManaValue(s), 82.5)
-
-    def test_a_total_spends_the_int_mana_pool_once_per_fight(self):
-        # Deadmines 2026-11-10: Boss Total (6 fights) showed Int 0.80 where the bosses ran 3.5 to 9.1:
-        # one pool against six fights of healing. The pool refills between fights.
-        _, _, s = self.seg()
-        s.IncFillerHealing(s, 1000); s.IncFillerCasts(s, 200)
-        s.fights = 6
-        self.assertAlmostEqual(s.GetIntManaValue(s), 6 * 75.0)
+        self.assertAlmostEqual(s.GetIntManaValue(s), 189.75)
 
     def test_returned_mana_comes_off_filler_mana(self):
         _, _, s = self.seg()

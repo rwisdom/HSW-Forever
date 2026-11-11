@@ -52,11 +52,12 @@ class StatsForSegment(unittest.TestCase):
     def test_divides_by_healing_and_adds_live_terms(self):
         lua, addon = start()
         seg = fought_segment(lua, addon)           # HPM 1000/660, 100 s all outside the FSR, no Int talent (mult 1.0), Human Spirit mult 1.10
+        seg.poolShare = 0.5                        # half the mana pool went into the fight
         heal, crt, hst, int_, spi, mp5 = addon.GetStatsForSegment(addon, seg)
         self.assertEqual(heal, 1)
         self.assertAlmostEqual(crt, seg.t.crit / seg.t.heal)
         self.assertEqual(hst, 0)                    # no chain casts
-        self.assertAlmostEqual(int_, (seg.t.int + 15 * 1.0 * 1000 / 660) / seg.t.heal)
+        self.assertAlmostEqual(int_, (seg.t.int + 15 * 1.0 * 1000 / 660 * 0.5) / seg.t.heal)
         self.assertAlmostEqual(spi, 0.125 * 1.10 * 100 * (1000 / 660) / seg.t.heal)   # default regen per Spirit
         self.assertAlmostEqual(mp5, 100 / 5 * (1000 / 660) / seg.t.heal)
 

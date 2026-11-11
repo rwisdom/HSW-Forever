@@ -28,6 +28,7 @@ function Segment.Create(id)
 	self.fillerManaSpent = 0;   -- absolute mana
 	self.manaRestore = 0;
 	self.manaSpent = 0;         -- every cast that cost mana (heals, shocks, totems): what drains the pool
+	self.poolShare = 0;         -- share of the mana pool the fight emptied, fixed at fight end (addon:EndFight); a total holds the sum of its fights' shares
 	self.timeInFSR = 0;         -- seconds inside the five-second rule
 	self.timeOutsideFSR = 0;
 	self.castPctWeighted = 0;   -- sum of (casting regen / base regen) * dt
@@ -61,10 +62,10 @@ function Segment:GetMP5()
 	return self:GetDuration() / 5 * self:GetFillerHPM();
 end
 
--- Healing attributable to the mana pool from 1 Intellect (spent once per fight: a total spends it
--- once per fight priced into it).
+-- Healing attributable to the mana pool from 1 Intellect, for the share of the pool that was spent:
+-- one fight's share, or for a total the sum of its fights' shares.
 function Segment:GetIntManaValue()
-	return addon.ManaPerInt * (addon.ply_intmult or 1) * self:GetFillerHPM() * math.max(self.fights, 1);
+	return addon.ManaPerInt * (addon.ply_intmult or 1) * self:GetFillerHPM() * self.poolShare;
 end
 
 -- Seconds of full-rate Spirit regen: the time outside the FSR, the (casting/base) share of the time inside it.
