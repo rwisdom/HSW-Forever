@@ -370,6 +370,26 @@ class Finaliser(unittest.TestCase):
         addon.EndFight(addon)
         self.assertEqual((cur.sessionTo, cur.totalHealing), (29, 1000))
 
+    def test_fight_after_a_meter_reset_is_priced(self):
+        # Deadmines 2026-11-10: sessionFrom = 10 (open-world watermark), sessionTo = 7 (the meter had
+        # restarted its ids), so four fights priced nothing. A segment that ends below its start reads
+        # from 0, and the watermark restarts with it.
+        lua, addon = start(extra=ALWAYS + '; STUB.sessions = { { sessionID = 10, name = "Boar", heals = { ["Player-1"] = { [25292] = 5000 } } } }')
+        addon.SessionTotals.Advance()
+        lua.execute("STUB.sessions = {}")                                         # the meter resets
+        addon.StartFight(addon, "First", True)
+        first = seg(addon)
+        self.assertEqual(first.sessionFrom, 10)                                   # stale watermark
+        lua.execute('STUB.sessions[1] = { sessionID = 1, name = "A", heals = { ["Player-1"] = { [25292] = 1000 } } }; STUB.time = 10')
+        addon.EndFight(addon)
+        self.assertEqual((first.sessionTo, first.totalHealing), (1, 1000))
+        self.assertEqual(addon.SessionTotals.watermark, 1)
+        addon.StartFight(addon, "Second", True)
+        second = seg(addon)
+        lua.execute('STUB.sessions[2] = { sessionID = 2, name = "B", heals = { ["Player-1"] = { [25292] = 200 } } }; STUB.time = 20')
+        addon.EndFight(addon)
+        self.assertEqual(second.totalHealing, 200)
+
     def test_stale_pending_segment_is_dropped(self):
         lua, addon = start(extra=ALWAYS + "; " + SESSION + "; STUB.secret = true")
         lua.execute('MSGS = {}; function HSW_TEST_ADDON:Msg(s) table.insert(MSGS, tostring(s)) end; HSW_TEST_ADDON.discoverSpells = true')

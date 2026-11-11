@@ -34,6 +34,28 @@ class Newest(unittest.TestCase):
         self.assertIsNone(st.Newest())                                     # unreadable, not "none"
 
 
+class Advance(unittest.TestCase):
+    def test_an_out_of_combat_reading_follows_the_meter_down_after_a_reset(self):
+        # Deadmines 2026-11-10: the meter restarted its ids below the open-world watermark (10 -> 7)
+        # and every fight read an empty range until the ids passed it again.
+        lua, _, st = start(SESSIONS)
+        st.Advance()
+        self.assertEqual(st.watermark, 3)
+        lua.execute('STUB.sessions = { { sessionID = 1, name = "Defias Miner" } }')
+        st.Advance()
+        self.assertEqual(st.watermark, 1)
+
+    def test_a_given_id_only_raises_and_a_secret_list_changes_nothing(self):
+        lua, _, st = start(SESSIONS)
+        st.Advance(5)
+        self.assertEqual(st.watermark, 5)
+        st.Advance(2)                                                      # a fight priced late: not a reset
+        self.assertEqual(st.watermark, 5)
+        lua.execute("STUB.secret = true")
+        st.Advance()
+        self.assertEqual(st.watermark, 5)
+
+
 class Name(unittest.TestCase):
     def test_longest_session_in_range_names_the_fight(self):
         _, _, st = start(SESSIONS)

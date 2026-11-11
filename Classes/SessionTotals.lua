@@ -39,10 +39,15 @@ function SessionTotals.Newest()
 	return newest;
 end
 
--- Raise the watermark to `id`, or to the newest readable session when none is given.
+-- Raise the watermark to `id`. Without one, set it to the newest readable session: an out-of-combat
+-- reading below the watermark means the meter restarted its ids (Deadmines 2026-11-10: 10 -> 7).
 function SessionTotals.Advance(id)
-	id = id or SessionTotals.Newest();
-	if id and id > SessionTotals.watermark then SessionTotals.watermark = id end
+	local newest = not id and SessionTotals.Newest();
+	if newest then
+		SessionTotals.watermark = newest;
+	elseif id and id > SessionTotals.watermark then
+		SessionTotals.watermark = id;
+	end
 end
 
 local function read(from, to)
