@@ -55,6 +55,15 @@ class Advance(unittest.TestCase):
         st.Advance()
         self.assertEqual(st.watermark, 5)
 
+    def test_restart_lowers_the_watermark_and_advance_raises_it_from_there(self):
+        # a fight priced below its start: the meter restarted its ids since the watermark was read
+        _, _, st = start(SESSIONS)
+        st.Advance(10)
+        st.Restart(0)
+        self.assertEqual(st.watermark, 0)
+        st.Advance(2)
+        self.assertEqual(st.watermark, 2)
+
 
 class Name(unittest.TestCase):
     def test_longest_session_in_range_names_the_fight(self):

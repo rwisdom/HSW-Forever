@@ -50,6 +50,12 @@ function SessionTotals.Advance(id)
 	end
 end
 
+-- Lower the watermark to `id`: a fight was priced below its start, so the meter restarted its ids
+-- since the watermark was read.
+function SessionTotals.Restart(id)
+	SessionTotals.watermark = id;
+end
+
 local function read(from, to)
 	local P = addon.Compat.PlainNumber;
 	local totals = {};

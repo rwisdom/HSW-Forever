@@ -274,9 +274,10 @@ function addon:FinalizePending()
 		if floor and seg.sessionFrom < floor then seg.sessionFrom = floor end
 		if not seg.sessionTo then seg.sessionTo = self.SessionTotals.Newest() end
 		if seg.sessionTo and seg.sessionTo < seg.sessionFrom then
-			-- the meter restarted its ids since the watermark was read: the fight's sessions count from 1
-			seg.sessionFrom = 0;
-			self.SessionTotals.watermark = 0;
+			-- the meter restarted its ids since the watermark was read: the fight's sessions count from 1,
+			-- or from the end of a fight this pass priced on the new ids
+			seg.sessionFrom = floor and floor <= seg.sessionTo and floor or 0;
+			self.SessionTotals.Restart(seg.sessionFrom);
 		end
 		local totals = seg.sessionTo and self.SessionTotals.Read(seg.sessionFrom, seg.sessionTo);
 		if totals then

@@ -390,6 +390,28 @@ class Finaliser(unittest.TestCase):
         addon.EndFight(addon)
         self.assertEqual(second.totalHealing, 200)
 
+    def test_two_fights_pending_across_a_meter_reset_read_its_sessions_once(self):
+        # Both fights began on the pre-reset watermark and are priced in one pass. The first reads from
+        # 0; the second starts where the first ended, not at 0 again, or the Total counts twice.
+        lua, addon = start(extra=ALWAYS + '; STUB.sessions = { { sessionID = 10, name = "Boar", heals = { ["Player-1"] = { [25292] = 5000 } } } }')
+        addon.SessionTotals.Advance()
+        lua.execute("STUB.sessions = {}; STUB.secret = true")                     # the meter resets; ids secret in combat
+        addon.StartFight(addon, "First", True)
+        first = seg(addon)
+        lua.execute('STUB.sessions[1] = { sessionID = 1, name = "A", heals = { ["Player-1"] = { [25292] = 1000 } } }; STUB.time = 10')
+        addon.EndFight(addon)
+        addon.StartFight(addon, "Second", True)
+        second = seg(addon)
+        self.assertEqual(second.sessionFrom, 10)                                  # stale watermark
+        lua.execute('STUB.sessions[2] = { sessionID = 2, name = "B", heals = { ["Player-1"] = { [25292] = 200 } } }; STUB.time = 20')
+        addon.EndFight(addon)
+        lua.execute("STUB.secret = false; STUB.tick()")                           # both priced in one pass
+        self.assertEqual((first.sessionFrom, first.sessionTo), (0, 2))
+        self.assertEqual((second.sessionFrom, second.sessionTo), (2, 2))
+        self.assertEqual((first.totalHealing, second.totalHealing), (1200, 0))    # chained within the release delay: all in the first
+        self.assertEqual(seg(addon, "Total").totalHealing, 1200)
+        self.assertEqual(addon.SessionTotals.watermark, 2)
+
     def test_stale_pending_segment_is_dropped(self):
         lua, addon = start(extra=ALWAYS + "; " + SESSION + "; STUB.secret = true")
         lua.execute('MSGS = {}; function HSW_TEST_ADDON:Msg(s) table.insert(MSGS, tostring(s)) end; HSW_TEST_ADDON.discoverSpells = true')
