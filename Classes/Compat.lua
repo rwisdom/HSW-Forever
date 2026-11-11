@@ -60,6 +60,15 @@ function Compat.GetSpellManaCost(spellID)
 	return 0;
 end
 
+-- Tooltip text of a spell ("Restores 140 to 180 mana."). nil without the API, when the client
+-- refuses the call or when the text is secret.
+function Compat.GetSpellDescription(spellID)
+	local f = (C_Spell and C_Spell.GetSpellDescription) or GetSpellDescription;
+	if not f then return nil end
+	local ok, text = pcall(f, spellID);
+	return ok and Compat.PlainString(text) or nil;
+end
+
 function Compat.GetItemInfo(link)
 	local f = (C_Item and C_Item.GetItemInfo) or GetItemInfo;
 	if not f then return nil end

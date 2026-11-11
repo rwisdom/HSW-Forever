@@ -17,6 +17,19 @@ class CompatTests(unittest.TestCase):
         lua, addon = load(["Classes/Compat.lua"], setup="STUB.spellCost[635] = 35")
         self.assertEqual(addon.Compat.GetSpellManaCost(635), 35)
 
+    def test_spell_description_is_plain_text_or_nil(self):
+        lua, addon = load(["Classes/Compat.lua"], setup='STUB.spellDesc[437] = "Restores 140 to 180 mana."')
+        self.assertEqual(addon.Compat.GetSpellDescription(437), "Restores 140 to 180 mana.")
+        self.assertIsNone(addon.Compat.GetSpellDescription(1))                 # no text
+        lua, addon = load(["Classes/Compat.lua"], setup='issecretvalue = function(v) return v == "SECRET" end; STUB.spellDesc[437] = "SECRET"')
+        self.assertIsNone(addon.Compat.GetSpellDescription(437))
+        lua, addon = load(["Classes/Compat.lua"], setup='C_Spell.GetSpellDescription = function() error("restricted") end')
+        self.assertIsNone(addon.Compat.GetSpellDescription(437))               # the client refuses the call
+        lua, addon = load(["Classes/Compat.lua"], setup=LEGACY + '; STUB.spellDesc[437] = "Restores 140 to 180 mana."')
+        self.assertEqual(addon.Compat.GetSpellDescription(437), "Restores 140 to 180 mana.")   # legacy global
+        lua, addon = load(["Classes/Compat.lua"], setup=LEGACY + "; GetSpellDescription = nil")
+        self.assertIsNone(addon.Compat.GetSpellDescription(437))               # no API at all
+
     def test_prefers_namespaced_apis(self):
         setup = """
         C_Spell = { GetSpellInfo = function(id) return { name = "ns" .. id, iconID = 7 } end,

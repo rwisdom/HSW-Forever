@@ -8,6 +8,7 @@ STUB = {
 	auras = {},     -- { {id=14751, count=1, expiration=0, source="player"}, ... }  (index order)
 	cooldowns = {}, -- [spellID] = {start=, duration=}
 	spellCost = {}, -- [spellID] = mana cost; nil → GetSpellPowerCost returns nil
+	spellDesc = {}, -- [spellID] = tooltip text; nil → GetSpellDescription returns nil
 	instance = { name = "Nowhere", type = "none", difficultyId = 0 },
 	guids = { player = "Player-1" },   -- unit token -> GUID; tests add party1, target, ...
 	names = { player = "Me" },         -- unit token -> unit name
@@ -62,6 +63,7 @@ end
 function UnitHealth() return 1000 end
 function UnitHealthMax() return 1000 end
 function GetSpellPowerCost(id) local c = STUB.spellCost[id]; if c == nil then return nil end; return { { type = 0, cost = c } } end
+function GetSpellDescription(id) return STUB.spellDesc[id] end
 function GetSpellInfo(id)
 	local t = type(id) == "number" and id > TALENT_SPELL_BASE and stubTalent(id - TALENT_SPELL_BASE)
 	if t then return t.name, nil, "icon_" .. t.name end
@@ -180,6 +182,7 @@ C_Spell = {
 	end,
 	GetSpellCooldown = function(id) local s, d = GetSpellCooldown(id); return { startTime = s, duration = d } end,
 	GetSpellPowerCost = function(id) return GetSpellPowerCost(id) end,
+	GetSpellDescription = function(id) return GetSpellDescription(id) end,
 };
 C_UnitAuras = {
 	GetAuraDataByIndex = function(unit, i, filter)
