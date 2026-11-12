@@ -88,12 +88,14 @@ function addon:UpdatePlayerStats()
 	self.ply_maxmana = P(UnitPowerMax("player", 0)) or self.ply_maxmana or 0;
 	if self.equipmentDirty and not self.inCombat then self:UpdateEquipment() end -- a swap made in combat
 	-- per-second rates; the ratio includes regen talents and Innervate. Gear MP5 sits in full in both
-	-- (verified 2026-10-22): taken out, what is left is Spirit regen. Buff MP5 (Mana Spring, Wisdom) is not.
+	-- (verified 2026-10-22), and so does a drink while seated (seen 2026-11-11: 13.63 / 6.81 read
+	-- 48.43 / 41.61 under a drink of 34.8 mana/s, which ManaDeficit counts itself): taken out, what
+	-- is left is Spirit regen. Buff MP5 (Mana Spring, Wisdom) is not.
 	local base, casting = GetManaRegen();
-	local gear = (self.ply_mp5 or 0) / 5;
+	local flat = (self.ply_mp5 or 0) / 5 + self.ManaDeficit.drinkRate;
 	base, casting = P(base), P(casting);
-	self.ply_regen_base = base and math.max(base - gear, 0) or self.ply_regen_base or 0;
-	self.ply_regen_cast = casting and math.max(casting - gear, 0) or self.ply_regen_cast or 0;
+	self.ply_regen_base = base and math.max(base - flat, 0) or self.ply_regen_base or 0;
+	self.ply_regen_cast = casting and math.max(casting - flat, 0) or self.ply_regen_cast or 0;
 	self.ply_castpct = self.ply_regen_base > 0 and math.min(self.ply_regen_cast / self.ply_regen_base, 1) or 0;
 	local intmult = 1;
 	for talent, perRank in pairs(IntTalents) do

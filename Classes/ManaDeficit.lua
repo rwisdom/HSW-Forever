@@ -56,9 +56,9 @@ function ManaDeficit.Share(from, to)
 	return math.max(0, math.min(1, (to - from) / max));
 end
 
--- Mana per second a buff restores, by its tooltip: a drink reads "Restores N mana per second."
--- (Melon Juice's item tooltip, seen in game 2026-11-11; the buff's own text is unverified) or, in
--- Classic's wording, "Restores N mana over M sec." Some drinks restore a share of the bar instead,
+-- Mana per second a buff restores, by its tooltip. Seen in game 2026-11-11: the Drink buff (432)
+-- reads "Restores 835 mana over 24 sec.", its item (Melon Juice) "Restores 34 mana per second.";
+-- both wordings are read. Some drinks restore a share of the bar instead,
 -- "N% of your mana per second" (wording reported 2026-11-11, not seen): that one follows max mana.
 -- 0 for any other text. nil while the text cannot be read or is still empty; it is asked again
 -- then, and kept per spell id once it reads.

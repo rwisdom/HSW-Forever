@@ -251,6 +251,21 @@ class UnitEvents(unittest.TestCase):
         addon.hsw.PLAYER_REGEN_DISABLED(addon.hsw)
         self.assertEqual(addon.ManaDeficit.drinkRate, 0)
 
+    def test_a_drink_is_taken_out_of_the_clients_regen_rates(self):
+        # Seen in game 2026-11-11: while seated, GetManaRegen() carries the drink in both rates
+        # (13.63 / 6.81 read 48.43 / 41.61 under "Restores 835 mana over 24 sec.").
+        drink = 835 / 24
+        lua, addon, seg = start(SHAMAN, 264, extra='STUB.spellDesc[432] = "Restores 835 mana over 24 sec.  Must remain seated while drinking."'
+                                                   '; STUB.regen = { base = 13.63, cast = 6.81 }')
+        addon.inCombat = False
+        addon.ManaDeficit.Spend(addon.ManaDeficit, 1000, 0)
+        lua.execute("STUB.time = 10; STUB.auras = { { id = 432 } }; STUB.regen = { base = 13.63 + 835 / 24, cast = 6.81 + 835 / 24 }")
+        fire(addon, "UNIT_AURA", "player")
+        self.assertAlmostEqual(addon.ply_regen_base, 13.63)                  # Spirit regen alone, as before the drink
+        self.assertAlmostEqual(addon.ply_castpct, 6.81 / 13.63)
+        seated = 1000 - 5 * 6.81 - 5 * 13.63
+        self.assertAlmostEqual(addon.ManaDeficit.Advance(addon.ManaDeficit, 20), seated - 10 * (13.63 + drink))   # the drink once, not twice
+
     def test_regen_rates_change_after_the_deficit_is_brought_up_to_date(self):
         lua, addon, seg = start()                                            # stub regen: base 10, cast 3
         addon.inCombat = False
