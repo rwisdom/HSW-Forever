@@ -10,15 +10,38 @@ local name, addon = ...;
 	Nothing ever corrects it against the real bar: Mana Tide, buff MP5 and the like
 	are not seen, and the error lasts until the estimated bar is full again.
 ------------------------------------------------------------------------------]]
-local ManaDeficit = { deficit = 0, drinkRate = 0, buffs = {} };
+local ManaDeficit = { deficit = 0, drinkRate = 0, endedDrink = 0, buffs = {} };
+
+-- What the client's regen rates hold flat beyond gear MP5 (ply_flat, addon:UpdatePlayerStats).
+local function flatInRates()
+	return math.max(0, (addon.ply_flat or 0) - (addon.ply_mp5 or 0) / 5);
+end
+
+-- Mana per second of buffs that the client's regen rates hold: Might of Stormwind's 10 MP5 (seen
+-- 2026-11-11). A drink is in the rates as well, but the count takes a drink from the buff's text,
+-- and the two are not in step: the rates may not hold the drink yet when it starts, and still
+-- hold it after a pull has ended it (2026-11-13). So the drink that is up, or the one that ended
+-- and that the rates have not let go of, comes off whenever the rates are big enough to hold it.
+function ManaDeficit:HeldBuffRate()
+	local held = flatInRates();
+	local drink = self.drinkRate > 0 and self.drinkRate or self.endedDrink;
+	if drink > 0 and held >= drink - 0.05 then held = held - drink end
+	return held;
+end
+
+-- The regen rates were read anew: once they no longer hold a drink that has ended it is
+-- forgotten, and a flat part of that size later on is a buff.
+function ManaDeficit:OnRates()
+	if self.endedDrink > 0 and flatInRates() < self.endedDrink - 0.05 then self.endedDrink = 0 end
+end
 
 -- Mana per second from lasting buffs that the client's regen rates do not hold. `buffs` lists what
--- each buff's text says. Some buffs are in the rates already (Might of Stormwind's 10 MP5, seen
--- 2026-11-11) and show in ply_flat_buff; others are not (Blessing of Wisdom, 2026-11-12). A buff
--- counts as held by the rates when their flat part equals its rate, or equals all of them
--- together; a flat part that fits neither belongs to a buff whose text was not understood.
+-- each buff's text says. Some of them are in the rates already (Might of Stormwind); others are
+-- not (Blessing of Wisdom, 2026-11-12). A buff counts as held by the rates when their buff part
+-- equals its rate, or equals all of them together; a buff part that fits neither belongs to a
+-- buff whose text was not understood.
 function ManaDeficit:UnseenBuffRate()
-	local held, total = addon.ply_flat_buff or 0, 0;
+	local held, total = self:HeldBuffRate(), 0;
 	for _, rate in ipairs(self.buffs) do total = total + rate end
 	if math.abs(total - held) < 0.05 then return 0 end
 	for _, rate in ipairs(self.buffs) do
@@ -64,7 +87,7 @@ function ManaDeficit:Advance(now)
 	local sinceSpend = self.last and self.lastSpend and self.last - self.lastSpend or math.huge;
 	local inFSR = math.max(0, math.min(dt, addon.FSR_SECONDS - sinceSpend));
 	local regen = (addon.ply_regen_base or 0) * (dt - inFSR + (addon.ply_castpct or 0) * inFSR)
-		+ ((addon.ply_mp5 or 0) / 5 + self.drinkRate + self:UnseenBuffRate()) * dt;
+		+ ((addon.ply_mp5 or 0) / 5 + self.drinkRate + self:HeldBuffRate() + self:UnseenBuffRate()) * dt;
 	self.deficit = math.max(0, self.deficit - regen);
 	self.last = now;
 	return self.deficit;
@@ -88,6 +111,7 @@ end
 
 function ManaDeficit:SetDrinkRate(rate, now)
 	self:Advance(now); -- the time so far ran at the old rate
+	if rate == 0 and self.drinkRate > 0 then self.endedDrink = self.drinkRate end -- the client's rates may still hold it
 	self.drinkRate = rate;
 end
 

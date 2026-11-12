@@ -275,20 +275,39 @@ class UnitEvents(unittest.TestCase):
         fire(addon, "UNIT_POWER_UPDATE", "player", "MANA")
         self.assertEqual(addon.ManaDeficit.lastPower, 7)
 
-    def test_a_drink_is_taken_out_of_the_clients_regen_rates(self):
-        # Seen in game 2026-11-11: while seated, GetManaRegen() carries the drink in both rates
-        # (13.63 / 6.81 read 48.43 / 41.61 under "Restores 835 mana over 24 sec.").
+    def test_a_drink_in_the_clients_rates_is_counted_once_whenever_they_pick_it_up_or_let_it_go(self):
+        # Seen in game: while seated GetManaRegen() carries the drink in both rates (2026-11-11: 13.63 / 6.81 read
+        # 48.43 / 41.61), but not in step with the buff: a pull while seated left 64.93 / 57.36 behind (2026-11-13).
         drink = 835 / 24
         lua, addon, seg = start(SHAMAN, 264, extra='STUB.spellDesc[432] = "Restores 835 mana over 24 sec.  Must remain seated while drinking."'
-                                                   '; STUB.regen = { base = 13.63, cast = 6.81 }')
+                                                   '; STUB.regen = { base = 13.75, cast = 6.875 }')       # 60 Spirit: 6.25 + 60 / 8
+        md = addon.ManaDeficit
         addon.inCombat = False
-        addon.ManaDeficit.Spend(addon.ManaDeficit, 1000, 0)
-        lua.execute("STUB.time = 10; STUB.auras = { { id = 432 } }; STUB.regen = { base = 13.63 + 835 / 24, cast = 6.81 + 835 / 24 }")
+        md.Spend(md, 1000, 0)
+        lua.execute("STUB.time = 10; STUB.auras = { { id = 432 } }")         # seated: the buff is up, the rates do not hold it yet
         fire(addon, "UNIT_AURA", "player")
-        self.assertAlmostEqual(addon.ply_regen_base, 13.63)                  # Spirit regen alone, as before the drink
-        self.assertAlmostEqual(addon.ply_castpct, 6.81 / 13.63)
-        seated = 1000 - 5 * 6.81 - 5 * 13.63
-        self.assertAlmostEqual(addon.ManaDeficit.Advance(addon.ManaDeficit, 20), seated - 10 * (13.63 + drink))   # the drink once, not twice
+        self.assertAlmostEqual(md.drinkRate, drink)
+        self.assertAlmostEqual(addon.ply_regen_base, 13.75)
+        seated = 1000 - 5 * 6.875 - 5 * 13.75
+        lua.execute("STUB.time = 12; STUB.regen = { base = 13.75 + 835 / 24, cast = 6.875 + 835 / 24 }")
+        fire(addon, "UNIT_POWER_UPDATE", "player", "MANA")                   # every mana tick re-reads the rates: now they hold it
+        self.assertAlmostEqual(addon.ply_regen_base, 13.75)                  # Spirit regen alone, as before the drink
+        self.assertAlmostEqual(addon.ply_castpct, 0.5)
+        lua.execute("STUB.time = 20")
+        fire(addon, "UNIT_POWER_UPDATE", "player", "MANA")
+        at_pull = seated - 10 * (13.75 + drink)
+        self.assertAlmostEqual(md.deficit, at_pull)                          # the drink once, not twice
+        lua.execute("function HSW_TEST_ADDON:StartFight() self:UpdatePlayerStats() end")   # DisplayPanel.lua is not loaded here
+        addon.hsw.PLAYER_REGEN_DISABLED(addon.hsw)                           # pulled while seated: the rates still carry the drink
+        self.assertEqual(md.drinkRate, 0)
+        self.assertAlmostEqual(addon.ply_regen_base, 13.75)
+        self.assertAlmostEqual(addon.ply_castpct, 0.5)
+        lua.execute("STUB.time = 30")
+        fire(addon, "UNIT_POWER_UPDATE", "player", "MANA")
+        self.assertAlmostEqual(md.deficit, at_pull - 10 * 13.75)             # and for the count the drink is over
+        lua.execute("STUB.regen = { base = 13.75, cast = 6.875 }")
+        fire(addon, "UNIT_POWER_UPDATE", "player", "MANA")                   # the rates let go of it
+        self.assertEqual(md.endedDrink, 0)
 
     def test_regen_rates_change_after_the_deficit_is_brought_up_to_date(self):
         lua, addon, seg = start()                                            # stub regen: base 10, cast 3

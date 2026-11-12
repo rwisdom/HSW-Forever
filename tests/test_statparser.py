@@ -126,24 +126,32 @@ class SpiritRegen(unittest.TestCase):
         self.assertEqual(addon.ply_mp5, 5)
         self.assertEqual((addon.ply_regen_base, addon.ply_regen_cast), (10, 3))
         self.assertAlmostEqual(addon.ply_castpct, 0.3)
-        lua.execute("HSW_TEST_ADDON.inCombat = true; STUB.regen = { base = 21, cast = 9 }")   # Mana Spring in combat: gear MP5 stays cached
+        lua.execute("HSW_TEST_ADDON.inCombat = true; STUB.regen = { base = 21, cast = 9 }")   # a flat buff in combat: gear MP5 stays cached
         addon.UpdatePlayerStats(addon)
         self.assertEqual(addon.ply_mp5, 5)
-        self.assertEqual((addon.ply_regen_base, addon.ply_regen_cast), (20, 8))
+        self.assertAlmostEqual(addon.ply_flat, 7.25)                         # 21 less the 13.75 of 60 Spirit: the gear's 1.0 and 6.25 more
+        self.assertEqual((addon.ply_regen_base, addon.ply_regen_cast), (13.75, 1.75))
 
-    def test_flat_buff_is_what_the_base_rate_holds_above_spirit_gear_and_drink(self):
-        # Seen in game 2026-11-11: Might of Stormwind (10 MP5) raised both GetManaRegen() rates by 2.0
-        lua, addon, _ = start("PALADIN", extra="STUB.regen = { base = 15.75, cast = 5 }")   # 60 Spirit alone: 6.25 + 60 / 8 = 13.75
-        self.assertAlmostEqual(addon.ply_flat_buff, 2.0)
+    def test_what_the_base_rate_holds_above_spirit_is_flat_and_comes_off_both_rates(self):
+        # Seen in game 2026-11-11: Might of Stormwind (10 MP5) raised both GetManaRegen() rates by 2.0 and the
+        # casting share read 0.56 for 0.50. Spirit alone gives min(Spirit / 4, 6.25 + Spirit / 8).
+        lua, addon, _ = start("PALADIN", extra="STUB.regen = { base = 15.75, cast = 5 }")   # 60 Spirit alone: 13.75
+        self.assertAlmostEqual(addon.ply_flat, 2.0)
+        self.assertEqual((addon.ply_regen_base, addon.ply_regen_cast), (13.75, 3))
+        self.assertAlmostEqual(addon.ply_castpct, 3 / 13.75)                 # the buff does not raise the casting share
         lua.execute("STUB.regen = { base = 13.75, cast = 3 }")
         addon.UpdatePlayerStats(addon)
-        self.assertEqual(addon.ply_flat_buff, 0)
-        lua.execute("STUB.regen = { base = 10, cast = 3 }")                                 # under the Spirit figure: never negative
+        self.assertEqual(addon.ply_flat, 0)
+        lua.execute("STUB.regen = { base = 10, cast = 3 }")                  # under the Spirit figure: nothing flat, the client's rate stands
         addon.UpdatePlayerStats(addon)
-        self.assertEqual(addon.ply_flat_buff, 0)
+        self.assertEqual((addon.ply_flat, addon.ply_regen_base), (0, 10))
         lua.execute("STUB.stats[5] = {30, 40, 10, 0}; STUB.regen = { base = 12, cast = 3 }")   # under the knee: 40 / 4 = 10
         addon.UpdatePlayerStats(addon)
-        self.assertAlmostEqual(addon.ply_flat_buff, 2.0)
+        self.assertAlmostEqual(addon.ply_flat, 2.0)
+        self.assertEqual((addon.ply_regen_base, addon.ply_regen_cast), (10, 1))
+        lua.execute("issecretvalue = function(v) return v == -777 end; STUB.regen = { base = -777, cast = -777 }")
+        addon.UpdatePlayerStats(addon)                                       # unreadable in combat: the last reading stays
+        self.assertEqual((addon.ply_flat, addon.ply_regen_base, addon.ply_regen_cast), (2, 10, 1))
 
     def test_a_swap_in_combat_is_read_once_combat_ends(self):
         lua, addon, _ = start("PALADIN", extra='function GetInventoryItemLink(_, slot) return slot == 1 and "item1" or nil end'

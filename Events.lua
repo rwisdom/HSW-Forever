@@ -240,7 +240,13 @@ local function UnitEventHandler(_, e, ...)
 		addon:UpdatePlayerStats();
 	elseif e == "UNIT_POWER_UPDATE" then
 		local _, powerType = ...;
-		if addon.Compat.PlainString(powerType) == "MANA" then addon.ManaDeficit:OnPower(GetTime()) end
+		if addon.Compat.PlainString(powerType) == "MANA" then
+			addon.ManaDeficit:OnPower(GetTime());
+			-- a tick every 2 s while the bar is below full: the regen rates are read again, so a drink
+			-- or buff they picked up or let go of since the last aura event does not linger
+			AccumulateNow();
+			addon:UpdatePlayerStats();
+		end
 	elseif e == "UNIT_COMBAT" then
 		local unit, action, flag, amount = ...;
 		addon.HealMatcher:OnUnitCombat(unit, action, flag, amount);

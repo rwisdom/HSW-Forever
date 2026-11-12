@@ -141,14 +141,31 @@ class ManaDeficitTests(unittest.TestCase):
         buffs("3.6")                                                # Blessing of Wisdom: not in GetManaRegen()
         md.Spend(md, 1000, 0)
         self.assertAlmostEqual(md.Advance(md, 100), 640)
-        buffs("3.6, 2.0"); addon.ply_flat_buff = 2.0                # plus Might of Stormwind, which the rates hold
-        self.assertAlmostEqual(md.Advance(md, 200), 280)            # still 3.6 a second added
+        buffs("3.6, 2.0"); addon.ply_flat = 2.0                     # plus Might of Stormwind, which the rates hold
+        self.assertAlmostEqual(md.Advance(md, 200), 80)             # 2.0 from the rates and 3.6 from the blessing's text
         buffs("3.6")                                                # its text not understood: the rates' 2.0 is not the blessing's
-        self.assertAlmostEqual(md.Advance(md, 250), 100)
-        buffs("2.0")                                                # alone, and the rates hold it: nothing added
-        self.assertAlmostEqual(md.Advance(md, 300), 100)
-        buffs("3.6, 2.0"); addon.ply_flat_buff = 5.6                # the rates hold both
-        self.assertAlmostEqual(md.Advance(md, 400), 100)
+        self.assertAlmostEqual(md.Advance(md, 210), 24)
+        buffs("2.0")                                                # alone, and the rates hold it: counted once
+        self.assertAlmostEqual(md.Advance(md, 215), 14)
+        buffs("3.6, 2.0"); addon.ply_flat = 5.6                     # the rates hold both
+        self.assertAlmostEqual(md.Advance(md, 216), 8.4)
+        addon.ply_mp5 = 10; addon.ply_flat = 7.6                    # gear MP5 is in the rates too, and counted on its own
+        self.assertAlmostEqual(md.Advance(md, 217), 0.8)
+
+    def test_a_drink_the_rates_do_not_hold_yet_or_still_hold_is_counted_once(self):
+        _, addon, md = self.md()
+        addon.ply_regen_base = 0
+        md.Spend(md, 1000, 0)
+        md.SetDrinkRate(md, 40, 0)                                  # seated; the client's rates have not caught up
+        self.assertAlmostEqual(md.Advance(md, 5), 800)
+        addon.ply_flat = 42                                         # now they hold it, beside a buff of 2
+        self.assertAlmostEqual(md.Advance(md, 10), 590)             # 40 and 2, not 82
+        md.SetDrinkRate(md, 0, 10)                                  # a pull while seated ends the drink; the rates still hold it
+        self.assertAlmostEqual(md.Advance(md, 20), 570)             # only the buff
+        addon.ply_flat = 2; md.OnRates(md)                          # read again: they have let go of it
+        self.assertEqual(md.endedDrink, 0)
+        addon.ply_flat = 42                                         # so a flat 42 later on is all buff
+        self.assertAlmostEqual(md.Advance(md, 30), 150)
 
     def test_scan_sums_drinks_and_buffs_and_keeps_the_rates_while_buffs_are_hidden(self):
         lua, _, md = self.md('STUB.spellDesc[430] = "Restores 420 mana over 21 sec."; STUB.spellDesc[1243] = "Increases Stamina by 3."'
