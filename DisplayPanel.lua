@@ -393,6 +393,7 @@ end
 function addon:EndFight()
 	if not self.inCombat then return end
 	discoverMsg("fight ended.");
+	self:ScanPlayerBuffs(); -- buffs read again once the player is out of combat: Water Shield globes spent in the fight count in it
 	self.inCombat = false;
 	self.manualFight = nil;
 	local cur_seg = self.SegmentManager:Get(0);

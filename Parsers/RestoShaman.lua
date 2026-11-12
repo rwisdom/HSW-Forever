@@ -24,7 +24,8 @@ local function CritChance(ev, s, destUnit, C)
 end
 
 --[[----------------------------------------------------------------------------
-	Water Shield: a heal crit restores 2% of max mana while a globe remains.
+	Water Shield: a heal crit restores 2% of max mana while a globe remains, and
+	spends the globe (three to a cast; hits on the shaman spend them too).
 	Value per 1% crit = 0.01 * 0.02 * maxMana * HPM.
 ------------------------------------------------------------------------------]]
 local function CriticalStrike(ev, s, heal, destUnit, C, CB, seg)
@@ -35,6 +36,7 @@ end
 -- The mana Water Shield actually returns on this crit while a globe remains (2% of max mana).
 local function ManaReturn(ev, s, heal, destUnit)
 	if not s.canCrit or addon.BuffTracker:Get(addon.Shaman.WaterShield) == 0 then return 0 end
+	addon.BuffTracker:UseCharge(addon.Shaman.WaterShield);
 	return 0.02 * (addon.ply_maxmana or 0);
 end
 

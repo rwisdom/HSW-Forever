@@ -567,6 +567,17 @@ class Finaliser(unittest.TestCase):
         self.assertEqual((boss.deficitStart, boss.deficitEnd), (300, 500))
         self.assertAlmostEqual(boss.poolShare, 0.2)
 
+    def test_fight_end_reads_the_buffs_and_credits_water_shield_globes_spent_in_the_fight(self):
+        lua, addon = start(extra=ALWAYS + "; STUB.maxMana = 1000; STUB.regen = { base = 0, cast = 0 }; STUB.auras = { { id = 408510, count = 3 } }")
+        addon.ScanPlayerBuffs(addon)                                              # three globes up before the pull
+        addon.StartFight(addon, "Boss", True)
+        lua.execute("HSW_TEST_ADDON.ManaDeficit:Spend(400); STUB.auras = { { id = 408510, count = 1 } }; STUB.time = 10")
+        boss = seg(addon)
+        addon.EndFight(addon)
+        self.assertEqual(boss.manaRestore, 40)                                    # two globes of 2% went to hits in the fight
+        self.assertEqual(boss.deficitEnd, 360)
+        self.assertAlmostEqual(boss.poolShare, 0.36)
+
     def test_a_fight_that_regenerates_more_than_it_spends_has_no_share(self):
         lua, addon = start(extra=ALWAYS + "; STUB.maxMana = 1000; STUB.regen = { base = 10, cast = 10 }")
         lua.execute("HSW_TEST_ADDON.ManaDeficit:Spend(500)")

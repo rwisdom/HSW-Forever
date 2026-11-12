@@ -120,7 +120,7 @@ function addon.hsw:PLAYER_ENTERING_WORLD()
 	addon.inBossFight = false; -- ENCOUNTER_END never came (zoned out mid-encounter)
 	addon.SessionTotals.Advance(); -- meter sessions from before the login or zone-in are not a fight's
 	addon:SetupFrame();
-	addon.ManaDeficit:ScanBuffs(); -- a /reload with a blessing up: no UNIT_AURA need follow
+	addon:ScanPlayerBuffs(); -- a /reload with a blessing up: no UNIT_AURA need follow
 	RefreshCharacter();
 end
 
@@ -165,7 +165,10 @@ function addon:OnPlayerSpellcast(spellID)
 
 	-- buffs we cast ourselves are the only ones visible in combat
 	if spellID == self.Shaman.WaterShield then
-		self.BuffTracker:MarkCast(spellID, self.Shaman.WaterShieldDuration);
+		-- recast in a fight: the old shield's globes cannot be read here, and a shield is recast
+		-- when it has run out, so the ones not seen going are taken as spent
+		self:CreditWaterShield(self.BuffTracker:Get(spellID));
+		self.BuffTracker:MarkCast(spellID, self.Shaman.WaterShieldDuration, self.Shaman.WaterShieldGlobes);
 	elseif spellID == self.Priest.InnerFocus then
 		self.BuffTracker:MarkCast(spellID, self.Priest.InnerFocusDuration);
 	end
@@ -231,9 +234,8 @@ end
 
 local function UnitEventHandler(_, e, ...)
 	if e == "UNIT_AURA" then
-		addon.BuffTracker:UpdatePlayerBuffs();
 		AccumulateNow();          -- credit elapsed time at the old casting-regen share (Innervate etc.)
-		addon.ManaDeficit:ScanBuffs();
+		addon:ScanPlayerBuffs();
 		addon:UpdatePlayerStats();
 	elseif e == "UNIT_STATS" then
 		AccumulateNow();

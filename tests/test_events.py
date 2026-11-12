@@ -382,7 +382,37 @@ class UnitEvents(unittest.TestCase):
         self.assertEqual(addon.lastManaSpend, 0)
         lua, addon, seg = start(SHAMAN, 264)
         fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", WATER_SHIELD)
-        self.assertEqual(addon.BuffTracker.Get(addon.BuffTracker, WATER_SHIELD), 1)
+        self.assertEqual(addon.BuffTracker.Get(addon.BuffTracker, WATER_SHIELD), 3)   # three globes
+
+    def test_water_shield_globes_spent_unseen_are_credited_when_the_buffs_read(self):
+        # Seen in game 2026-11-13: "When a spell, melee, or ranged attack hits the caster or when one of the caster's
+        # spells gets a critical result, 2% of maximum mana is restored to the caster, expending one water globe."
+        lua, addon, seg = start(SHAMAN, 264)                                 # max mana 3000: a globe is 60
+        bt, md = addon.BuffTracker, addon.ManaDeficit
+        md.Spend(md, 1000, 0)
+        lua.execute("STUB.auras = { { id = 408510, count = 3 } }")
+        fire(addon, "UNIT_AURA", "player")
+        self.assertEqual((bt.Get(bt, WATER_SHIELD), md.deficit, seg.manaRestore), (3, 1000, 0))
+        lua.execute("STUB.auras = { { id = 408510, count = 2 } }")          # a hit, or a shock's crit: one globe gone
+        fire(addon, "UNIT_AURA", "player")
+        self.assertEqual((md.deficit, seg.manaRestore), (940, 60))           # in a fight it comes off the filler mana too
+        addon.inCombat = False
+        lua.execute("STUB.auras = {}")                                       # the last two went between pulls
+        fire(addon, "UNIT_AURA", "player")
+        self.assertEqual((md.deficit, seg.manaRestore), (820, 60))
+        lua.execute("STUB.auras = { { id = 408510, count = 3 } }")          # recast: nothing to credit
+        fire(addon, "UNIT_AURA", "player")
+        self.assertEqual((bt.Get(bt, WATER_SHIELD), md.deficit), (3, 820))
+
+    def test_recasting_water_shield_in_combat_counts_the_old_globes_as_spent(self):
+        lua, addon, seg = start(SHAMAN, 264)
+        bt, md = addon.BuffTracker, addon.ManaDeficit
+        md.Spend(md, 1000, 0)
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", WATER_SHIELD)   # none known before: nothing to credit
+        self.assertEqual((bt.Get(bt, WATER_SHIELD), seg.manaRestore), (3, 0))
+        bt.UseCharge(bt, WATER_SHIELD)                                       # a heal crit took one and was credited then
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", WATER_SHIELD)   # buffs cannot be read in combat: the other two went unseen
+        self.assertEqual((bt.Get(bt, WATER_SHIELD), seg.manaRestore, md.deficit), (3, 120, 880))
 
     def test_casts_and_heals_are_logged_on_the_live_segment(self):
         lua, addon, seg = start(extra=PARTY)

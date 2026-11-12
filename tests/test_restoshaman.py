@@ -45,6 +45,22 @@ class RestoShamanTests(unittest.TestCase):
         lua, addon, seg = start("SHAMAN", RESTO, FILES)         # max mana 3000
         heal(addon, "SPELL_HEAL", HW, 1500, crit=True)
         self.assertEqual(seg.manaRestore, 0)                    # no shield up
-        addon.BuffTracker.MarkCast(addon.BuffTracker, WATER_SHIELD, 600)
+        bt = addon.BuffTracker
+        bt.MarkCast(bt, WATER_SHIELD, 600, 3)
         heal(addon, "SPELL_HEAL", HW, 1500, crit=True)
-        self.assertEqual(seg.manaRestore, 60)                   # 2% of 3000
+        self.assertEqual((seg.manaRestore, bt.Get(bt, WATER_SHIELD)), (60, 2))   # 2% of 3000, and the crit spent a globe
+        heal(addon, "SPELL_HEAL", HW, 1500, crit=True)
+        heal(addon, "SPELL_HEAL", HW, 1500, crit=True)
+        self.assertEqual((seg.manaRestore, bt.Get(bt, WATER_SHIELD)), (180, 0))
+        heal(addon, "SPELL_HEAL", HW, 1500, crit=True)          # no globe left: nothing more, though the 10 min have not run out
+        self.assertEqual(seg.manaRestore, 180)
+
+    def test_crit_is_worth_water_shield_mana_only_while_a_globe_remains(self):
+        lua, addon, seg = start("SHAMAN", RESTO, FILES)
+        bt = addon.BuffTracker
+        seg.IncFillerCasts(seg, 620)
+        bt.MarkCast(bt, WATER_SHIELD, 600, 3)
+        for _ in range(3):
+            bt.UseCharge(bt, WATER_SHIELD)
+        heal(addon, "SPELL_HEAL", HW, 1000)
+        self.assertAlmostEqual(seg.t.crit, crit_per_pct(1000, 0.17) / 14)   # no shield part

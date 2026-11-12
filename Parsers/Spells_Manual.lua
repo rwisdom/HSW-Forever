@@ -34,7 +34,7 @@ S:Alias(25903, 20930); -- Holy Shock heal, Rank 4
 ------------------------------------------------------------------------------]]
 addon.Priest  = { InnerFocus = 14751, InnerFocusDuration = 60, WeakenedSoul = 6788, WeakenedSoulDuration = 15 };
 addon.Druid   = { Clearcasting = 16870 };
-addon.Shaman  = { WaterShield = 408510, WaterShieldDuration = 600 }; -- verified in game 2026-10-21: cast id and aura id are both 408510, 3 charges, 600 s
+addon.Shaman  = { WaterShield = 408510, WaterShieldDuration = 600, WaterShieldGlobes = 3, WaterShieldReturn = 0.02 }; -- verified in game 2026-10-21: cast id and aura id are both 408510, 3 charges, 600 s
 addon.Paladin = { OathOfLight = 1328548, OathOfLightDuration = 300 }; -- talent spell (hotfix 2026-10-30); marked on its target at cast (Events.lua)
 -- Flat healing the Oath adds on its target (build 70753 tooltip: "up to" these, Classic's Blessing of
 -- Light R3 numbers; the "up to" is the Classic downrank penalty on spell ranks learned under level 20,
@@ -71,6 +71,17 @@ function addon:CastManaReturn(s)
 		back = back + 0.25 * 0.35 * s.manaCost;
 	end
 	return back;
+end
+
+-- Water Shield (tooltip seen in game 2026-11-13): "When a spell, melee, or ranged attack hits the
+-- caster or when one of the caster's spells gets a critical result, 2% of maximum mana is restored
+-- to the caster, expending one water globe." A heal crit of ours is credited as it lands
+-- (Parsers/RestoShaman.lua). This credits globes that went any other way, counted from the buff's
+-- charges once they can be read. In a fight the mana comes off the filler mana like a crit return.
+function addon:CreditWaterShield(globes)
+	local mana = globes * self.Shaman.WaterShieldReturn * (self.ply_maxmana or 0);
+	if mana <= 0 then return end
+	if self.inCombat then self.StatParser:IncManaRestore(mana) else self.ManaDeficit:Gain(mana) end
 end
 
 -- Units a cast of s jumps to after its target (HealMatcher).

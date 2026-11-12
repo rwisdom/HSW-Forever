@@ -98,7 +98,15 @@ Consequences and known limits:
   counted as one of your hits. The total is still yours alone; the stray count only shifts the crit
   normalisation slightly.
 - Power Word: Shield is credited at cast with its expected size (Classic coefficient); Illumination
-  and Water Shield mana is credited on each crit.
+  and Water Shield mana is credited on each crit. Water Shield has three globes: a heal crit spends
+  one as it lands, and globes spent by hits on you or by other spells' crits are credited from the
+  buff's charges when buffs can be read (out of combat and as a fight ends). Crit is valued for
+  that mana only while a globe remains when the fight is priced.
+- Spirit's share of regen while casting comes from the client's two regen rates after whatever is
+  flat in them is taken out (gear MP5, a drink, a buff such as Might of Stormwind): the flat part
+  is what the base rate holds above what Spirit alone gives, min(Spirit / 4, 6.25 + Spirit / 8),
+  measured on a paladin and a shaman. On another class, `/hsw stats` unbuffed should read
+  `flat 0.00/s`; if it does not, the formula is off for that class and Spirit reads low.
 - In combat the client hides +Healing, crit chance and buffs: the last out-of-combat reading is used,
   Inner Focus and Water Shield are tracked from your own casts, Clearcasting procs are not seen.
 - Not yet measured or attributed: Prayer of Mending and Healing Stream Totem coefficients, the

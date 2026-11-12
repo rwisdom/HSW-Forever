@@ -42,8 +42,14 @@ class BuffTrackerTests(unittest.TestCase):
         self.assertEqual(self.bt.Get(self.bt, 14751), 1)
         self.bt.Consume(self.bt, 14751)
         self.assertEqual(self.bt.Get(self.bt, 14751), 0)
-        self.bt.MarkCast(self.bt, 408510, 600)                          # Water Shield cast
-        self.assertEqual(self.bt.Get(self.bt, 408510), 1)
+        self.bt.MarkCast(self.bt, 408510, 600, 3)                       # Water Shield cast: three globes
+        self.assertEqual(self.bt.Get(self.bt, 408510), 3)
+        self.bt.UseCharge(self.bt, 408510)                              # a crit or a hit spends one
+        self.assertEqual(self.bt.Get(self.bt, 408510), 2)
+        for _ in range(3):
+            self.bt.UseCharge(self.bt, 408510)
+        self.assertEqual(self.bt.Get(self.bt, 408510), 0)               # never below none
+        self.bt.MarkCast(self.bt, 408510, 600, 3)
         self.lua.execute("STUB.time = 601")
         self.assertEqual(self.bt.Get(self.bt, 408510), 0)               # expired by time
         self.bt.MarkTarget(self.bt, "Me", 6788, 15)                     # Weakened Soul on the unit named Me

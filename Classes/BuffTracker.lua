@@ -43,11 +43,17 @@ end
 	from UNIT_SPELLCAST_SUCCEEDED instead (UNIT_AURA still refreshes them out of
 	combat). Debuffs we put on others (Weakened Soul) are kept by unit name.
 ------------------------------------------------------------------------------]]
-function BuffTracker:MarkCast(spellId, duration)
+function BuffTracker:MarkCast(spellId, duration, charges)
 	local t = self[spellId];
 	if not t then return end
-	t.stacks = 1;
+	t.stacks = charges or 1;
 	t.expiration = GetTime() + duration;
+end
+
+-- One charge of a buff was spent (a Water Shield globe); the buff is gone with the last.
+function BuffTracker:UseCharge(spellId)
+	local t = self[spellId];
+	if t and t.stacks > 0 then t.stacks = t.stacks - 1 end
 end
 
 function BuffTracker:Consume(spellId)
@@ -77,3 +83,15 @@ function BuffTracker:TargetHas(unit, spellId)
 end
 
 addon.BuffTracker = BuffTracker;
+
+-- Reads the player's buffs where the client allows it, which is out of combat: the tracked buffs,
+-- the mana deficit's drink and mana buffs, and Water Shield's globes. A globe gone since the last
+-- look that no heal crit of ours took was spent by a hit on the shaman or by another spell's crit.
+-- Called on UNIT_AURA, at login and as a fight ends.
+function addon:ScanPlayerBuffs()
+	local shield = self.Shaman.WaterShield;
+	local globes = BuffTracker:Get(shield);
+	BuffTracker:UpdatePlayerBuffs();
+	self:CreditWaterShield(globes - BuffTracker:Get(shield));
+	self.ManaDeficit:ScanBuffs();
+end
