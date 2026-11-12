@@ -13,6 +13,7 @@ CORE_FILES = [
     "Classes/SessionTotals.lua",
     "Classes/Util.lua",
     "Classes/BuffTracker.lua",
+    "Classes/ManaDeficit.lua",
     "Classes/CastTracker.lua",
     "Classes/Segment.lua",
     "Classes/SegmentManager.lua",
