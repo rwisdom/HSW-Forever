@@ -75,7 +75,11 @@ class ManaDeficitTests(unittest.TestCase):
                              '; STUB.spellDesc[432] = "Restores 151.2 mana over 18 sec."'
                              '; STUB.spellDesc[433] = "Restores 61 health and 135 mana over 27 sec."'
                              '; STUB.spellDesc[25290] = "Restores 12 mana every 5 seconds."'
-                             '; STUB.spellDesc[434] = ""')
+                             '; STUB.spellDesc[434] = ""'
+                             '; STUB.spellDesc[1133] = "Restores 34 mana per second."'
+                             '; STUB.spellDesc[1134] = "Restores 12 health and 1,027.5 mana per second.  Must remain seated while drinking."')
+        self.assertAlmostEqual(md.DrinkRateOf(1133), 34)            # Melon Juice, seen in game 2026-11-11
+        self.assertAlmostEqual(md.DrinkRateOf(1134), 1027.5)
         self.assertAlmostEqual(md.DrinkRateOf(430), 20)
         self.assertAlmostEqual(md.DrinkRateOf(431), 56)
         self.assertAlmostEqual(md.DrinkRateOf(432), 8.4)

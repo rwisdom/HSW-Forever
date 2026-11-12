@@ -56,9 +56,10 @@ function ManaDeficit.Share(from, to)
 	return math.max(0, math.min(1, (to - from) / max));
 end
 
--- Mana per second a buff restores, by its tooltip: a drink reads "Restores N mana over M sec."
--- (Classic wording, unverified on Forever). 0 for any other text. nil while the text cannot be
--- read or is still empty; it is asked again then, and kept per spell id once it reads.
+-- Mana per second a buff restores, by its tooltip: a drink reads "Restores N mana per second."
+-- (Melon Juice's item tooltip, seen in game 2026-11-11; the buff's own text is unverified) or, in
+-- Classic's wording, "Restores N mana over M sec." 0 for any other text. nil while the text cannot
+-- be read or is still empty; it is asked again then, and kept per spell id once it reads.
 local drinkRates = {};
 function ManaDeficit.DrinkRateOf(spellID)
 	local known = drinkRates[spellID];
@@ -66,6 +67,8 @@ function ManaDeficit.DrinkRateOf(spellID)
 	local text = addon.Compat.GetSpellDescription(spellID);
 	if not text or text == "" then return nil end
 	local n, secs = text:match("([%d,%.]+) mana over (%d+) sec");
+	local perSecond = text:match("([%d,%.]+) mana per second");
+	if perSecond then n, secs = perSecond, 1 end
 	n, secs = n and tonumber((n:gsub(",", ""))), tonumber(secs);
 	drinkRates[spellID] = n and secs > 0 and n / secs or 0;
 	return drinkRates[spellID];
