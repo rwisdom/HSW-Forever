@@ -34,8 +34,9 @@ function ManaDeficit:OnPower(now)
 	self.lastPower = now;
 end
 
--- Seconds without a mana event that mean a full bar. The spacing of the events while the bar
--- fills was not recorded; 6 is three regen ticks of 2 s.
+-- Seconds without a mana event that mean a full bar. While the bar fills, Spirit regen sends one
+-- every 2.0 to 2.1 s, inside the five-second rule too, and Blessing of Wisdom one every 5 s; at a
+-- full bar neither sends any (probe 2026-11-12). 6 is three regen ticks.
 local FULL_AFTER = 6;
 
 -- True when the bar must be full: no mana event for FULL_AFTER seconds, counted from the later of
