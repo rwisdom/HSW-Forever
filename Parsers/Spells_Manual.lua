@@ -81,7 +81,7 @@ end
 function addon:CreditWaterShield(globes)
 	local mana = globes * self.Shaman.WaterShieldReturn * (self.ply_maxmana or 0);
 	if mana <= 0 then return end
-	if self.inCombat then self.StatParser:IncManaRestore(mana) else self.ManaDeficit:Gain(mana) end
+	if self.inCombat then self.StatParser:IncManaRestore(mana) else self.ManaDeficit:Gain(mana, nil, "water shield") end
 end
 
 -- Units a cast of s jumps to after its target (HealMatcher).

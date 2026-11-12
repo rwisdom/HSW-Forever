@@ -156,9 +156,9 @@ function addon:OnPlayerSpellcast(spellID)
 	if not self.inCombat then
 		-- between pulls the bar still moves, and the next fight starts where it stands
 		local gained = not s and ManaRestoredBy(spellID) or 0;
-		if gained > 0 then self.ManaDeficit:Gain(gained) end
+		if gained > 0 then self.ManaDeficit:Gain(gained, nil, "potion " .. spellID) end
 		local spent = SpellManaCost(spellID, s) - back;
-		if spent > 0 then self.ManaDeficit:Spend(spent) end
+		if spent > 0 then self.ManaDeficit:Spend(spent, nil, "cast " .. spellID) end
 		return;
 	end
 	local now = GetTime();
@@ -190,7 +190,7 @@ function addon:OnPlayerSpellcast(spellID)
 		local gained = ManaRestoredBy(spellID);
 		if gained and gained > 0 then
 			self.SegmentManager:ForEachLive(function(seg) seg:IncManaGained(gained) end);
-			self.ManaDeficit:Gain(gained, now);
+			self.ManaDeficit:Gain(gained, now, "potion " .. spellID);
 		elseif not gained and self.discoverSpells and not restoreWarned[spellID] then
 			restoreWarned[spellID] = true;
 			self:Msg("[HealerStatWeights]: spell " .. tostring(spellID) .. " has no readable description: a mana potion would not be counted.");
@@ -213,7 +213,7 @@ function addon:OnPlayerSpellcast(spellID)
 	if cost <= 0 or free then return end
 	local spent = cost - back; -- Litany and set bonuses return part of the cost
 	self.SegmentManager:ForEachLive(function(seg) seg:IncManaSpent(spent) end); -- heal or not, it drains the pool
-	self.ManaDeficit:Spend(spent, now);
+	self.ManaDeficit:Spend(spent, now, "cast " .. spellID);
 	if s and s.filler then
 		self.SegmentManager:ForEachLive(function(seg) seg:IncFillerCasts(spent) end);
 	end

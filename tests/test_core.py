@@ -223,6 +223,13 @@ class Chat(unittest.TestCase):
         self.assertTrue(any("castpct=0.30" in s for s in m), m)
         self.assertTrue(any("IntPerCrit=31.9" in s for s in m), m)
 
+    def test_mana_prints_the_last_changes_to_the_deficit(self):
+        self.lua.execute('HSW_TEST_ADDON.ManaDeficit:Spend(250, 0, "cast 913"); HSW_TEST_ADDON.ManaDeficit:Gain(60, 0, "mana return")')
+        self.chat("mana")
+        m = self.msgs()
+        self.assertTrue(m[0].endswith("cast 913 +250: 0 -> 250"), m)
+        self.assertTrue(m[1].endswith("mana return -60: 250 -> 190"), m)
+
     def test_stats_prints_the_mana_deficit(self):
         self.lua.execute("HSW_TEST_ADDON.ManaDeficit:Spend(250); HSW_TEST_ADDON.ManaDeficit:SetDrinkRate(20); HSW_TEST_ADDON.ManaDeficit.buffs = { 3.6 }")
         self.chat("stats")

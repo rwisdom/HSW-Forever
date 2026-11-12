@@ -525,11 +525,14 @@ function hsw:ChatCommand(input)
 		addon:PrintPlayerStats();
 	elseif cmd == "regen" then
 		addon:PrintRegen();
+	elseif cmd == "mana" then
+		-- the last changes to the estimated mana deficit, oldest first: to find which event the count got wrong
+		for _, line in ipairs(addon.ManaDeficit.log) do addon:Msg(line) end
 	elseif cmd == "discover" then
 		addon.discoverSpells = (arg == "on");
 		addon:Msg("Unknown-spell discovery " .. (addon.discoverSpells and "on" or "off") .. ".");
 	else
-		addon:Msg("/hsw [show|hide|lock|unlock|start|end|debug|spec|stats|regen|discover on|off]");
+		addon:Msg("/hsw [show|hide|lock|unlock|start|end|debug|spec|stats|regen|mana|discover on|off]");
 	end
 end
 

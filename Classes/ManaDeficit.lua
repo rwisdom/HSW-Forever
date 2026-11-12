@@ -10,7 +10,16 @@ local name, addon = ...;
 	Nothing ever corrects it against the real bar: Mana Tide, buff MP5 and the like
 	are not seen, and the error lasts until the estimated bar is full again.
 ------------------------------------------------------------------------------]]
-local ManaDeficit = { deficit = 0, drinkRate = 0, endedDrink = 0, buffs = {} };
+local ManaDeficit = { deficit = 0, drinkRate = 0, endedDrink = 0, buffs = {}, log = {} };
+
+-- The last changes to the deficit, printed by `/hsw mana`: the time, what happened, and the
+-- deficit before and after. Regen is not noted; it is the fall between one line and the next.
+local LOG_SIZE = 60;
+local function note(self, what, before)
+	local log = self.log;
+	log[#log + 1] = string.format("%s %s: %.0f -> %.0f", date("%H:%M:%S"), what, before, self.deficit);
+	if #log > LOG_SIZE then table.remove(log, 1) end
+end
 
 -- What the client's regen rates hold flat beyond gear MP5 (ply_flat, addon:UpdatePlayerStats).
 local function flatInRates()
@@ -81,7 +90,9 @@ function ManaDeficit:Advance(now)
 	local dt = now - (self.last or now);
 	if dt < 0 then return self.deficit end
 	if self:IsFull(now) then
+		local before = self.deficit;
 		self.deficit, self.last = 0, now;
+		if before > 0 then note(self, "full bar", before) end
 		return 0;
 	end
 	local sinceSpend = self.last and self.lastSpend and self.last - self.lastSpend or math.huge;
@@ -93,25 +104,29 @@ function ManaDeficit:Advance(now)
 	return self.deficit;
 end
 
--- A cast that cost mana, in or out of combat: the five-second rule restarts.
-function ManaDeficit:Spend(mana, now)
+-- A cast that cost mana, in or out of combat: the five-second rule restarts. `what` names it in
+-- the log.
+function ManaDeficit:Spend(mana, now, what)
 	now = now or GetTime();
-	self:Advance(now);
+	local before = self:Advance(now);
 	local max = addon.ply_maxmana or 0;
 	self.deficit = self.deficit + mana;
 	if max > 0 and self.deficit > max then self.deficit = max end
 	self.lastSpend = now;
+	note(self, string.format("%s +%.0f", what or "spend", mana), before);
 end
 
 -- Mana that came back at once: a crit return, a potion.
-function ManaDeficit:Gain(mana, now)
-	self:Advance(now);
+function ManaDeficit:Gain(mana, now, what)
+	local before = self:Advance(now);
 	self.deficit = math.max(0, self.deficit - mana);
+	note(self, string.format("%s -%.0f", what or "gain", mana), before);
 end
 
 function ManaDeficit:SetDrinkRate(rate, now)
 	self:Advance(now); -- the time so far ran at the old rate
 	if rate == 0 and self.drinkRate > 0 then self.endedDrink = self.drinkRate end -- the client's rates may still hold it
+	if rate ~= self.drinkRate then note(self, string.format("drink %.1f/s", rate), self.deficit) end
 	self.drinkRate = rate;
 end
 
