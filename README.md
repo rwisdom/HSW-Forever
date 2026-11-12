@@ -61,7 +61,8 @@ return. Crit includes that returned mana and Divine Aegis absorbs.
 The Intellect mana pool counts for the share of the pool a fight emptied. The client hides current
 mana, so the addon keeps its own count of how far the bar is below full: the cost of every cast
 raises it (heals, shocks, totems); returned mana, mana potions and runes at their tooltip average,
-Spirit regen, gear MP5 and a drink between pulls lower it, never past a full bar. The count runs
+Spirit regen, gear MP5, a drink between pulls and a mana buff such as Blessing of Wisdom lower it,
+never past a full bar. The count runs
 between fights too, so a pull started on half a bar starts there. A fight's share is how far the
 count rose over the fight, divided by maximum mana and kept between 0 and 1. A short pull that
 barely touches the pool gives Intellect little; a total adds the shares of its fights.
@@ -105,7 +106,8 @@ Consequences and known limits:
 - Rarely the meter opens no session for a fight; the addon then has nothing to price and says so under
   `/hsw discover on`.
 - The mana count is never checked against the real bar, so an error can last several pulls; it
-  clears when the counted bar is full again. It does not see Mana Tide, buff MP5 (Mana Spring,
-  Blessing of Wisdom), another player's Innervate, dying or levelling up: with those Intellect
-  reads high, by at most one full pool a fight. After a `/reload` the bar is taken as full. Mana
+  clears when the counted bar is full again. A mana buff counts when it was on you out of combat
+  and its text reads "N mana every M sec" (Blessing of Wisdom); one cast on you mid-fight is seen
+  only after the fight. It does not see Mana Tide, Mana Spring, another player's Innervate, dying
+  or levelling up: with those Intellect reads high, by at most one full pool a fight. After a `/reload` the bar is taken as full. Mana
   potions, runes and drinks count at their tooltip figures, not at what they actually restored.

@@ -10,11 +10,26 @@ local name, addon = ...;
 	Nothing ever corrects it against the real bar: Mana Tide, buff MP5 and the like
 	are not seen, and the error lasts until the estimated bar is full again.
 ------------------------------------------------------------------------------]]
-local ManaDeficit = { deficit = 0, drinkRate = 0 };
+local ManaDeficit = { deficit = 0, drinkRate = 0, buffs = {} };
+
+-- Mana per second from lasting buffs that the client's regen rates do not hold. `buffs` lists what
+-- each buff's text says. Some buffs are in the rates already (Might of Stormwind's 10 MP5, seen
+-- 2026-11-11) and show in ply_flat_buff; others are not (Blessing of Wisdom, 2026-11-12). A buff
+-- counts as held by the rates when their flat part equals its rate, or equals all of them
+-- together; a flat part that fits neither belongs to a buff whose text was not understood.
+function ManaDeficit:UnseenBuffRate()
+	local held, total = addon.ply_flat_buff or 0, 0;
+	for _, rate in ipairs(self.buffs) do total = total + rate end
+	if math.abs(total - held) < 0.05 then return 0 end
+	for _, rate in ipairs(self.buffs) do
+		if math.abs(rate - held) < 0.05 then return total - rate end
+	end
+	return total;
+end
 
 -- Brings the deficit up to `now` and returns it: Spirit regen at the base rate outside the
--- five-second rule and at the casting share inside it, gear MP5 and a drink throughout. The first
--- call starts the clock from a full bar (login, /reload).
+-- five-second rule and at the casting share inside it; gear MP5, a drink and mana buffs
+-- throughout. The first call starts the clock from a full bar (login, /reload).
 function ManaDeficit:Advance(now)
 	now = now or GetTime();
 	local dt = now - (self.last or now);
@@ -22,7 +37,7 @@ function ManaDeficit:Advance(now)
 	local sinceSpend = self.last and self.lastSpend and self.last - self.lastSpend or math.huge;
 	local inFSR = math.max(0, math.min(dt, addon.FSR_SECONDS - sinceSpend));
 	local regen = (addon.ply_regen_base or 0) * (dt - inFSR + (addon.ply_castpct or 0) * inFSR)
-		+ ((addon.ply_mp5 or 0) / 5 + self.drinkRate) * dt;
+		+ ((addon.ply_mp5 or 0) / 5 + self.drinkRate + self:UnseenBuffRate()) * dt;
 	self.deficit = math.max(0, self.deficit - regen);
 	self.last = now;
 	return self.deficit;
@@ -60,34 +75,55 @@ end
 -- reads "Restores 835 mana over 24 sec.", its item (Melon Juice) "Restores 34 mana per second.";
 -- both wordings are read. Some drinks restore a share of the bar instead,
 -- "N% of your mana per second" (wording reported 2026-11-11, not seen): that one follows max mana.
--- 0 for any other text. nil while the text cannot be read or is still empty; it is asked again
--- then, and kept per spell id once it reads.
-local drinkRates, drinkShares = {}, {}; -- per spell id: mana per second, and share of max mana per second
+-- A lasting buff reads "... restoring 18 mana every 5 seconds ..." (Blessing of Wisdom, 19850, seen
+-- 2026-11-12). 0 for any other text. nil while the text cannot be read or is still empty; it is
+-- asked again then, and kept per spell id once it reads.
+local drinkRates, drinkShares, buffRates = {}, {}, {}; -- per spell id: a drink's mana per second and share of max mana per second, a lasting buff's mana per second
+local function number(s) return s and tonumber((s:gsub(",", ""))) end
+local function readText(spellID)
+	if drinkRates[spellID] then return true end
+	local text = addon.Compat.GetSpellDescription(spellID);
+	if not text or text == "" then return false end
+	local n, secs = text:match("([%d,%.]+) mana over (%d+) sec");
+	local perSecond = text:match("([%d,%.]+) mana per second");
+	if perSecond then n, secs = perSecond, 1 end
+	n, secs = number(n), tonumber(secs);
+	drinkRates[spellID] = n and secs > 0 and n / secs or 0;
+	drinkShares[spellID] = (tonumber(text:match("([%d%.]+)%% of [%a ]*mana per second")) or 0) / 100;
+	n, secs = text:match("([%d,%.]+) mana every (%d+) sec");
+	n, secs = number(n), tonumber(secs);
+	buffRates[spellID] = n and secs > 0 and n / secs or 0;
+	return true;
+end
+
+-- A drink: it ends when combat starts.
 function ManaDeficit.DrinkRateOf(spellID)
-	if not drinkRates[spellID] then
-		local text = addon.Compat.GetSpellDescription(spellID);
-		if not text or text == "" then return nil end
-		local n, secs = text:match("([%d,%.]+) mana over (%d+) sec");
-		local perSecond = text:match("([%d,%.]+) mana per second");
-		if perSecond then n, secs = perSecond, 1 end
-		n, secs = n and tonumber((n:gsub(",", ""))), tonumber(secs);
-		drinkRates[spellID] = n and secs > 0 and n / secs or 0;
-		drinkShares[spellID] = (tonumber(text:match("([%d%.]+)%% of [%a ]*mana per second")) or 0) / 100;
-	end
+	if not readText(spellID) then return nil end
 	return drinkRates[spellID] + drinkShares[spellID] * (addon.ply_maxmana or 0);
 end
 
--- The player's buffs (UNIT_AURA): the drink rate is the sum over the buffs up. In combat the
--- client refuses aura reads and the rate stays what it was, 0 since the pull.
-function ManaDeficit:ScanDrink(now)
-	local rate = 0;
+-- A lasting buff: it stays through combat.
+function ManaDeficit.BuffRateOf(spellID)
+	if not readText(spellID) then return nil end
+	return buffRates[spellID];
+end
+
+-- The player's buffs (UNIT_AURA, PLAYER_ENTERING_WORLD): the drink rate is the sum over the buffs
+-- up, `buffs` the rates of the lasting ones. In combat the client refuses aura reads and both stay
+-- what they were: the drink 0 since the pull, a blessing as last seen (one cast or run out
+-- mid-fight is missed).
+function ManaDeficit:ScanBuffs(now)
+	local drink, lasting = 0, {};
 	for i = 1, 40 do
 		local _, _, _, id, blocked = addon.Compat.UnitAura("player", i);
 		if blocked then return end
 		if not id then break end
-		rate = rate + (ManaDeficit.DrinkRateOf(id) or 0);
+		drink = drink + (ManaDeficit.DrinkRateOf(id) or 0);
+		local rate = ManaDeficit.BuffRateOf(id);
+		if rate and rate > 0 then lasting[#lasting + 1] = rate end
 	end
-	self:SetDrinkRate(rate, now);
+	self:SetDrinkRate(drink, now); -- the time so far ran at the old rates
+	self.buffs = lasting;
 end
 
 addon.ManaDeficit = ManaDeficit;

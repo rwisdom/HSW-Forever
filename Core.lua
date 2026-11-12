@@ -481,7 +481,7 @@ function addon:PrintPlayerStats()
 	self:Msg(string.format("CritConv=%s HasteConv=%s IntPerCrit=%s RegenPerSpirit=%.4f",
 		tostring(self.CritConv), tostring(self.HasteConv), tostring(self.IntPerCrit), self.RegenPerSpirit or 0));
 	-- the estimate of mana below a full bar, to hold against the real bar in game
-	self:Msg(string.format("mana deficit=%.0f drink=%.1f/s", self.ManaDeficit:Advance(), self.ManaDeficit.drinkRate));
+	self:Msg(string.format("mana deficit=%.0f drink=%.1f/s buffs=%.1f/s", self.ManaDeficit:Advance(), self.ManaDeficit.drinkRate, self.ManaDeficit:UnseenBuffRate()));
 end
 
 function hsw:ChatCommand(input)

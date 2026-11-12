@@ -100,19 +100,48 @@ class ManaDeficitTests(unittest.TestCase):
         addon.ply_maxmana = 2000                                    # a level or an Intellect buff later
         self.assertAlmostEqual(md.DrinkRateOf(1135), 40)
 
-    def test_scan_sums_the_drinks_and_keeps_the_rate_while_buffs_are_hidden(self):
-        lua, _, md = self.md('STUB.spellDesc[430] = "Restores 420 mana over 21 sec."; STUB.spellDesc[1243] = "Increases Stamina by 3."')
-        lua.execute("STUB.auras = { { id = 1243 }, { id = 430 } }; READ_AURA = C_UnitAuras.GetAuraDataByIndex")
+    def test_a_lasting_buff_rate_comes_from_its_text(self):
+        _, _, md = self.md('STUB.spellDesc[19850] = "Places a Blessing on the friendly target, restoring 18 mana every 5 seconds for 1 |4hour:hrs;.  Players may only have one Blessing on them per Paladin at any one time."'
+                           '; STUB.spellDesc[432] = "Restores 835 mana over 24 sec.  Must remain seated while drinking."'
+                           '; STUB.spellDesc[1460] = "Increases the target\'s Intellect by 7 for 1 |4hour:hrs;."')
+        self.assertAlmostEqual(md.BuffRateOf(19850), 3.6)           # Blessing of Wisdom, seen in game 2026-11-12
+        self.assertEqual(md.DrinkRateOf(19850), 0)                  # not a drink: it stays through combat
+        self.assertEqual(md.BuffRateOf(432), 0)
+        self.assertEqual(md.BuffRateOf(1460), 0)
+        self.assertIsNone(md.BuffRateOf(999))                       # no text: asked again later
+
+    def test_a_buff_restores_mana_unless_the_clients_rates_already_carry_it(self):
+        lua, addon, md = self.md()
+        buffs = lambda rates: lua.execute("HSW_TEST_ADDON.ManaDeficit.buffs = { %s }" % rates)
+        addon.ply_regen_base = 0
+        buffs("3.6")                                                # Blessing of Wisdom: not in GetManaRegen()
+        md.Spend(md, 1000, 0)
+        self.assertAlmostEqual(md.Advance(md, 100), 640)
+        buffs("3.6, 2.0"); addon.ply_flat_buff = 2.0                # plus Might of Stormwind, which the rates hold
+        self.assertAlmostEqual(md.Advance(md, 200), 280)            # still 3.6 a second added
+        buffs("3.6")                                                # its text not understood: the rates' 2.0 is not the blessing's
+        self.assertAlmostEqual(md.Advance(md, 250), 100)
+        buffs("2.0")                                                # alone, and the rates hold it: nothing added
+        self.assertAlmostEqual(md.Advance(md, 300), 100)
+        buffs("3.6, 2.0"); addon.ply_flat_buff = 5.6                # the rates hold both
+        self.assertAlmostEqual(md.Advance(md, 400), 100)
+
+    def test_scan_sums_drinks_and_buffs_and_keeps_the_rates_while_buffs_are_hidden(self):
+        lua, _, md = self.md('STUB.spellDesc[430] = "Restores 420 mana over 21 sec."; STUB.spellDesc[1243] = "Increases Stamina by 3."'
+                             '; STUB.spellDesc[19850] = "Places a Blessing on the friendly target, restoring 18 mana every 5 seconds."')
+        lua.execute("STUB.auras = { { id = 1243 }, { id = 430 }, { id = 19850 } }; READ_AURA = C_UnitAuras.GetAuraDataByIndex")
         md.Spend(md, 500, 0)
-        md.ScanDrink(md, 0)
+        md.ScanBuffs(md, 0)
         self.assertAlmostEqual(md.drinkRate, 20)
+        self.assertAlmostEqual(md.UnseenBuffRate(md), 3.6)
         lua.execute('C_UnitAuras.GetAuraDataByIndex = function() error("Auras cannot be accessed when secret") end')
-        md.ScanDrink(md, 5)                                         # in combat: unreadable, nothing changes
+        md.ScanBuffs(md, 5)                                         # in combat: unreadable, nothing changes
         self.assertAlmostEqual(md.drinkRate, 20)
+        self.assertAlmostEqual(md.UnseenBuffRate(md), 3.6)
         lua.execute("C_UnitAuras.GetAuraDataByIndex = READ_AURA; STUB.auras = { { id = 1243 } }")
-        md.ScanDrink(md, 10)                                        # readable again and the drink is gone
-        self.assertEqual(md.drinkRate, 0)
-        self.assertAlmostEqual(md.deficit, 500 - 5 * 8.375 - 5 * 16.75 - 10 * 20)   # the drink ran until the scan that missed it
+        md.ScanBuffs(md, 10)                                        # readable again, the drink and the blessing are gone
+        self.assertEqual((md.drinkRate, md.UnseenBuffRate(md)), (0, 0))
+        self.assertAlmostEqual(md.deficit, 500 - 5 * 8.375 - 5 * 16.75 - 10 * 20 - 10 * 3.6)   # both ran until the scan that missed them
 
 
 if __name__ == "__main__":

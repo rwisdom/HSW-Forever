@@ -120,6 +120,7 @@ function addon.hsw:PLAYER_ENTERING_WORLD()
 	addon.inBossFight = false; -- ENCOUNTER_END never came (zoned out mid-encounter)
 	addon.SessionTotals.Advance(); -- meter sessions from before the login or zone-in are not a fight's
 	addon:SetupFrame();
+	addon.ManaDeficit:ScanBuffs(); -- a /reload with a blessing up: no UNIT_AURA need follow
 	RefreshCharacter();
 end
 
@@ -232,7 +233,7 @@ local function UnitEventHandler(_, e, ...)
 	if e == "UNIT_AURA" then
 		addon.BuffTracker:UpdatePlayerBuffs();
 		AccumulateNow();          -- credit elapsed time at the old casting-regen share (Innervate etc.)
-		addon.ManaDeficit:ScanDrink();
+		addon.ManaDeficit:ScanBuffs();
 		addon:UpdatePlayerStats();
 	elseif e == "UNIT_STATS" then
 		AccumulateNow();

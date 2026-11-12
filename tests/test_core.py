@@ -224,9 +224,9 @@ class Chat(unittest.TestCase):
         self.assertTrue(any("IntPerCrit=31.9" in s for s in m), m)
 
     def test_stats_prints_the_mana_deficit(self):
-        self.lua.execute("HSW_TEST_ADDON.ManaDeficit:Spend(250); HSW_TEST_ADDON.ManaDeficit:SetDrinkRate(20)")
+        self.lua.execute("HSW_TEST_ADDON.ManaDeficit:Spend(250); HSW_TEST_ADDON.ManaDeficit:SetDrinkRate(20); HSW_TEST_ADDON.ManaDeficit.buffs = { 3.6 }")
         self.chat("stats")
-        self.assertTrue(any("mana deficit=250 drink=20.0" in m for m in self.msgs()), self.msgs())
+        self.assertTrue(any("mana deficit=250 drink=20.0/s buffs=3.6/s" in m for m in self.msgs()), self.msgs())
 
     def test_spec_on_a_class_without_a_healing_spec(self):
         self.lua.execute('STUB.class = "WARRIOR"; STUB.talents = {}; HSW_TEST_ADDON.Util.RebuildTalentCache()')

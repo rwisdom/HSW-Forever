@@ -38,6 +38,11 @@ end
 ------------------------------------------------------------------------------]]
 addon.RegenKnee = 50;
 
+-- Mana per second Spirit alone regenerates outside the five-second rule.
+function addon:SpiritRegen(spirit)
+	return math.min(spirit / 4, 6.25 + spirit / 8);
+end
+
 -- Mana per second one more point of Spirit gives at `spirit` (the player's effective Spirit by default).
 function addon:GetRegenPerSpirit(spirit)
 	return (spirit or self.ply_spi or 0) < self.RegenKnee and 0.25 or 0.125;
@@ -96,6 +101,9 @@ function addon:UpdatePlayerStats()
 	base, casting = P(base), P(casting);
 	self.ply_regen_base = base and math.max(base - flat, 0) or self.ply_regen_base or 0;
 	self.ply_regen_cast = casting and math.max(casting - flat, 0) or self.ply_regen_cast or 0;
+	-- what the base rate holds above Spirit alone: a flat buff the client counts (Might of Stormwind's
+	-- 10 MP5, seen 2026-11-11). ManaDeficit uses it to add a buff's tooltip rate only once.
+	self.ply_flat_buff = base and math.max(base - flat - self:SpiritRegen(self.ply_spi), 0) or self.ply_flat_buff or 0;
 	self.ply_castpct = self.ply_regen_base > 0 and math.min(self.ply_regen_cast / self.ply_regen_base, 1) or 0;
 	local intmult = 1;
 	for talent, perRank in pairs(IntTalents) do

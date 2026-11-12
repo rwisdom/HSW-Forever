@@ -251,6 +251,22 @@ class UnitEvents(unittest.TestCase):
         addon.hsw.PLAYER_REGEN_DISABLED(addon.hsw)
         self.assertEqual(addon.ManaDeficit.drinkRate, 0)
 
+    def test_a_mana_buff_is_seen_out_of_combat_and_kept_through_the_fight(self):
+        # Blessing of Wisdom, seen in game 2026-11-12: 18 mana every 5 seconds, not in GetManaRegen()
+        lua, addon, seg = start(SHAMAN, 264, extra='STUB.spellDesc[19850] = "Places a Blessing on the friendly target, restoring 18 mana every 5 seconds for 1 |4hour:hrs;."')
+        addon.inCombat = False
+        lua.execute("STUB.auras = { { id = 19850 } }")
+        addon.hsw.PLAYER_ENTERING_WORLD(addon.hsw)                           # a /reload with the buff up
+        self.assertAlmostEqual(addon.ManaDeficit.UnseenBuffRate(addon.ManaDeficit), 3.6)
+        lua.execute("STUB.auras = {}")
+        fire(addon, "UNIT_AURA", "player")
+        self.assertEqual(addon.ManaDeficit.UnseenBuffRate(addon.ManaDeficit), 0)
+        lua.execute("STUB.auras = { { id = 19850 } }")
+        fire(addon, "UNIT_AURA", "player")
+        lua.execute("function HSW_TEST_ADDON:StartFight() end")              # DisplayPanel.lua is not loaded here
+        addon.hsw.PLAYER_REGEN_DISABLED(addon.hsw)
+        self.assertAlmostEqual(addon.ManaDeficit.UnseenBuffRate(addon.ManaDeficit), 3.6)   # a blessing does not end with the pull
+
     def test_a_drink_is_taken_out_of_the_clients_regen_rates(self):
         # Seen in game 2026-11-11: while seated, GetManaRegen() carries the drink in both rates
         # (13.63 / 6.81 read 48.43 / 41.61 under "Restores 835 mana over 24 sec.").

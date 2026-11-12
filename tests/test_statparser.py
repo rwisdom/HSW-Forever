@@ -131,6 +131,20 @@ class SpiritRegen(unittest.TestCase):
         self.assertEqual(addon.ply_mp5, 5)
         self.assertEqual((addon.ply_regen_base, addon.ply_regen_cast), (20, 8))
 
+    def test_flat_buff_is_what_the_base_rate_holds_above_spirit_gear_and_drink(self):
+        # Seen in game 2026-11-11: Might of Stormwind (10 MP5) raised both GetManaRegen() rates by 2.0
+        lua, addon, _ = start("PALADIN", extra="STUB.regen = { base = 15.75, cast = 5 }")   # 60 Spirit alone: 6.25 + 60 / 8 = 13.75
+        self.assertAlmostEqual(addon.ply_flat_buff, 2.0)
+        lua.execute("STUB.regen = { base = 13.75, cast = 3 }")
+        addon.UpdatePlayerStats(addon)
+        self.assertEqual(addon.ply_flat_buff, 0)
+        lua.execute("STUB.regen = { base = 10, cast = 3 }")                                 # under the Spirit figure: never negative
+        addon.UpdatePlayerStats(addon)
+        self.assertEqual(addon.ply_flat_buff, 0)
+        lua.execute("STUB.stats[5] = {30, 40, 10, 0}; STUB.regen = { base = 12, cast = 3 }")   # under the knee: 40 / 4 = 10
+        addon.UpdatePlayerStats(addon)
+        self.assertAlmostEqual(addon.ply_flat_buff, 2.0)
+
     def test_a_swap_in_combat_is_read_once_combat_ends(self):
         lua, addon, _ = start("PALADIN", extra='function GetInventoryItemLink(_, slot) return slot == 1 and "item1" or nil end'
                                                 '; C_Item = { GetItemStats = function() return { ITEM_MOD_MANA_REGENERATION_SHORT = 4 } end }')
