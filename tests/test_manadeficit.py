@@ -90,6 +90,16 @@ class ManaDeficitTests(unittest.TestCase):
         lua.execute('STUB.spellDesc[999] = "Restores 300 mana over 30 sec."')
         self.assertAlmostEqual(md.DrinkRateOf(999), 10)             # asked again once it reads
 
+    def test_a_drink_worded_as_a_percent_follows_max_mana(self):
+        _, addon, md = self.md('STUB.spellDesc[1135] = "Restores 2% of your mana per second."'
+                               '; STUB.spellDesc[1136] = "Restores 4.5% of your maximum mana per second.  Must remain seated while drinking."'
+                               '; STUB.spellDesc[1137] = "Increases your mana regeneration by 2% per second."')
+        self.assertAlmostEqual(md.DrinkRateOf(1135), 0.02 * 1786)
+        self.assertAlmostEqual(md.DrinkRateOf(1136), 0.045 * 1786)
+        self.assertEqual(md.DrinkRateOf(1137), 0)                   # a percent of something else
+        addon.ply_maxmana = 2000                                    # a level or an Intellect buff later
+        self.assertAlmostEqual(md.DrinkRateOf(1135), 40)
+
     def test_scan_sums_the_drinks_and_keeps_the_rate_while_buffs_are_hidden(self):
         lua, _, md = self.md('STUB.spellDesc[430] = "Restores 420 mana over 21 sec."; STUB.spellDesc[1243] = "Increases Stamina by 3."')
         lua.execute("STUB.auras = { { id = 1243 }, { id = 430 } }; READ_AURA = C_UnitAuras.GetAuraDataByIndex")

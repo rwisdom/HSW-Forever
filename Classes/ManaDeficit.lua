@@ -58,20 +58,23 @@ end
 
 -- Mana per second a buff restores, by its tooltip: a drink reads "Restores N mana per second."
 -- (Melon Juice's item tooltip, seen in game 2026-11-11; the buff's own text is unverified) or, in
--- Classic's wording, "Restores N mana over M sec." 0 for any other text. nil while the text cannot
--- be read or is still empty; it is asked again then, and kept per spell id once it reads.
-local drinkRates = {};
+-- Classic's wording, "Restores N mana over M sec." Some drinks restore a share of the bar instead,
+-- "N% of your mana per second" (wording reported 2026-11-11, not seen): that one follows max mana.
+-- 0 for any other text. nil while the text cannot be read or is still empty; it is asked again
+-- then, and kept per spell id once it reads.
+local drinkRates, drinkShares = {}, {}; -- per spell id: mana per second, and share of max mana per second
 function ManaDeficit.DrinkRateOf(spellID)
-	local known = drinkRates[spellID];
-	if known then return known end
-	local text = addon.Compat.GetSpellDescription(spellID);
-	if not text or text == "" then return nil end
-	local n, secs = text:match("([%d,%.]+) mana over (%d+) sec");
-	local perSecond = text:match("([%d,%.]+) mana per second");
-	if perSecond then n, secs = perSecond, 1 end
-	n, secs = n and tonumber((n:gsub(",", ""))), tonumber(secs);
-	drinkRates[spellID] = n and secs > 0 and n / secs or 0;
-	return drinkRates[spellID];
+	if not drinkRates[spellID] then
+		local text = addon.Compat.GetSpellDescription(spellID);
+		if not text or text == "" then return nil end
+		local n, secs = text:match("([%d,%.]+) mana over (%d+) sec");
+		local perSecond = text:match("([%d,%.]+) mana per second");
+		if perSecond then n, secs = perSecond, 1 end
+		n, secs = n and tonumber((n:gsub(",", ""))), tonumber(secs);
+		drinkRates[spellID] = n and secs > 0 and n / secs or 0;
+		drinkShares[spellID] = (tonumber(text:match("([%d%.]+)%% of [%a ]*mana per second")) or 0) / 100;
+	end
+	return drinkRates[spellID] + drinkShares[spellID] * (addon.ply_maxmana or 0);
 end
 
 -- The player's buffs (UNIT_AURA): the drink rate is the sum over the buffs up. In combat the
