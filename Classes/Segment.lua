@@ -30,6 +30,8 @@ function Segment.Create(id)
 	self.manaSpent = 0;         -- every cast that cost mana (heals, shocks, totems): what drains the pool
 	self.manaGained = 0;        -- mana potions and runes drunk in the fight, at their tooltip average (Events.lua)
 	self.poolShare = 0;         -- share of the mana pool the fight emptied, fixed at fight end (addon:EndFight); a total holds the sum of its fights' shares
+	self.deficitStart = 0;      -- mana below a full bar at the fight's start and end (addon.ManaDeficit):
+	self.deficitEnd = 0;        -- poolShare is their rise over max mana
 	self.timeInFSR = 0;         -- seconds inside the five-second rule
 	self.timeOutsideFSR = 0;
 	self.castPctWeighted = 0;   -- sum of (casting regen / base regen) * dt
@@ -80,18 +82,6 @@ end
 -- Healing attributable to the regen from 1 Spirit.
 function Segment:GetSpiritRegenValue()
 	return (addon.RegenPerSpirit or 0) * (addon.ply_spiritmult or 1) * self:EffectiveRegenSeconds() * self:GetFillerHPM();
-end
-
--- Share of the mana pool this fight emptied, 0 to 1. Current mana is a secret value on Forever
--- (probe 2026-11-10), so the drain is estimated: mana spent on casts, less the mana crits returned,
--- less the mana potions and runes gave, less Spirit regen and gear MP5 over the fight. Mana Tide
--- and buff MP5 are not seen, so the share reads high in fights with those.
-function Segment:EstimatePoolShare()
-	local maxMana = addon.ply_maxmana or 0;
-	if maxMana <= 0 then return 0 end
-	local regen = (addon.ply_regen_base or 0) * self:EffectiveRegenSeconds() + (addon.ply_mp5 or 0) / 5 * self:GetDuration();
-	local drain = self.manaSpent - self.manaRestore - self.manaGained - regen;
-	return math.max(0, math.min(1, drain / maxMana));
 end
 
 -- Haste HPCT: chain-cast based estimate, capped by the per-heal upper bound.

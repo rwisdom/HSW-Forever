@@ -371,6 +371,7 @@ function addon:StartFight(id, isBossFight)
 	-- the fight's class, set once: a boss encounter (or the window's manual segment), trash inside
 	-- a dungeon or raid, or an open-world pull that feeds the Total only
 	local cur_seg = self.SegmentManager:Get(0);
+	cur_seg.deficitStart = self.ManaDeficit:Advance(); -- a pull below a full bar starts with what the last one left
 	if cur_seg.bossFight then
 		cur_seg.class = "Bosses";
 	else
@@ -398,9 +399,10 @@ function addon:EndFight()
 	local class_seg = self.SegmentManager:ClassTotal(cur_seg);
 	if cur_seg then
 		cur_seg:End();
-		-- the share of the mana pool this fight emptied, fixed now: a total adds its fights' shares
-		-- rather than estimating one over its own counters, which would lose the per-fight clamps
-		local share = cur_seg:EstimatePoolShare();
+		-- the share of the mana pool this fight emptied, fixed now: how far the mana deficit rose
+		-- over it. A total adds its fights' shares.
+		cur_seg.deficitEnd = self.ManaDeficit:Advance();
+		local share = self.ManaDeficit.Share(cur_seg.deficitStart, cur_seg.deficitEnd);
 		for _, seg in ipairs({ cur_seg, self.SegmentManager:Get("Total"), class_seg }) do -- a nil class total ends the list
 			seg.poolShare = seg.poolShare + share;
 		end

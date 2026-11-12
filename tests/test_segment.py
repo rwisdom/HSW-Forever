@@ -101,40 +101,6 @@ class SegmentTests(unittest.TestCase):
         addon.ply_spiritmult = 1.15
         self.assertAlmostEqual(s.GetSpiritRegenValue(s), 0.1 * 1.15 * 7.5 * 5)
 
-    def test_pool_share_is_spending_less_returns_and_regen_over_max_mana(self):
-        lua, addon, s = self.seg()
-        addon.ply_maxmana = 2000; addon.ply_regen_base = 10; addon.ply_mp5 = 25
-        addon.lastManaSpend = 0
-        addon.ply_castpct = 0.5
-        s.IncManaSpent(s, 1000); s.IncManaSpent(s, 300)     # heals, shocks, totems: 1300 spent
-        s.IncManaRestore(s, 100)                            # returned on crits
-        lua.execute("STUB.time = 10")
-        s.AccumulateFSR(s, 10)                              # 5 s in the FSR at 50% + 5 s outside: 7.5 effective seconds
-        self.assertAlmostEqual(s.EffectiveRegenSeconds(s), 7.5)
-        # regen = 10 * 7.5 + 25 / 5 * 10 = 125; drain = 1300 - 100 - 125 = 1075
-        self.assertAlmostEqual(s.EstimatePoolShare(s), 1075 / 2000)
-
-    def test_pool_share_is_clamped_and_needs_a_max_mana(self):
-        lua, addon, s = self.seg()
-        addon.ply_maxmana = 1000; addon.ply_regen_base = 0; addon.ply_mp5 = 0
-        self.assertEqual(s.EstimatePoolShare(s), 0)         # nothing spent
-        s.IncManaSpent(s, 2500)
-        self.assertEqual(s.EstimatePoolShare(s), 1)         # more than a pool (a potion, Mana Tide): capped
-        addon.ply_regen_base = 100
-        lua.execute("STUB.time = 60")
-        s.AccumulateFSR(s, 60)                              # 60 s outside the FSR: 6000 regen
-        self.assertEqual(s.EstimatePoolShare(s), 0)         # regen covers the spending
-        addon.ply_regen_base = 0; addon.ply_maxmana = 0
-        self.assertEqual(s.EstimatePoolShare(s), 0)         # max mana unknown
-
-    def test_mana_gained_from_a_potion_comes_off_the_drain(self):
-        _, addon, s = self.seg()
-        addon.ply_maxmana = 1000
-        s.IncManaSpent(s, 700)
-        self.assertAlmostEqual(s.EstimatePoolShare(s), 0.7)
-        s.IncManaGained(s, 160)                             # the bar ended 160 higher than the spending says
-        self.assertAlmostEqual(s.EstimatePoolShare(s), 0.54)
-
     def test_cast_pct_is_time_weighted(self):
         _, addon, s = self.seg()
         addon.ply_castpct = 1.0; s.AccumulateFSR(s, 2)
