@@ -217,6 +217,48 @@ class UnitEvents(unittest.TestCase):
         fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", POTION)       # readable now: counted
         self.assertEqual(seg.manaGained, 160)
 
+    def test_casts_potions_and_crit_returns_move_the_mana_deficit(self):
+        lua, addon, seg = start(PRIEST, 256, extra=DESCS)
+        md = addon.ManaDeficit
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", FH)           # 380
+        lua.execute("STUB.spellCost[424242] = 120")
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", 424242)       # a shock or totem
+        self.assertEqual(md.deficit, 500)
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", POTION)       # 160 back
+        addon.StatParser.IncManaRestore(addon.StatParser, 40)                # a crit return
+        self.assertEqual(md.deficit, 300)
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", INNER_FOCUS)
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", FH)           # free cast: nothing spent
+        self.assertEqual(md.deficit, 300)
+
+    def test_between_pulls_casts_and_potions_move_the_deficit_but_not_the_segments(self):
+        lua, addon, seg = start(PRIEST, 256, extra=DESCS)
+        addon.inCombat = False
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", FH)           # a heal between pulls
+        self.assertEqual((addon.ManaDeficit.deficit, seg.manaSpent), (380, 0))
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", POTION)
+        self.assertEqual((addon.ManaDeficit.deficit, seg.manaGained), (220, 0))
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", EARTH_SHOCK)  # no cost known, restores nothing
+        self.assertEqual(addon.ManaDeficit.deficit, 220)
+
+    def test_a_drink_buff_sets_the_rate_and_combat_ends_it(self):
+        lua, addon, seg = start(SHAMAN, 264, extra='STUB.spellDesc[430] = "Restores 420 mana over 21 sec."')
+        addon.inCombat = False
+        lua.execute("STUB.auras = { { id = 430 } }")
+        fire(addon, "UNIT_AURA", "player")
+        self.assertAlmostEqual(addon.ManaDeficit.drinkRate, 20)
+        lua.execute("function HSW_TEST_ADDON:StartFight() end")              # DisplayPanel.lua is not loaded here
+        addon.hsw.PLAYER_REGEN_DISABLED(addon.hsw)
+        self.assertEqual(addon.ManaDeficit.drinkRate, 0)
+
+    def test_regen_rates_change_after_the_deficit_is_brought_up_to_date(self):
+        lua, addon, seg = start()                                            # stub regen: base 10, cast 3
+        addon.inCombat = False
+        addon.ManaDeficit.Spend(addon.ManaDeficit, 1000, 0)
+        lua.execute("STUB.time = 10; STUB.regen = { base = 50, cast = 50 }")
+        fire(addon, "UNIT_STATS", "player")
+        self.assertAlmostEqual(addon.ManaDeficit.deficit, 1000 - 5 * 3 - 5 * 10)   # the 10 s ran at the old rates
+
     def test_earthfury_mana_return_comes_off_the_filler_cost(self):
         lua, addon, seg = start(SHAMAN, 264)
         fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", HW3)          # table cost 80, no set

@@ -210,6 +210,7 @@ end
 
 function StatParser:IncManaRestore(mana)
 	addon.SegmentManager:ForEachLive(function(seg) seg:IncManaRestore(mana) end);
+	addon.ManaDeficit:Gain(mana);
 end
 
 local function liveSegments()

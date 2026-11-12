@@ -1,7 +1,7 @@
 import unittest
 from harness import load
 
-FILES = ["Classes/Compat.lua", "Classes/SessionTotals.lua", "Classes/Util.lua", "Classes/BuffTracker.lua", "Classes/Segment.lua",
+FILES = ["Classes/Compat.lua", "Classes/SessionTotals.lua", "Classes/Util.lua", "Classes/BuffTracker.lua", "Classes/ManaDeficit.lua", "Classes/Segment.lua",
          "Classes/SegmentManager.lua", "Classes/StatParser.lua", "Classes/UnitManager.lua",
          "Parsers/Spells.lua", "Parsers/Spells_Generated.lua", "Parsers/Spells_Manual.lua", "Parsers/Talents_Generated.lua"]
 

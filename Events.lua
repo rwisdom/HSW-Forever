@@ -56,6 +56,7 @@ local function stopCombatPoll()
 end
 
 function addon.hsw:PLAYER_REGEN_DISABLED()
+	addon.ManaDeficit:SetDrinkRate(0); -- combat ends a drink, and buffs cannot be read from here on
 	stopCombatPoll(); -- back in combat: the fight is still open, nothing to end
 	addon:StartFight(nil);
 	-- no combat log to name the fight from: use the hostile target we have, if any. Its name is
@@ -151,7 +152,14 @@ function addon:OnPlayerSpellcast(spellID)
 	end
 	local s = self.Spells:Get(spellID);
 	local back = s and self:CastManaReturn(s) or 0; -- every heal cast, in or out of combat: Litany of Light tracks the previous one
-	if not self.inCombat then return end
+	if not self.inCombat then
+		-- between pulls the bar still moves, and the next fight starts where it stands
+		local gained = not s and ManaRestoredBy(spellID) or 0;
+		if gained > 0 then self.ManaDeficit:Gain(gained) end
+		local spent = SpellManaCost(spellID, s) - back;
+		if spent > 0 then self.ManaDeficit:Spend(spent) end
+		return;
+	end
 	local now = GetTime();
 
 	-- buffs we cast ourselves are the only ones visible in combat
@@ -178,6 +186,7 @@ function addon:OnPlayerSpellcast(spellID)
 		local gained = ManaRestoredBy(spellID);
 		if gained and gained > 0 then
 			self.SegmentManager:ForEachLive(function(seg) seg:IncManaGained(gained) end);
+			self.ManaDeficit:Gain(gained, now);
 		elseif not gained and self.discoverSpells and not restoreWarned[spellID] then
 			restoreWarned[spellID] = true;
 			self:Msg("[HealerStatWeights]: spell " .. tostring(spellID) .. " has no readable description: a mana potion would not be counted.");
@@ -200,6 +209,7 @@ function addon:OnPlayerSpellcast(spellID)
 	if cost <= 0 or free then return end
 	local spent = cost - back; -- Litany and set bonuses return part of the cost
 	self.SegmentManager:ForEachLive(function(seg) seg:IncManaSpent(spent) end); -- heal or not, it drains the pool
+	self.ManaDeficit:Spend(spent, now);
 	if s and s.filler then
 		self.SegmentManager:ForEachLive(function(seg) seg:IncFillerCasts(spent) end);
 	end
@@ -211,8 +221,9 @@ end
 	Unit events. Player-only except UNIT_COMBAT, which reports heals on any unit.
 ------------------------------------------------------------------------------]]
 local function AccumulateNow()
+	local now = GetTime();
+	addon.ManaDeficit:Advance(now); -- in or out of combat: the bar regenerates between pulls too
 	if addon.inCombat then
-		local now = GetTime();
 		addon.SegmentManager:ForEachLive(function(seg) seg:AccumulateFSR(now) end);
 	end
 end
@@ -221,6 +232,7 @@ local function UnitEventHandler(_, e, ...)
 	if e == "UNIT_AURA" then
 		addon.BuffTracker:UpdatePlayerBuffs();
 		AccumulateNow();          -- credit elapsed time at the old casting-regen share (Innervate etc.)
+		addon.ManaDeficit:ScanDrink();
 		addon:UpdatePlayerStats();
 	elseif e == "UNIT_STATS" then
 		AccumulateNow();
