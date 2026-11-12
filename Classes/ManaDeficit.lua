@@ -10,15 +10,36 @@ local name, addon = ...;
 	Nothing ever corrects it against the real bar: Mana Tide, buff MP5 and the like
 	are not seen, and the error lasts until the estimated bar is full again.
 ------------------------------------------------------------------------------]]
-local ManaDeficit = { deficit = 0, drinkRate = 0, endedDrink = 0, buffs = {}, log = {} };
+local ManaDeficit = { deficit = 0, drinkRate = 0, endedDrink = 0, buffs = {}, log = {}, events = 0 };
 
--- The last changes to the deficit, printed by `/hsw mana`: the time, what happened, and the
--- deficit before and after. Regen is not noted; it is the fall between one line and the next.
-local LOG_SIZE = 60;
-local function note(self, what, before)
+-- The last changes to the deficit, printed by `/hsw mana`: the time, what happened, the deficit
+-- before and after, and how many mana events came since the line before. Regen is not noted; it
+-- is the fall between one line and the next. `spentAt` is set on a spend until a mana event
+-- beside it shows the bar moved: a cast counted at a cost it did not have stays flagged.
+local LOG_SIZE = 120;
+local function note(self, what, before, now, spentAt)
 	local log = self.log;
-	log[#log + 1] = string.format("%s %s: %.0f -> %.0f", date("%H:%M:%S"), what, before, self.deficit);
+	log[#log + 1] = {
+		text = string.format("%s %s: %.0f -> %.0f [%d ev]", date("%H:%M:%S"), what, before, self.deficit, self.events),
+		at = now or GetTime(), spentAt = spentAt,
+	};
+	self.events = 0;
 	if #log > LOG_SIZE then table.remove(log, 1) end
+end
+
+-- The log's lines, oldest first.
+function ManaDeficit:Lines()
+	local lines = {};
+	for i, entry in ipairs(self.log) do
+		lines[i] = entry.text .. (entry.spentAt and " (no mana change seen)" or "");
+	end
+	return lines;
+end
+
+-- A line of its own in the log (a `/hsw stats` print), to line it up with a screenshot.
+function ManaDeficit:Mark(what, now)
+	local deficit = self:Advance(now);
+	note(self, what, deficit, now);
 end
 
 -- What the client's regen rates hold flat beyond gear MP5 (ply_flat, addon:UpdatePlayerStats).
@@ -64,6 +85,13 @@ end
 -- 2026-11-12), which is the one sign of the real bar the addon gets.
 function ManaDeficit:OnPower(now)
 	self.lastPower = now;
+	self.events = self.events + 1;
+	-- a spend noted within the last second is shown to have moved the bar
+	for i = #self.log, 1, -1 do
+		local entry = self.log[i];
+		if now - entry.at > 1 then break end
+		entry.spentAt = nil;
+	end
 end
 
 -- Seconds without a mana event that mean a full bar. While the bar fills, Spirit regen sends one
@@ -92,7 +120,7 @@ function ManaDeficit:Advance(now)
 	if self:IsFull(now) then
 		local before = self.deficit;
 		self.deficit, self.last = 0, now;
-		if before > 0 then note(self, "full bar", before) end
+		if before > 0 then note(self, "full bar", before, now) end
 		return 0;
 	end
 	local sinceSpend = self.last and self.lastSpend and self.last - self.lastSpend or math.huge;
@@ -113,20 +141,21 @@ function ManaDeficit:Spend(mana, now, what)
 	self.deficit = self.deficit + mana;
 	if max > 0 and self.deficit > max then self.deficit = max end
 	self.lastSpend = now;
-	note(self, string.format("%s +%.0f", what or "spend", mana), before);
+	local paid = self.lastPower and now - self.lastPower <= 0.5; -- its mana event may come just before the cast event
+	note(self, string.format("%s +%.0f", what or "spend", mana), before, now, not paid and now or nil);
 end
 
 -- Mana that came back at once: a crit return, a potion.
 function ManaDeficit:Gain(mana, now, what)
 	local before = self:Advance(now);
 	self.deficit = math.max(0, self.deficit - mana);
-	note(self, string.format("%s -%.0f", what or "gain", mana), before);
+	note(self, string.format("%s -%.0f", what or "gain", mana), before, now);
 end
 
 function ManaDeficit:SetDrinkRate(rate, now)
 	self:Advance(now); -- the time so far ran at the old rate
 	if rate == 0 and self.drinkRate > 0 then self.endedDrink = self.drinkRate end -- the client's rates may still hold it
-	if rate ~= self.drinkRate then note(self, string.format("drink %.1f/s", rate), self.deficit) end
+	if rate ~= self.drinkRate then note(self, string.format("drink %.1f/s", rate), self.deficit, now) end
 	self.drinkRate = rate;
 end
 

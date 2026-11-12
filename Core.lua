@@ -482,6 +482,7 @@ function addon:PrintPlayerStats()
 		tostring(self.CritConv), tostring(self.HasteConv), tostring(self.IntPerCrit), self.RegenPerSpirit or 0));
 	-- the estimate of mana below a full bar, to hold against the real bar in game
 	self:Msg(string.format("mana deficit=%.0f drink=%.1f/s buffs=%.1f/s", self.ManaDeficit:Advance(), self.ManaDeficit.drinkRate, self.ManaDeficit:UnseenBuffRate()));
+	self.ManaDeficit:Mark("stats"); -- a line in the `/hsw mana` log, to match it to a screenshot of this print
 end
 
 function hsw:ChatCommand(input)
@@ -527,7 +528,7 @@ function hsw:ChatCommand(input)
 		addon:PrintRegen();
 	elseif cmd == "mana" then
 		-- the last changes to the estimated mana deficit, oldest first: to find which event the count got wrong
-		for _, line in ipairs(addon.ManaDeficit.log) do addon:Msg(line) end
+		for _, line in ipairs(addon.ManaDeficit:Lines()) do addon:Msg(line) end
 	elseif cmd == "discover" then
 		addon.discoverSpells = (arg == "on");
 		addon:Msg("Unknown-spell discovery " .. (addon.discoverSpells and "on" or "off") .. ".");

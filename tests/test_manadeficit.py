@@ -88,7 +88,9 @@ class ManaDeficitTests(unittest.TestCase):
     def test_every_change_is_noted_with_the_deficit_before_and_after(self):
         lua, addon, md = self.md()
         addon.ply_regen_base = 0
-        lines = lambda: [md.log[i] for i in range(1, len(list(md.log.keys())) + 1)]
+        def lines():                                                # without the stub's date, "Jan 01, 12:00 AM"
+            t = md.Lines(md)
+            return [t[i].split(" ", 4)[4] for i in range(1, len(list(t.keys())) + 1)]
         md.Spend(md, 155, 0, "cast 913")
         md.Gain(md, 34, 0, "water shield")
         md.SetDrinkRate(md, 40, 0)
@@ -96,12 +98,31 @@ class ManaDeficitTests(unittest.TestCase):
         md.Advance(md, 20)                                          # no mana event since the cast: the bar is full
         md.Spend(md, 100, 20); md.OnPower(md, 20)
         md.Advance(md, 40)
-        self.assertEqual([l.split(" ", 4)[4] for l in lines()],     # after the stub's date, "Jan 01, 12:00 AM"
-                         ["cast 913 +155: 0 -> 155", "water shield -34: 155 -> 121", "drink 40.0/s: 121 -> 121",
-                          "full bar: 121 -> 0", "spend +100: 0 -> 100", "full bar: 100 -> 0"])
-        for _ in range(100):
+        md.Mark(md, "stats", 40)                                    # a /hsw stats print, to line the log up with a screenshot
+        self.assertEqual(lines(),                                   # [n ev]: mana events since the line before
+                         ["cast 913 +155: 0 -> 155 [0 ev]", "water shield -34: 155 -> 121 [0 ev]", "drink 40.0/s: 121 -> 121 [0 ev]",
+                          "full bar: 121 -> 0 [1 ev]", "spend +100: 0 -> 100 [0 ev]", "full bar: 100 -> 0 [1 ev]", "stats: 0 -> 0 [0 ev]"])
+        for _ in range(200):
             md.Spend(md, 1, 40)
-        self.assertEqual(len(lines()), 60)                          # the last sixty are kept
+        self.assertEqual(len(lines()), 120)                         # the last 120 are kept
+
+    def test_a_spend_with_no_mana_event_beside_it_is_flagged(self):
+        # The client sends a mana event for every change of the bar: a counted cast with none within half a second
+        # before or a second after did not move the bar.
+        _, addon, md = self.md()
+        addon.ply_regen_base = 0
+        lines = lambda: [md.Lines(md)[i] for i in range(1, 5)]
+        md.Spend(md, 100, 10, "cast 1")                             # event just after: paid
+        md.OnPower(md, 10.2)
+        md.OnPower(md, 19.8)
+        md.Spend(md, 100, 20, "cast 2")                             # event just before: paid
+        md.Spend(md, 100, 30, "cast 3")                             # none near: flagged
+        md.OnPower(md, 31.5)
+        md.Spend(md, 100, 40, "cast 4")                             # not known yet: flagged until an event comes
+        flags = [l.endswith("(no mana change seen)") for l in lines()]
+        self.assertEqual(flags, [False, False, True, True])
+        md.OnPower(md, 40.9)
+        self.assertFalse(md.Lines(md)[4].endswith("(no mana change seen)"))
 
     def test_share_is_the_rise_over_the_fight_between_0_and_1(self):
         _, addon, md = self.md()

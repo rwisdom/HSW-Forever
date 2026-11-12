@@ -225,10 +225,13 @@ class Chat(unittest.TestCase):
 
     def test_mana_prints_the_last_changes_to_the_deficit(self):
         self.lua.execute('HSW_TEST_ADDON.ManaDeficit:Spend(250, 0, "cast 913"); HSW_TEST_ADDON.ManaDeficit:Gain(60, 0, "mana return")')
+        self.lua.execute('HSW_TEST_ADDON.ManaDeficit:OnPower(0)')
+        self.chat("stats")                                                    # leaves a line of its own in the log
         self.chat("mana")
-        m = self.msgs()
-        self.assertTrue(m[0].endswith("cast 913 +250: 0 -> 250"), m)
-        self.assertTrue(m[1].endswith("mana return -60: 250 -> 190"), m)
+        m = self.msgs()[-3:]
+        self.assertTrue(m[0].endswith("cast 913 +250: 0 -> 250 [0 ev]"), m)
+        self.assertTrue(m[1].endswith("mana return -60: 250 -> 190 [0 ev]"), m)
+        self.assertTrue(m[2].endswith("stats: 190 -> 190 [1 ev]"), m)
 
     def test_stats_prints_the_mana_deficit(self):
         self.lua.execute("HSW_TEST_ADDON.ManaDeficit:Spend(250); HSW_TEST_ADDON.ManaDeficit:SetDrinkRate(20); HSW_TEST_ADDON.ManaDeficit.buffs = { 3.6 }")
