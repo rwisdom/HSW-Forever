@@ -105,8 +105,9 @@ Consequences and known limits:
   Holy Binding self-heal, Bloom heals on HoT expiry, Riptide tick timing, Holy Power's exact reading.
 - Rarely the meter opens no session for a fight; the addon then has nothing to price and says so under
   `/hsw discover on`.
-- The mana count is never checked against the real bar, so an error can last several pulls; it
-  clears when the counted bar is full again. A mana buff counts when it was on you out of combat
+- The mana count cannot read the real bar, so an error can last several pulls. The one check it
+  has: the client stops sending mana changes when the bar is full, and after a few seconds of that
+  the count is set to full. A mana buff counts when it was on you out of combat
   and its text reads "N mana every M sec" (Blessing of Wisdom); one cast on you mid-fight is seen
   only after the fight. It does not see Mana Tide, Mana Spring, another player's Innervate, dying
   or levelling up: with those Intellect reads high, by at most one full pool a fight. After a `/reload` the bar is taken as full. Mana

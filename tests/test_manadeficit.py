@@ -61,6 +61,30 @@ class ManaDeficitTests(unittest.TestCase):
         self.assertAlmostEqual(md.deficit, 50)
         self.assertAlmostEqual(md.Advance(md, 40), 0)
 
+    def test_silence_after_the_five_second_rule_means_a_full_bar(self):
+        # Probe 2026-11-12: UNIT_POWER_UPDATE fires for mana while the bar is below full, in and out of combat, and stops when it fills
+        _, addon, md = self.md()
+        addon.ply_regen_base = 0                                    # something unseen refills the bar: the count alone would stay at 500
+        md.Spend(md, 500, 0); md.OnPower(md, 0.1)                   # the cast's own mana event
+        md.OnPower(md, 2); md.OnPower(md, 4); md.OnPower(md, 6)     # the bar filling
+        self.assertEqual(md.Advance(md, 11.9), 500)                 # 5.9 s of silence: not yet
+        self.assertEqual(md.Advance(md, 12), 0)                     # 6 s: full
+        md.Spend(md, 100, 30)                                       # and the next cast starts from a full bar
+        self.assertEqual(md.deficit, 100)
+
+    def test_silence_inside_the_five_second_rule_proves_nothing(self):
+        _, addon, md = self.md()
+        addon.ply_regen_base = 0
+        md.OnPower(md, 9.8); md.Spend(md, 500, 10)                  # the mana event may come just before the cast event
+        self.assertEqual(md.Advance(md, 20.9), 500)                 # quiet for 11 s, but 5 of them some classes regenerate nothing
+        self.assertEqual(md.Advance(md, 21), 0)
+
+    def test_silence_is_not_trusted_when_the_casts_own_mana_event_never_came(self):
+        _, addon, md = self.md()
+        addon.ply_regen_base = 0
+        md.OnPower(md, 0); md.Spend(md, 500, 10)                    # no event at the cast: the client is withholding them
+        self.assertEqual(md.Advance(md, 60), 500)
+
     def test_share_is_the_rise_over_the_fight_between_0_and_1(self):
         _, addon, md = self.md()
         self.assertAlmostEqual(md.Share(300, 478.6), 0.1)           # pulled 300 down, ended 478.6 down: 178.6 of 1786

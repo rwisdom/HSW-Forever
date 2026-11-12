@@ -27,13 +27,39 @@ function ManaDeficit:UnseenBuffRate()
 	return total;
 end
 
+-- A mana event of the player's (UNIT_POWER_UPDATE): only its time is kept. The client sends one
+-- for every change of the bar, in and out of combat, and none while the bar is full (probe
+-- 2026-11-12), which is the one sign of the real bar the addon gets.
+function ManaDeficit:OnPower(now)
+	self.lastPower = now;
+end
+
+-- Seconds without a mana event that mean a full bar. The spacing of the events while the bar
+-- fills was not recorded; 6 is three regen ticks of 2 s.
+local FULL_AFTER = 6;
+
+-- True when the bar must be full: no mana event for FULL_AFTER seconds, counted from the later of
+-- the last one and the end of the five-second rule after the last spend (inside it some classes
+-- regenerate nothing, so silence there proves nothing). Trusted only when the last spend's own
+-- mana event arrived, in case the client withholds the event somewhere.
+function ManaDeficit:IsFull(now)
+	if not self.lastPower or not self.lastSpend or self.lastPower < self.lastSpend - 0.5 then return false end
+	return now - math.max(self.lastPower, self.lastSpend + addon.FSR_SECONDS) >= FULL_AFTER;
+end
+
 -- Brings the deficit up to `now` and returns it: Spirit regen at the base rate outside the
 -- five-second rule and at the casting share inside it; gear MP5, a drink and mana buffs
--- throughout. The first call starts the clock from a full bar (login, /reload).
+-- throughout. A bar known to be full sets it to 0, whatever the count says: that clears what
+-- the count could not see (Mana Spring, an Innervate, a level). The first call starts the clock
+-- from a full bar (login, /reload).
 function ManaDeficit:Advance(now)
 	now = now or GetTime();
 	local dt = now - (self.last or now);
 	if dt < 0 then return self.deficit end
+	if self:IsFull(now) then
+		self.deficit, self.last = 0, now;
+		return 0;
+	end
 	local sinceSpend = self.last and self.lastSpend and self.last - self.lastSpend or math.huge;
 	local inFSR = math.max(0, math.min(dt, addon.FSR_SECONDS - sinceSpend));
 	local regen = (addon.ply_regen_base or 0) * (dt - inFSR + (addon.ply_castpct or 0) * inFSR)

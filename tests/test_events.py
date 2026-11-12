@@ -267,6 +267,14 @@ class UnitEvents(unittest.TestCase):
         addon.hsw.PLAYER_REGEN_DISABLED(addon.hsw)
         self.assertAlmostEqual(addon.ManaDeficit.UnseenBuffRate(addon.ManaDeficit), 3.6)   # a blessing does not end with the pull
 
+    def test_mana_events_are_timed_and_other_powers_ignored(self):
+        lua, addon, seg = start()
+        lua.execute("STUB.time = 7")
+        fire(addon, "UNIT_POWER_UPDATE", "player", "RAGE")
+        self.assertIsNone(addon.ManaDeficit.lastPower)
+        fire(addon, "UNIT_POWER_UPDATE", "player", "MANA")
+        self.assertEqual(addon.ManaDeficit.lastPower, 7)
+
     def test_a_drink_is_taken_out_of_the_clients_regen_rates(self):
         # Seen in game 2026-11-11: while seated, GetManaRegen() carries the drink in both rates
         # (13.63 / 6.81 read 48.43 / 41.61 under "Restores 835 mana over 24 sec.").

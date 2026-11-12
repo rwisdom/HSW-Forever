@@ -238,6 +238,9 @@ local function UnitEventHandler(_, e, ...)
 	elseif e == "UNIT_STATS" then
 		AccumulateNow();
 		addon:UpdatePlayerStats();
+	elseif e == "UNIT_POWER_UPDATE" then
+		local _, powerType = ...;
+		if addon.Compat.PlainString(powerType) == "MANA" then addon.ManaDeficit:OnPower(GetTime()) end
 	elseif e == "UNIT_COMBAT" then
 		local unit, action, flag, amount = ...;
 		addon.HealMatcher:OnUnitCombat(unit, action, flag, amount);
@@ -259,6 +262,7 @@ end
 function addon:SetupUnitEvents()
 	self.frame:RegisterUnitEvent("UNIT_AURA", "player");
 	self.frame:RegisterUnitEvent("UNIT_STATS", "player");
+	self.frame:RegisterUnitEvent("UNIT_POWER_UPDATE", "player"); -- the time of each mana change: none come while the bar is full
 	self.frame:RegisterUnitEvent("UNIT_SPELLCAST_START", "player");
 	self.frame:RegisterUnitEvent("UNIT_SPELLCAST_SENT", "player");
 	self.frame:RegisterUnitEvent("UNIT_SPELLCAST_FAILED", "player");
