@@ -57,7 +57,9 @@ Every effective (non-overheal) heal is decomposed into "how much of this heal di
 stat produce" using the spell's Forever coefficient. Mana stats (Intellect mana pool, Spirit regen
 inside and outside the five-second rule, MP5) are valued at the healing-per-mana of your filler spells
 over the fight, net of the mana Illumination, Water Shield, Litany of Light and the Earthfury set
-return. Crit includes that returned mana and Divine Aegis absorbs.
+return. Crit includes that returned mana and Divine Aegis absorbs, and so does the crit Intellect
+gives. A talent that raises Intellect by a percentage (Divine Intellect, Mental Strength, Heart of
+the Wild, Ancestral Knowledge) raises all of Intellect's value by it.
 
 The Intellect mana pool counts for the share of the pool a fight emptied. The client hides current
 mana, so the addon keeps its own count of how far the bar is below full: the cost of every cast

@@ -180,7 +180,7 @@ class Derivatives(unittest.TestCase):
         heal(addon, "SPELL_HEAL", HL, 1000)
         per1 = 1000 * 0.5 / 1.05 / 100                            # value of +1% crit
         self.assertAlmostEqual(seg.t.crit, per1 / 14)
-        self.assertAlmostEqual(seg.t.int, per1 / 31.9)
+        self.assertAlmostEqual(seg.t.int, per1 / 31.9 * 1.10)     # Divine Intellect 5/5: 1 Int on gear is 1.10 on the sheet
         self.assertAlmostEqual(seg.t.haste_hpct, 1000 / 100)
         self.assertEqual(seg.t.spirit, 0)
         ttl = addon.SegmentManager.Get(addon.SegmentManager, "Total")
@@ -263,7 +263,8 @@ class Overrides(unittest.TestCase):
         self.assertAlmostEqual(seg.t.crit, per1 / 14 + 1)
         ttl = addon.SegmentManager.Get(addon.SegmentManager, "Total")
         self.assertAlmostEqual(ttl.t.crit, per1 / 14 + 2)
-        self.assertAlmostEqual(seg.t.int, per1 / 31.9 + seg.t.heal)
+        # Int buys crit with its extras (14 rating = 31.9 Int = 1%), and all of it scales with Divine Intellect 5/5
+        self.assertAlmostEqual(seg.t.int, ((per1 / 14 + 1) * 14 / 31.9 + seg.t.heal) * 1.10)
         self.assertAlmostEqual(seg.t.spirit, 0.5 * seg.t.heal)
         heal(addon, "SPELL_HEAL", HL, 2000, crit=True)            # a crit heal is normalised with the overridden bonus
         self.assertAlmostEqual(seg.t.heal, 2 * 0.714 * 1000 / (1580 + 0.714 * 200))

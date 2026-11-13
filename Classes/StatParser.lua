@@ -172,7 +172,6 @@ local function critPer1Pct(s, heal, C, CB)
 end
 
 local function _CriticalStrike(s, heal, C, CB) return critPer1Pct(s, heal, C, CB) / addon.CritConv end
-local function _Intellect(s, heal, C, CB) return critPer1Pct(s, heal, C, CB) / addon.IntPerCrit end
 local function _Haste(s, heal, H)
 	if not s.hstHPCT then return 0 end
 	return heal / (1 + H) / addon.HasteConv;
@@ -251,13 +250,17 @@ function StatParser:Allocate(ev, s, heal, destUnit, f, SP, C, CB, H, segments)
 	local _SP = _Healing(ev, s, math.max(heal - flat, 0), SP);
 	local _C  = _CriticalStrike(s, heal, C, CB);
 	local _H  = _Haste(s, heal, H);
-	local _I  = _Intellect(s, heal, C, CB);
+	-- 1 Int on gear is ply_intmult Int on the sheet, and sheet Int buys crit like rating does: with
+	-- all a crit brings (returned mana, Divine Aegis), at IntPerCrit a percent for CritConv.
+	-- Verify in game that talent Int gives crit like any other (checklist A22).
+	local intmult = addon.ply_intmult or 1;
+	local ratingPerInt = addon.CritConv / addon.IntPerCrit;
 
 	for _, seg in ipairs(segments) do
 		local c  = f.CriticalStrike and f.CriticalStrike(ev, s, heal, destUnit, C, CB, seg) or 0;
 		local i  = f.Intellect and f.Intellect(ev, s, heal, destUnit, _SP, seg) or 0;
 		local sp = f.Spirit and f.Spirit(ev, s, heal, destUnit, _SP, seg) or 0;
-		seg:AllocateHeal(_SP, _C + c, _H, _I + i, sp, s.spellID);
+		seg:AllocateHeal(_SP, _C + c, _H, ((_C + c) * ratingPerInt + i) * intmult, sp, s.spellID);
 	end
 
 	addon:UpdateDisplayStats();

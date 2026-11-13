@@ -22,8 +22,8 @@ class HolyPaladinTests(unittest.TestCase):
         heal(addon, "SPELL_HEAL", HL, 1000)                     # fillerHealing 1000 -> HPM 1000/660
         illumination = 0.01 * (0.2 * 5) * 0.5 * 660 * (1000 / 660) / 14
         self.assertAlmostEqual(seg.t.crit, crit_per_pct(1000, 0.10, CB) / 14 + illumination)
-        self.assertAlmostEqual(seg.t.int, crit_per_pct(1000, 0.10, CB) / 31.9)
-        ttl = addon.SegmentManager.Get(addon.SegmentManager, "Total")
+        self.assertAlmostEqual(seg.t.int, (crit_per_pct(1000, 0.10, CB) / 14 + illumination) * 14 / 31.9)   # crit from Int returns mana too
+        ttl =addon.SegmentManager.Get(addon.SegmentManager, "Total")
         self.assertAlmostEqual(ttl.t.crit, crit_per_pct(1000, 0.10, CB) / 14)   # Total has no filler mana yet -> HPM 0
 
     def test_crit_heals_are_normalised_with_the_raised_bonus(self):

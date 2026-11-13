@@ -32,7 +32,8 @@ class RestoShamanTests(unittest.TestCase):
         heal(addon, "SPELL_HEAL", CHAIN, 1000)                  # HPM now 2000/620
         shield = 0.01 * 0.02 * 3000 * (2000 / 620) / 14
         self.assertAlmostEqual(seg.t.crit, (crit_per_pct(1000, 0.17) * 2) / 14 + shield)
-        ttl = addon.SegmentManager.Get(addon.SegmentManager, "Total")
+        self.assertAlmostEqual(seg.t.int, ((crit_per_pct(1000, 0.17) * 2) / 14 + shield) * 14 / 28.2 + 0.30 * seg.t.heal)   # crit from Int spends globes too
+        ttl =addon.SegmentManager.Get(addon.SegmentManager, "Total")
         self.assertAlmostEqual(ttl.t.crit, (crit_per_pct(1000, 0.17) * 2) / 14)   # Total: no filler mana -> HPM 0
 
     def test_without_talents(self):

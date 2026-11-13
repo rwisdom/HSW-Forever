@@ -25,6 +25,8 @@ class DiscPriestTests(unittest.TestCase):
         lua, addon, seg = start("PRIEST", DISC, FILES)           # Holy crit 10%
         heal(addon, "SPELL_HEAL", FH, 1000)
         self.assertAlmostEqual(seg.t.crit, crit_per_pct(1000, 0.10) / 14 + aegis(1000))
+        # crit from Int absorbs through Divine Aegis too; Mental Strength 5/5 makes 1 Int on gear 1.10 on the sheet
+        self.assertAlmostEqual(seg.t.int, (crit_per_pct(1000, 0.10) / 14 + aegis(1000)) * 14 / 26.9 * 1.10)
         addon.BuffTracker.MarkTarget(addon.BuffTracker, "Me", WEAKENED_SOUL, 15)
         heal(addon, "SPELL_HEAL", FH, 1000)
         self.assertAlmostEqual(seg.t.crit, (crit_per_pct(1000, 0.10) + crit_per_pct(1000, 0.20)) / 14 + 2 * aegis(1000))

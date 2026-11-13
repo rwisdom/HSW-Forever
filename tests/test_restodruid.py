@@ -38,6 +38,10 @@ class RestoDruidTests(unittest.TestCase):
         _, addon, seg = start("DRUID", resto, FILES)
         heal(addon, "SPELL_PERIODIC_HEAL", REJUV, 194 + 0.2 * 200)
         self.assertAlmostEqual(seg.t.int, crit_per_pct(194 + 0.2 * 200, 0.12) / 28.4 + 0.12 * 0.2)   # 12% at 1/2
+        resto[2] = ("Restoration", [("Heart of the Wild", 5)])
+        _, addon, seg = start("DRUID", resto, FILES)
+        heal(addon, "SPELL_PERIODIC_HEAL", REJUV, 194 + 0.2 * 200)
+        self.assertAlmostEqual(seg.t.int, (crit_per_pct(194 + 0.2 * 200, 0.12) / 28.4 + 0.12 * 0.2) * 1.10)   # +10% Int: on the crit and on the +Healing
 
     def test_without_talent(self):
         _, addon, seg = start("DRUID", [("Balance", []), ("Feral Combat", []), ("Restoration", [("Living Spirit", 1)])], FILES)
