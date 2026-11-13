@@ -397,12 +397,42 @@ class UnitEvents(unittest.TestCase):
         fire(addon, "UNIT_AURA", "player")
         self.assertEqual((md.deficit, seg.manaRestore), (940, 60))           # in a fight it comes off the filler mana too
         addon.inCombat = False
-        lua.execute("STUB.auras = {}")                                       # the last two went between pulls
+        lua.execute("STUB.auras = { { id = 408510, count = 1 } }")          # one more between pulls, to a heal's crit
+        fire(addon, "UNIT_AURA", "player")
+        lua.execute("STUB.auras = {}")                                       # and the last one
         fire(addon, "UNIT_AURA", "player")
         self.assertEqual((md.deficit, seg.manaRestore), (820, 60))
         lua.execute("STUB.auras = { { id = 408510, count = 3 } }")          # recast: nothing to credit
         fire(addon, "UNIT_AURA", "player")
         self.assertEqual((bt.Get(bt, WATER_SHIELD), md.deficit), (3, 820))
+
+    def test_a_water_shield_lost_with_globes_left_gives_no_mana(self):
+        # Stockade 2026-11-12: `water shield -103` out of combat, three globes at once. A globe goes one at a time, each with
+        # its own UNIT_AURA, so several gone at one look were spent unseen only if a fight came since the look before.
+        lua, addon, seg = start(SHAMAN, 264)                                 # max mana 3000: a globe is 60
+        lua.execute("function HSW_TEST_ADDON:StartFight() end")              # DisplayPanel.lua is not loaded here
+        bt, md = addon.BuffTracker, addon.ManaDeficit
+        addon.inCombat = False
+        md.Spend(md, 1000, 0)
+        lua.execute("STUB.auras = { { id = 408510, count = 3 } }")
+        fire(addon, "UNIT_AURA", "player")
+        lua.execute("STUB.auras = {}")                                       # taken off, run out, or a loading screen
+        fire(addon, "UNIT_AURA", "player")
+        self.assertEqual((bt.Get(bt, WATER_SHIELD), md.deficit), (0, 1000))
+        lua.execute("STUB.auras = { { id = 408510, count = 3 } }")
+        fire(addon, "UNIT_AURA", "player")
+        addon.hsw.PLAYER_REGEN_DISABLED(addon.hsw)                           # a fight: hits spend globes unseen
+        lua.execute('READ_AURA = C_UnitAuras.GetAuraDataByIndex; C_UnitAuras.GetAuraDataByIndex = function() error("Auras cannot be accessed when secret") end')
+        fire(addon, "UNIT_AURA", "player")                                   # unreadable in combat: still owed
+        self.assertEqual(md.deficit, 1000)
+        lua.execute("C_UnitAuras.GetAuraDataByIndex = READ_AURA; STUB.auras = { { id = 408510, count = 1 } }")
+        fire(addon, "UNIT_AURA", "player")                                   # first look after it: two went
+        self.assertEqual((bt.Get(bt, WATER_SHIELD), md.deficit), (1, 880))
+        lua.execute("STUB.auras = { { id = 408510, count = 3 } }")
+        fire(addon, "UNIT_AURA", "player")
+        lua.execute("STUB.auras = {}")                                       # no fight since that look
+        fire(addon, "UNIT_AURA", "player")
+        self.assertEqual(md.deficit, 880)
 
     def test_recasting_water_shield_in_combat_credits_no_mana(self):
         # Stockade 2026-11-12: the shield is refreshed with globes left (3 charges and a fresh 10 m on the screenshot after

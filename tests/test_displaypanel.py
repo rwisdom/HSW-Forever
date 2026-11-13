@@ -571,6 +571,7 @@ class Finaliser(unittest.TestCase):
         lua, addon = start(extra=ALWAYS + "; STUB.maxMana = 1000; STUB.regen = { base = 0, cast = 0 }; STUB.auras = { { id = 408510, count = 3 } }")
         addon.ScanPlayerBuffs(addon)                                              # three globes up before the pull
         addon.StartFight(addon, "Boss", True)
+        lua.execute("HSW_TEST_ADDON.foughtSinceBuffs = true")                     # PLAYER_REGEN_DISABLED (Events.lua): globes can go unseen
         lua.execute("HSW_TEST_ADDON.ManaDeficit:Spend(400); STUB.auras = { { id = 408510, count = 1 } }; STUB.time = 10")
         boss = seg(addon)
         addon.EndFight(addon)

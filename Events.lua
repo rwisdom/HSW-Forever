@@ -57,6 +57,7 @@ end
 
 function addon.hsw:PLAYER_REGEN_DISABLED()
 	addon.ManaDeficit:SetDrinkRate(0); -- combat ends a drink, and buffs cannot be read from here on
+	addon.foughtSinceBuffs = true; -- so Water Shield globes can go unseen (ScanPlayerBuffs)
 	stopCombatPoll(); -- back in combat: the fight is still open, nothing to end
 	addon:StartFight(nil);
 	-- no combat log to name the fight from: use the hostile target we have, if any. Its name is

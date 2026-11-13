@@ -28,6 +28,7 @@ function BuffTracker:UpdatePlayerBuffs()
 	for id, t in pairs(self) do
 		if type(t) == "table" and not found[id] then t.stacks = 0 end
 	end
+	return true; -- the buffs were readable
 end
 
 function BuffTracker:Get(spellId)
@@ -88,10 +89,18 @@ addon.BuffTracker = BuffTracker;
 -- the mana deficit's drink and mana buffs, and Water Shield's globes. A globe gone since the last
 -- look that no heal crit of ours took was spent by a hit on the shaman or by another spell's crit.
 -- Called on UNIT_AURA, at login and as a fight ends.
+-- A globe goes one at a time, each with a UNIT_AURA of its own, so several gone at one look were
+-- spent unseen only if a fight came since the look before (foughtSinceBuffs, set at
+-- PLAYER_REGEN_DISABLED). Otherwise the shield was taken off, ran out or was lost at a loading
+-- screen and gave no mana (three at once out of combat, Stockade 2026-11-12).
 function addon:ScanPlayerBuffs()
 	local shield = self.Shaman.WaterShield;
 	local globes = BuffTracker:Get(shield);
-	BuffTracker:UpdatePlayerBuffs();
-	self:CreditWaterShield(globes - BuffTracker:Get(shield));
+	if BuffTracker:UpdatePlayerBuffs() then
+		local spent = globes - BuffTracker:Get(shield);
+		if spent > 1 and not self.foughtSinceBuffs then spent = 0 end
+		self.foughtSinceBuffs = nil;
+		self:CreditWaterShield(spent);
+	end
 	self.ManaDeficit:ScanBuffs();
 end
