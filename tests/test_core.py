@@ -136,7 +136,8 @@ class History(unittest.TestCase):
         t = addon.BuildOptionsTableForHistorySegment(addon, 0)
         names = [v.name for _, v in t.items() if v.name]
         self.assertFalse(any("Crit Rating" in n for n in names), names)
-        for label in ("+Healing", "Crit (1%)", "Crit %\nPer 1% HPS", "Haste (HPCT)", "Intellect", "Spirit", "MP5", "Pawn >>", "icon_Illumination"):
+        self.assertFalse(any("(1%)" in n or "(HPCT)" in n for n in names), names)
+        for label in ("+Healing", "Crit", "Crit\nPer 1% HPS", "Haste", "Haste\nPer 1% HPS", "Intellect", "Spirit", "MP5", "Pawn >>", "icon_Illumination"):
             self.assertTrue(any(label in n for n in names), label)
 
     def test_history_segment_shows_the_spec_notes_and_no_resources(self):
