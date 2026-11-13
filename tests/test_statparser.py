@@ -63,6 +63,8 @@ class Conversions(unittest.TestCase):
         self.assertEqual((addon.IntPerCrit, addon.HasteConv), (40, 1000))
         _, addon, _ = start("SHAMAN", extra="STUB.level = 29")
         self.assertAlmostEqual(addon.IntPerCrit, (26.3 + 28.2) / 2)   # between the level-28 measurement and the level-30 value
+        _, addon, _ = start("SHAMAN", extra="STUB.level = 26")
+        self.assertEqual(addon.IntPerCrit, 24.4)                 # measured in game 2026-11-12: 53 Int off, 2.168% crit less
         _, addon, _ = start("PALADIN", extra="STUB.level = 12")
         self.assertAlmostEqual(addon.IntPerCrit, 16.3 + 2 * (31.9 - 16.3) / 20)   # two levels past the level-10 measurement
 

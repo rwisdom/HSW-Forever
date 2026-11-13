@@ -14,7 +14,7 @@ addon.FSR_SECONDS = 5;              -- five-second rule
 local IntPerCritByLevel = {
 	PALADIN = { [10] = 16.3, [30] = 31.9, [60] = 59.9 }, -- 10: measured in game 2026-10-23 (51 Int -> +3.13% crit after 13 rating)
 	PRIEST  = { [30] = 26.9, [60] = 59.5 },
-	SHAMAN  = { [28] = 26.3, [30] = 28.2, [60] = 59.2 }, -- 28: measured in game 2026-10-22 (33 Int -> +1.254% crit)
+	SHAMAN  = { [26] = 24.4, [28] = 26.3, [30] = 28.2, [60] = 59.2 }, -- measured in game: 26 on 2026-11-12 (53 Int -> +2.168% crit), 28 on 2026-10-22 (33 Int -> +1.254% crit)
 	DRUID   = { [30] = 28.4, [60] = 59.9 },
 };
 
@@ -252,7 +252,8 @@ function StatParser:Allocate(ev, s, heal, destUnit, f, SP, C, CB, H, segments)
 	local _H  = _Haste(s, heal, H);
 	-- 1 Int on gear is ply_intmult Int on the sheet, and sheet Int buys crit like rating does: with
 	-- all a crit brings (returned mana, Divine Aegis), at IntPerCrit a percent for CritConv.
-	-- Verify in game that talent Int gives crit like any other (checklist A22).
+	-- Verified in game 2026-11-12 on Ancestral Knowledge 5/5 (checklist A22): the talent multiplies
+	-- gear Int, and sheet Int gives crit at one rate whatever raised it.
 	local intmult = addon.ply_intmult or 1;
 	local ratingPerInt = addon.CritConv / addon.IntPerCrit;
 
