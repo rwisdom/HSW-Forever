@@ -35,6 +35,7 @@ local defaults = {
 		history = {},
 		hasteRatingPerPct = 1,
 		intPerCritOverride = { PALADIN = 0, PRIEST = 0, SHAMAN = 0, DRUID = 0 },
+		manaLog = {},
 	},
 };
 
@@ -676,6 +677,7 @@ function hsw:OnInitialize()
 		self.db.global.back = 0;
 		self.db.global.schema = SCHEMA;
 	end
+	addon.ManaDeficit:SaveTo(self.db.global.manaLog);
 
 	LibStub("AceConfigRegistry-3.0"):RegisterOptionsTable("HealerStatWeights", BuildOptionsTable, true);
 	LibStub("AceConfigRegistry-3.0"):RegisterOptionsTable("HSW_Bliz", BlizOptionsTable);

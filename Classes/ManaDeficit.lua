@@ -16,15 +16,28 @@ local ManaDeficit = { deficit = 0, drinkRate = 0, endedDrink = 0, buffs = {}, lo
 -- before and after, and how many mana events came since the line before. Regen is not noted; it
 -- is the fall between one line and the next. `spentAt` is set on a spend until a mana event
 -- beside it shows the bar moved: a cast counted at a cost it did not have stays flagged.
-local LOG_SIZE = 120;
+-- `saved` holds the same entries in the saved variables (ManaDeficit:SaveTo), to read a whole run
+-- from the file: there `spentAt` set means "no mana change seen".
+local LOG_SIZE, SAVED_SIZE = 120, 5000;
+local function push(log, entry, size)
+	log[#log + 1] = entry;
+	if #log > size then table.remove(log, 1) end
+end
 local function note(self, what, before, now, spentAt)
-	local log = self.log;
-	log[#log + 1] = {
+	local entry = {
 		text = string.format("%s %s: %.0f -> %.0f [%d ev]", date("%H:%M:%S"), what, before, self.deficit, self.events),
 		at = now or GetTime(), spentAt = spentAt,
 	};
 	self.events = 0;
-	if #log > LOG_SIZE then table.remove(log, 1) end
+	push(self.log, entry, LOG_SIZE);
+	if self.saved then push(self.saved, entry, SAVED_SIZE) end
+end
+
+-- From here every line goes to `saved` too, kept over reloads and logins. A line with the date
+-- opens the session: the count starts again from a full bar there.
+function ManaDeficit:SaveTo(saved, now)
+	self.saved = saved;
+	note(self, "login " .. date("%Y-%m-%d"), self.deficit, now);
 end
 
 -- The log's lines, oldest first.

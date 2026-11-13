@@ -124,6 +124,23 @@ class ManaDeficitTests(unittest.TestCase):
         md.OnPower(md, 40.9)
         self.assertFalse(md.Lines(md)[4].endswith("(no mana change seen)"))
 
+    def test_every_line_goes_to_the_saved_variables_as_well(self):
+        # Chat holds 120 lines and copying them out is slow: the file keeps a whole run, over reloads and logins.
+        lua, addon, md = self.md()
+        addon.ply_regen_base = 0
+        lua.execute("SAVED = { { text = 'a line of an earlier session' } }; HSW_TEST_ADDON.ManaDeficit:SaveTo(SAVED, 0)")
+        md.Spend(md, 100, 10, "cast 1")                             # no mana event beside it
+        md.Spend(md, 100, 20, "cast 2"); md.OnPower(md, 20.2)
+        saved = lua.globals().SAVED
+        self.assertEqual(saved[1].text, "a line of an earlier session")   # what the file held stays
+        self.assertTrue(saved[2].text.endswith(": 0 -> 0 [0 ev]") and " login " in saved[2].text, saved[2].text)   # the count starts again here
+        self.assertTrue(saved[3].text.endswith("cast 1 +100: 0 -> 100 [0 ev]"))
+        self.assertEqual((saved[3].spentAt, saved[4].spentAt), (10, None))   # the flag of `/hsw mana`: set means no mana change seen
+        self.assertEqual(len(list(md.Lines(md).keys())), 3)         # chat shows this session only
+        lua.execute("for i = 1, 5100 do HSW_TEST_ADDON.ManaDeficit:Spend(1, 30) end")
+        self.assertEqual(lua.eval("#SAVED"), 5000)                  # the last 5000 are kept
+        self.assertEqual(len(list(md.Lines(md).keys())), 120)
+
     def test_share_is_the_rise_over_the_fight_between_0_and_1(self):
         _, addon, md = self.md()
         self.assertAlmostEqual(md.Share(300, 478.6), 0.1)           # pulled 300 down, ended 478.6 down: 178.6 of 1786

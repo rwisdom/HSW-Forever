@@ -233,6 +233,14 @@ class Chat(unittest.TestCase):
         self.assertTrue(m[1].endswith("mana return -60: 250 -> 190 [0 ev]"), m)
         self.assertTrue(m[2].endswith("stats: 190 -> 190 [1 ev]"), m)
 
+    def test_the_mana_log_is_kept_in_the_saved_variables(self):
+        lua, addon = start(extra="HSW_TEST_SAVED = { manaLog = { { text = 'earlier' } } }")
+        lua.execute('HSW_TEST_ADDON.ManaDeficit:Spend(250, 0, "cast 913")')
+        log = addon.hsw.db["global"].manaLog
+        self.assertEqual(log[1].text, "earlier")
+        self.assertIn(" login ", log[2].text)
+        self.assertTrue(log[3].text.endswith("cast 913 +250: 0 -> 250 [0 ev]"), log[3].text)
+
     def test_stats_prints_the_mana_deficit(self):
         self.lua.execute("HSW_TEST_ADDON.ManaDeficit:Spend(250); HSW_TEST_ADDON.ManaDeficit:SetDrinkRate(20); HSW_TEST_ADDON.ManaDeficit.buffs = { 3.6 }")
         self.chat("stats")

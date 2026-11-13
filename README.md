@@ -46,7 +46,8 @@ weights were built from; click in it, Ctrl+A, Ctrl+C to copy.
 Commands: `/hsw show`, `/hsw hide`, `/hsw lock`, `/hsw unlock` control the panel. `/hsw spec` prints
 the detected spec, `/hsw stats` the character values in use, `/hsw regen` the Spirit-regen rate
 (0.25 mana/s per Spirit under 50 Spirit, 0.125 from 50, gear MP5 taken out), `/hsw mana` the last
-changes to the mana count (each cast, return, potion and full-bar reset). `/hsw discover on`
+changes to the mana count (each cast, return, potion and full-bar reset); the last 5,000 are also
+kept in the saved variables (`manaLog` in `HealerStatWeights.lua`). `/hsw discover on`
 narrates fight boundaries and pricing to chat and reports unknown healing spells, unattributed heals
 and fights the meter recorded no healing for. `/hsw start` opens a test segment anywhere and prints
 every heal it allocates; `/hsw end` closes it. `/hsw debug` dumps the current segment's counters.
