@@ -169,21 +169,21 @@ class SpiritRegen(unittest.TestCase):
 
 
 class Derivatives(unittest.TestCase):
-    def test_healing_derivative_equals_coefficient(self):
-        _, addon, seg = start("PALADIN")                          # SP 200
+    def test_healing_derivative_is_the_coefficient_with_its_crits(self):
+        _, addon, seg = start("PALADIN")                          # SP 200, crit 10%: 1.05 real healing per non-crit point
         expected = 1580 + 0.714 * 200
         heal(addon, "SPELL_HEAL", HL, expected)
-        self.assertAlmostEqual(seg.t.heal, 0.714)
+        self.assertAlmostEqual(seg.t.heal, 0.714 * 1.05)
         heal(addon, "SPELL_HEAL", HL, expected * 1.1)             # +10% talent multiplier scales with it
-        self.assertAlmostEqual(seg.t.heal, 0.714 + 0.714 * 1.1)
+        self.assertAlmostEqual(seg.t.heal, (0.714 + 0.714 * 1.1) * 1.05)
 
     def test_crit_int_haste_per_point(self):
         _, addon, seg = start("PALADIN")                          # crit 10%, haste 0
         heal(addon, "SPELL_HEAL", HL, 1000)
-        per1 = 1000 * 0.5 / 1.05 / 100                            # value of +1% crit
+        per1 = 1000 * 0.5 / 100                                   # value of +1% crit: one more crit in a hundred heals
         self.assertAlmostEqual(seg.t.crit, per1)
         self.assertAlmostEqual(seg.t.int, per1 / 31.9 * 1.10)     # Divine Intellect 5/5: 1 Int on gear is 1.10 on the sheet
-        self.assertAlmostEqual(seg.t.haste_hpct, 1000 / 100)
+        self.assertAlmostEqual(seg.t.haste_hpct, 1000 * 1.05 / 100)   # haste speeds the crits up too
         self.assertEqual(seg.t.spirit, 0)
         ttl = addon.SegmentManager.Get(addon.SegmentManager, "Total")
         self.assertAlmostEqual(ttl.t.crit, seg.t.crit)
@@ -201,7 +201,7 @@ class Derivatives(unittest.TestCase):
     def test_periodic_uses_tick_values(self):
         _, addon, seg = start("DRUID")                            # SP 200
         heal(addon, "SPELL_PERIODIC_HEAL", REJUV, 194 + 0.2 * 200)
-        self.assertAlmostEqual(seg.t.heal, 0.2)
+        self.assertAlmostEqual(seg.t.heal, 0.2 * 1.06)            # Nature crit 12%
         self.assertEqual(seg.t.haste_hpct, 0)                     # instant: no HPCT value
         self.assertGreater(seg.t.crit, 0)                         # HoT ticks crit on Forever
 
@@ -233,7 +233,7 @@ class Derivatives(unittest.TestCase):
     def test_shield_cast_has_no_crit_value(self):
         _, addon, seg = start("PRIEST")
         addon.StatParser.DecompShieldCast(addon.StatParser, "Player-1", PWS)     # expected size 928 + 0.10 * 200
-        self.assertAlmostEqual(seg.t.heal, 0.10)
+        self.assertAlmostEqual(seg.t.heal, 0.10)                  # cannot crit: nothing on top
         self.assertEqual((seg.t.crit, seg.t.int, seg.t.haste_hpct), (0, 0, 0))
 
     def test_filter_rules(self):
@@ -261,7 +261,8 @@ class Overrides(unittest.TestCase):
         }"""
         _, addon, seg = start("PALADIN", overrides=ov)
         heal(addon, "SPELL_HEAL", HL, 1000)
-        per1 = 1000 * 1.0 / 2.0 / 100                             # crit chance and crit bonus overridden to 100%
+        per1 = 1000 * 1.0 / 100                                   # crit chance and crit bonus overridden to 100%
+        self.assertAlmostEqual(seg.t.heal, 0.714 * 1000 / (1580 + 0.714 * 200) * 2)   # every heal a crit of twice the size
         self.assertAlmostEqual(seg.t.crit, per1 + 1)
         ttl = addon.SegmentManager.Get(addon.SegmentManager, "Total")
         self.assertAlmostEqual(ttl.t.crit, per1 + 2)
@@ -269,7 +270,19 @@ class Overrides(unittest.TestCase):
         self.assertAlmostEqual(seg.t.int, ((per1 + 1) / 31.9 + seg.t.heal) * 1.10)
         self.assertAlmostEqual(seg.t.spirit, 0.5 * seg.t.heal)
         heal(addon, "SPELL_HEAL", HL, 2000, crit=True)            # a crit heal is normalised with the overridden bonus
-        self.assertAlmostEqual(seg.t.heal, 2 * 0.714 * 1000 / (1580 + 0.714 * 200))
+        self.assertAlmostEqual(seg.t.heal, 2 * 0.714 * 1000 / (1580 + 0.714 * 200) * 2)
+
+    def test_per_hit_extras_are_counted_on_every_hit_of_the_fight(self):
+        ov = """{
+            CriticalStrike = function(ev, s, heal, destUnit, C, CB, seg) return heal / 100 + 1 end,
+            FlatBonus = function(ev, s, destUnit) return 100 end,
+        }"""
+        _, addon, seg = start("PALADIN", overrides=ov)
+        for crit in (False, False, True):
+            addon.StatParser.DecompHealingForCurrentSpec(addon.StatParser, "SPELL_HEAL", "Player-1", HL, crit)
+        addon.TestTotal(HL, 3500)                                 # 3 hits, 1 crit: 1000 a hit before crits
+        self.assertAlmostEqual(seg.t.crit, 3000 * 0.5 / 100 + 3 * (1000 / 100 + 1))   # the override sees one hit's amount
+        self.assertAlmostEqual(seg.t.heal, 0.714 * (3000 - 3 * 100) / (1580 + 0.714 * 200) * 1.05)
 
 
 class ApplyTotals(unittest.TestCase):
@@ -285,7 +298,7 @@ class ApplyTotals(unittest.TestCase):
         lua, addon, seg = start("PALADIN")
         lua.execute('MSGS = {}; function HSW_TEST_ADDON:Msg(s) table.insert(MSGS, tostring(s)) end; HSW_TEST_ADDON.discoverSpells = true')
         self.apply(lua, HL, 1580 + 0.714 * 200)
-        self.assertAlmostEqual(seg.t.heal, 0.714)
+        self.assertAlmostEqual(seg.t.heal, 0.714 * 1.05)
         self.assertEqual(seg.totalHealing, 1580 + 0.714 * 200)
         self.assertIn("had no matched heals", lua.globals().MSGS[1])
 
@@ -308,15 +321,15 @@ class ApplyTotals(unittest.TestCase):
             self.count(addon, 9858, ev="SPELL_PERIODIC_HEAL")
         ed, et = 1021 + 0.286 * 200, 142 + 0.071 * 200
         self.apply(lua, 9858, ed + 7 * et)
-        self.assertAlmostEqual(seg.t.heal, 0.286 + 7 * 0.071)
-        self.assertAlmostEqual(seg.t.haste_hpct, (ed + 7 * et) / 100)   # a cast-time spell carries haste on both parts, as before
+        self.assertAlmostEqual(seg.t.heal, (0.286 + 7 * 0.071) * 1.06)   # Nature crit 12%
+        self.assertAlmostEqual(seg.t.haste_hpct, (ed + 7 * et) * 1.06 / 100)   # a cast-time spell carries haste on both parts, as before
 
     def test_tick_only_and_direct_only_spells(self):
         lua, addon, seg = start("DRUID")
         for _ in range(4):
             self.count(addon, REJUV, ev="SPELL_PERIODIC_HEAL")
         self.apply(lua, REJUV, 4 * (194 + 0.2 * 200))
-        self.assertAlmostEqual(seg.t.heal, 0.8)
+        self.assertAlmostEqual(seg.t.heal, 0.8 * 1.06)
         lua, addon, seg = start("PALADIN")
         self.count(addon, HL)
         self.apply(lua, HL, 1000)
@@ -341,7 +354,7 @@ class ApplyTotals(unittest.TestCase):
         lua.execute('local a = HSW_TEST_ADDON; a.UnitManager.units["Player-2"] = "party1"; a.UnitManager.names = { Me = "player", Bob = "party1" }')
         self.count(addon, HL, dest="Player-2"); self.count(addon, HL, dest="Player-2"); self.count(addon, HL)
         self.apply(lua, HL, 3000)
-        self.assertAlmostEqual(seg.t.heal, 0.714 * (3000 - 400) / (1580 + 0.714 * 200))   # Bob is the top target: the Oath's 400 comes off
+        self.assertAlmostEqual(seg.t.heal, 0.714 * (3000 - 3 * 400) / (1580 + 0.714 * 200) * 1.05)   # Bob is the top target: the Oath's 400 comes off each of the three hits
 
     def test_total_segment_is_credited_once(self):
         lua, addon, seg = start("PALADIN")

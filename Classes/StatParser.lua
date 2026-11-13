@@ -152,6 +152,8 @@ end
 --[[----------------------------------------------------------------------------
 	Per-heal derivatives, in healing per 1 stat point (crit: per 1% of crit chance, the unit item
 	tooltips use; 1% is 14 rating underneath, checklist A23). `heal` is the non-crit amount.
+	The results are real healing, crits included, the unit of the mana terms (Segment:GetFillerHPM):
+	Allocate scales +Healing and haste by the crits that come on top of `heal`.
 ------------------------------------------------------------------------------]]
 -- +Healing: r = heal / (base + coeff*SP) absorbs every % multiplier; d(heal)/d(SP) = coeff * r
 local function _Healing(ev, s, heal, SP)
@@ -163,11 +165,10 @@ local function _Healing(ev, s, heal, SP)
 	return coeff * heal / expected;
 end
 
--- value of +1% crit chance on this heal
-local function critPer1Pct(s, heal, C, CB)
+-- value of +1% crit chance: one hit in a hundred more gains the crit bonus
+local function critPer1Pct(s, heal, CB)
 	if not s.canCrit then return 0 end
-	C = math.min(C, 1);
-	return heal * CB / (1 + C * CB) / 100;
+	return heal * CB / 100;
 end
 
 local function _Haste(s, heal, H)
@@ -183,8 +184,8 @@ local StatParser = {};
 -- overrides (all optional):
 --   CritChance(ev, s, destUnit, C) -> C             per-spell crit chance (talents, buffs)
 --   CritBonus(ev, s, destUnit, CB) -> CB            per-spell crit healing bonus (Holy Power)
---   FlatBonus(ev, s, destUnit) -> amount            fixed part of the heal that +Healing did not produce (Oath of Light)
---   CriticalStrike(ev, s, heal, destUnit, C, CB, seg) -> extra crit value (mana returned on crit)
+--   FlatBonus(ev, s, destUnit) -> amount            fixed part of one heal that +Healing did not produce (Oath of Light)
+--   CriticalStrike(ev, s, heal, destUnit, C, CB, seg) -> extra crit value of one hit of `heal` (mana returned on crit)
 --   Intellect(ev, s, heal, destUnit, _SP, seg) -> extra Int value (Int -> +Healing talents)
 --   Spirit(ev, s, heal, destUnit, _SP, seg) -> extra Spirit value (Spirit -> +Healing talents)
 --   ManaReturn(ev, s, heal, destUnit) -> mana this crit returned (Illumination, Water Shield)
@@ -234,20 +235,22 @@ local function critBonus(f, ev, s, destUnit)
 end
 
 --[[----------------------------------------------------------------------------
-	Allocate - compute derivatives for one effective heal and add them to `segments`.
-	heal is already crit-normalised.
+	Allocate - compute derivatives for `n` hits of a spell part that healed `heal` between them
+	and add them to `segments`. heal is already crit-normalised.
 ------------------------------------------------------------------------------]]
-function StatParser:Allocate(ev, s, heal, destUnit, f, SP, C, CB, H, segments)
+function StatParser:Allocate(ev, s, heal, n, destUnit, f, SP, C, CB, H, segments)
 	if HSW_ENABLE_FOR_TESTING then
 		addon:Msg("allocate spellid=" .. tostring(s.spellID) .. " destunit=" .. tostring(destUnit) .. " amount=" .. heal);
 	end
 
 	if f.CritChance then C = f.CritChance(ev, s, destUnit, C) end
+	-- real healing per point of non-crit healing: +Healing and haste raise the crits with the rest
+	local crits = s.canCrit and 1 + math.min(C, 1) * CB or 1;
 	-- a flat add-on (Oath of Light) crits with the rest of the heal but did not come from +Healing
-	local flat = f.FlatBonus and f.FlatBonus(ev, s, destUnit) or 0;
-	local _SP = _Healing(ev, s, math.max(heal - flat, 0), SP);
-	local _C  = critPer1Pct(s, heal, C, CB);
-	local _H  = _Haste(s, heal, H);
+	local flat = (f.FlatBonus and f.FlatBonus(ev, s, destUnit) or 0) * n;
+	local _SP = _Healing(ev, s, math.max(heal - flat, 0), SP) * crits;
+	local _C  = critPer1Pct(s, heal, CB);
+	local _H  = _Haste(s, heal, H) * crits;
 	-- 1 Int on gear is ply_intmult Int on the sheet, and sheet Int buys crit like gear crit does: with
 	-- all a crit brings (returned mana, Divine Aegis), at IntPerCrit Int a percent.
 	-- Verified in game 2026-11-12 on Ancestral Knowledge 5/5 (checklist A22): the talent multiplies
@@ -255,7 +258,7 @@ function StatParser:Allocate(ev, s, heal, destUnit, f, SP, C, CB, H, segments)
 	local intmult = addon.ply_intmult or 1;
 
 	for _, seg in ipairs(segments) do
-		local c  = f.CriticalStrike and f.CriticalStrike(ev, s, heal, destUnit, C, CB, seg) or 0;
+		local c  = f.CriticalStrike and f.CriticalStrike(ev, s, heal / n, destUnit, C, CB, seg) * n or 0; -- per hit
 		local i  = f.Intellect and f.Intellect(ev, s, heal, destUnit, _SP, seg) or 0;
 		local sp = f.Spirit and f.Spirit(ev, s, heal, destUnit, _SP, seg) or 0;
 		seg:AllocateHeal(_SP, _C + c, _H, ((_C + c) / addon.IntPerCrit + i) * intmult, sp, s.spellID);
@@ -265,10 +268,12 @@ function StatParser:Allocate(ev, s, heal, destUnit, f, SP, C, CB, H, segments)
 end
 
 --[[----------------------------------------------------------------------------
-	AllocateHeal - credit `total` effective healing of spell s on `segments` and price
-	`normalised` (the non-crit equivalent) through Allocate.
+	CreditHealing - add `total` effective healing of spell s to `segments`.
+	PriceHealing - price `n` hits that healed `normalised` between them (the non-crit
+	equivalent) through Allocate. Healing is credited before it is priced: the mana a crit
+	returns is valued at the segment's healing per mana, which needs the whole fight in it.
 ------------------------------------------------------------------------------]]
-function StatParser:AllocateHeal(ev, s, total, normalised, destUnit, f, segments)
+function StatParser:CreditHealing(s, total, segments)
 	-- a "% of base mana" spell has no table cost: it is a filler only while the client prices it,
 	-- the same condition under which its cast recorded filler mana (Events.lua)
 	local filler = s.filler and (s.manaCost > 0 or (addon.Compat.GetSpellManaCost(s.spellID) or 0) > 0);
@@ -276,7 +281,10 @@ function StatParser:AllocateHeal(ev, s, total, normalised, destUnit, f, segments
 		if filler then seg:IncFillerHealing(total) end
 		seg:IncTotalHealing(total);
 	end
-	self:Allocate(ev, s, normalised, destUnit, f, addon.ply_sp, addon.ply_crt, critBonus(f, ev, s, destUnit), addon.ply_hst, segments);
+end
+
+function StatParser:PriceHealing(ev, s, normalised, n, destUnit, f, segments)
+	self:Allocate(ev, s, normalised, n, destUnit, f, addon.ply_sp, addon.ply_crt, critBonus(f, ev, s, destUnit), addon.ply_hst, segments);
 end
 
 --[[----------------------------------------------------------------------------
@@ -327,7 +335,7 @@ end
 	and k crits a part's total is about h * (n + k * CB) for a non-crit heal h, so the
 	crit-normalised total is T * n / (n + k * CB). A spell with direct and periodic
 	parts splits T by (n + k * CB) * expected size. Credits this segment, the Total and
-	the fight's class total.
+	the fight's class total: all the healing first, then the pricing.
 ------------------------------------------------------------------------------]]
 function StatParser:ApplyTotals(seg, totals)
 	local f, specId = self:GetParserForCurrentSpec();
@@ -335,6 +343,7 @@ function StatParser:ApplyTotals(seg, totals)
 	local segments = { seg, addon.SegmentManager:Get("Total"), addon.SegmentManager:ClassTotal(seg) }; -- a nil class total ends the list
 	local sp = addon.ply_sp or 0;
 	local excludeCd = addon.hsw.db.global.excludeRaidHealingCooldowns;
+	local parts = {}; -- { ev, s, normalised, hits, destUnit } per spell part, priced once every total is credited
 
 	for spellID, T in pairs(totals) do
 		local s = addon.Spells:Get(spellID);
@@ -362,13 +371,18 @@ function StatParser:ApplyTotals(seg, totals)
 			end
 			if Td > 0 then
 				logTotal(seg, s, Td);
-				self:AllocateHeal("SPELL_HEAL", s, Td, Td * d.n / (d.n + d.crit * CB), destUnit, f, segments);
+				self:CreditHealing(s, Td, segments);
+				parts[#parts + 1] = { "SPELL_HEAL", s, Td * d.n / (d.n + d.crit * CB), d.n, destUnit };
 			end
 			if Tt > 0 then
 				logTotal(seg, s, Tt);
-				self:AllocateHeal("SPELL_PERIODIC_HEAL", s, Tt, Tt * t.n / (t.n + t.crit * CB), destUnit, f, segments);
+				self:CreditHealing(s, Tt, segments);
+				parts[#parts + 1] = { "SPELL_PERIODIC_HEAL", s, Tt * t.n / (t.n + t.crit * CB), t.n, destUnit };
 			end
 		end
+	end
+	for _, p in ipairs(parts) do
+		self:PriceHealing(p[1], p[2], p[3], p[4], p[5], f, segments);
 	end
 end
 
@@ -382,7 +396,9 @@ function StatParser:DecompShieldCast(destGUID, spellID)
 	if not destUnit then return end
 	local expected = s.base + s.coeff * (addon.ply_sp or 0);
 	addon:LogEvent("heal", s, addon.Compat.PlainString(UnitName(destUnit)), expected, false);
-	self:AllocateHeal("SPELL_HEAL", s, expected, expected, destUnit, f, liveSegments());
+	local segments = liveSegments();
+	self:CreditHealing(s, expected, segments);
+	self:PriceHealing("SPELL_HEAL", s, expected, 1, destUnit, f, segments);
 end
 
 addon.StatParser = StatParser;

@@ -1,5 +1,5 @@
 import unittest
-from parsers import start, heal, crit_per_pct
+from parsers import start, heal, count, crit_per_pct, crits, sp_per
 
 FILES = ["Parsers/HolyPaladin.lua"]
 HOLY = [("Holy", [("Illumination", 5), ("Holy Power", 5), ("Boundless Light", 2)]), ("Protection", []), ("Retribution", [])]
@@ -21,10 +21,11 @@ class HolyPaladinTests(unittest.TestCase):
         seg.IncFillerCasts(seg, 660)
         heal(addon, "SPELL_HEAL", HL, 1000)                     # fillerHealing 1000 -> HPM 1000/660
         illumination = 0.01 * (0.2 * 5) * 0.5 * 660 * (1000 / 660)
-        self.assertAlmostEqual(seg.t.crit, crit_per_pct(1000, 0.10, CB) + illumination)
-        self.assertAlmostEqual(seg.t.int, (crit_per_pct(1000, 0.10, CB) + illumination) / 31.9)   # crit from Int returns mana too
+        self.assertAlmostEqual(seg.t.heal, sp_per(addon, HL, 1000) * crits(0.10, CB))
+        self.assertAlmostEqual(seg.t.crit, crit_per_pct(1000, CB) + illumination)
+        self.assertAlmostEqual(seg.t.int, (crit_per_pct(1000, CB) + illumination) / 31.9)   # crit from Int returns mana too
         ttl =addon.SegmentManager.Get(addon.SegmentManager, "Total")
-        self.assertAlmostEqual(ttl.t.crit, crit_per_pct(1000, 0.10, CB))   # Total has no filler mana yet -> HPM 0
+        self.assertAlmostEqual(ttl.t.crit, crit_per_pct(1000, CB))   # Total has no filler mana yet -> HPM 0
 
     def test_crit_heals_are_normalised_with_the_raised_bonus(self):
         _, addon, seg = start("PALADIN", HOLY, FILES)
@@ -40,12 +41,14 @@ class HolyPaladinTests(unittest.TestCase):
         seg.IncFillerCasts(seg, 325)
         heal(addon, "SPELL_HEAL", HS_HEAL, 1000)                # no Oath on the target: 10% + 30%
         illumination = 0.01 * 1.0 * 0.5 * 325 * (1000 / 325)
-        self.assertAlmostEqual(seg.t.crit, crit_per_pct(1000, 0.40, CB) + illumination)
+        self.assertAlmostEqual(seg.t.heal, sp_per(addon, HS_HEAL, 1000) * crits(0.40, CB))
+        self.assertAlmostEqual(seg.t.crit, crit_per_pct(1000, CB) + illumination)
         addon.BuffTracker.MarkTarget(addon.BuffTracker, "Me", OATH, 300)
-        before = seg.t.crit
-        heal(addon, "SPELL_HEAL", HS_HEAL, 1000)                # Oath target: sheet crit
+        before, before_heal = seg.t.crit, seg.t.heal
+        heal(addon, "SPELL_HEAL", HS_HEAL, 1000)                # Oath target: sheet crit, and 230 of the heal is the Oath's
         illumination = 0.01 * 1.0 * 0.5 * 325 * (2000 / 325)
-        self.assertAlmostEqual(seg.t.crit - before, crit_per_pct(1000, 0.10, CB) + illumination)
+        self.assertAlmostEqual(seg.t.heal - before_heal, sp_per(addon, HS_HEAL, 1000 - 230) * crits(0.10, CB))
+        self.assertAlmostEqual(seg.t.crit - before, crit_per_pct(1000, CB) + illumination)
 
     def test_oath_flat_bonus_comes_off_the_healing_derivative_only(self):
         _, addon, seg = start("PALADIN", HOLY, FILES)
@@ -55,10 +58,24 @@ class HolyPaladinTests(unittest.TestCase):
         addon.BuffTracker.MarkTarget(addon.BuffTracker, "Me", OATH, 300)
         heal(addon, "SPELL_HEAL", HL, 1400)                     # 1000 + the Oath's 400 on Holy Light
         self.assertAlmostEqual(seg.t.heal, plain_heal)          # +Healing did not produce the 400
-        self.assertAlmostEqual(seg.t.crit, crit_per_pct(1400, 0.10, CB))   # the 400 crits with the rest
-        self.assertAlmostEqual(seg.t.int, crit_per_pct(1400, 0.10, CB) / 31.9)
+        self.assertAlmostEqual(seg.t.crit, crit_per_pct(1400, CB))   # the 400 crits with the rest
+        self.assertAlmostEqual(seg.t.int, crit_per_pct(1400, CB) / 31.9)
         heal(addon, "SPELL_HEAL", HL, 2450, crit=True)          # (1000 + 400) x 1.75
         self.assertAlmostEqual(seg.t.heal, 2 * plain_heal)
+
+    def test_a_fight_of_several_hits_counts_illumination_and_the_oath_on_each(self):
+        _, addon, seg = start("PALADIN", HOLY, FILES)
+        heal(addon, "SPELL_HEAL", HL, 1000)
+        plain_heal = seg.t.heal
+        _, addon, seg = start("PALADIN", HOLY, FILES)
+        addon.BuffTracker.MarkTarget(addon.BuffTracker, "Me", OATH, 300)
+        for _ in range(4):
+            seg.IncFillerCasts(seg, 660)
+            count(addon, "SPELL_HEAL", HL)
+        addon.TestTotal(HL, 4 * 1400)                           # one total for the fight, as the meter gives it
+        self.assertAlmostEqual(seg.t.heal, 4 * plain_heal)      # 400 off each of the four
+        illumination = 0.01 * 1.0 * 0.5 * 660 * (5600 / 2640)   # per hit
+        self.assertAlmostEqual(seg.t.crit, crit_per_pct(5600, CB) + 4 * illumination)
 
     def test_oath_amounts_per_spell_and_target(self):
         _, addon, seg = start("PALADIN", HOLY, FILES)
@@ -74,20 +91,21 @@ class HolyPaladinTests(unittest.TestCase):
     def test_boundless_light_leaves_other_spells_alone(self):
         _, addon, seg = start("PALADIN", HOLY, FILES)
         heal(addon, "SPELL_HEAL", HL, 1000)
-        self.assertAlmostEqual(seg.t.crit, crit_per_pct(1000, 0.10, CB))
+        self.assertAlmostEqual(seg.t.heal, sp_per(addon, HL, 1000) * crits(0.10, CB))
+        self.assertAlmostEqual(seg.t.crit, crit_per_pct(1000, CB))
 
     def test_lights_vigil_uses_its_own_cost(self):
         _, addon, seg = start("PALADIN", HOLY, FILES)
         seg.IncFillerCasts(seg, 730)
         heal(addon, "SPELL_HEAL", LV, 1000)
         illumination = 0.01 * 1.0 * 0.5 * 730 * (1000 / 730)
-        self.assertAlmostEqual(seg.t.crit, crit_per_pct(1000, 0.10, CB) + illumination)
+        self.assertAlmostEqual(seg.t.crit, crit_per_pct(1000, CB) + illumination)
 
     def test_no_illumination_without_the_talent(self):
         _, addon, seg = start("PALADIN", [("Holy", [("Holy Power", 2)]), ("Protection", []), ("Retribution", [])], FILES)
         seg.IncFillerCasts(seg, 660)
         heal(addon, "SPELL_HEAL", HL, 1000)
-        self.assertAlmostEqual(seg.t.crit, crit_per_pct(1000, 0.10, 0.60))   # 2/5: 50% x 1.2
+        self.assertAlmostEqual(seg.t.crit, crit_per_pct(1000, 0.60))   # 2/5: 50% x 1.2
 
     def test_illumination_mana_comes_off_the_filler_cost(self):
         _, addon, seg = start("PALADIN", HOLY, FILES)
@@ -95,7 +113,7 @@ class HolyPaladinTests(unittest.TestCase):
         heal(addon, "SPELL_HEAL", HL, 1750, crit=True)             # 330 back before the crit is valued: HPM 1750/330
         self.assertAlmostEqual(seg.GetFillerHPM(seg), 1750 / 330)
         illumination = 0.01 * 1.0 * 0.5 * 660 * (1750 / 330)
-        self.assertAlmostEqual(seg.t.crit, crit_per_pct(1000, 0.10, CB) + illumination)
+        self.assertAlmostEqual(seg.t.crit, crit_per_pct(1000, CB) + illumination)
 
     def test_illumination_mana_is_credited_on_crits(self):
         _, addon, seg = start("PALADIN", HOLY, FILES)

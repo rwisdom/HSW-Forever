@@ -44,6 +44,23 @@ def set_auras(lua, *ids):
     lua.execute(f"STUB.auras = {{ {items} }}; HSW_TEST_ADDON.BuffTracker:UpdatePlayerBuffs()")
 
 
-def crit_per_pct(heal_amount, C, CB=0.5):
-    """Healing gained from +1% crit on a non-crit heal of `heal_amount` at crit chance C."""
-    return heal_amount * CB / (1 + min(C, 1) * CB) / 100
+def count(addon, ev, spell, crit=False, dest="Player-1"):
+    """One heal landing, counted and not yet priced: several of these, then addon.TestTotal, make a fight."""
+    addon.StatParser.DecompHealingForCurrentSpec(addon.StatParser, ev, dest, spell, crit)
+
+
+def crit_per_pct(heal_amount, CB=0.5):
+    """Healing gained from +1% crit on non-crit healing of `heal_amount`: one more crit in a hundred hits."""
+    return heal_amount * CB / 100
+
+
+def crits(C, CB=0.5):
+    """Real healing per point of non-crit healing at crit chance C: +Healing and haste scale the crits too."""
+    return 1 + min(C, 1) * CB
+
+
+def sp_per(addon, spell, amount, tick=False, sp=200):
+    """Non-crit healing one point of +Healing adds to `amount` of `spell` (its direct part, or a tick)."""
+    s = addon.Spells.Get(addon.Spells, spell)
+    coeff, base = (s.coeffTick, s.baseTick) if tick else (s.coeff, s.base)
+    return coeff * amount / (base + coeff * sp)
