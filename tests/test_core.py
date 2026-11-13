@@ -35,17 +35,25 @@ class Database(unittest.TestCase):
     def test_defaults(self):
         _, addon = start()
         g = addon.hsw.db["global"]
-        self.assertEqual((g.schema, g.enabledInDungeons, g.enabledInRaids, g.enabledInBattlegrounds), (2, True, True, False))
+        self.assertEqual((g.schema, g.enabledInDungeons, g.enabledInRaids, g.enabledInBattlegrounds), (3, True, True, False))
         self.assertEqual((g.hasteRatingPerPct, g.intPerCritOverride.PALADIN, g.maxSegments, g.neverShow, g.logEvents), (1, 0, 10, False, False))
         self.assertEqual(addon.hsw.optionsFrame.settingsCategoryID, "HSW_TEST_CATEGORY")   # Configure button → Settings.OpenToCategory(id)
 
     def test_old_history_is_wiped_once(self):
         _, addon = start(extra='HSW_TEST_SAVED = { history = { [1] = { Int = 1, Vrs = 0.5 } }, front = 1, back = 0 }')
         g = addon.hsw.db["global"]
-        self.assertEqual((g.front, g.back, g.schema, len(list(g.history.keys()))), (0, 0, 2, 0))
-        _, addon = start(extra='HSW_TEST_SAVED = { schema = 2, history = { [1] = { Heal = 1 } }, front = 1, back = 0 }')
+        self.assertEqual((g.front, g.back, g.schema, len(list(g.history.keys()))), (0, 0, 3, 0))
+        _, addon = start(extra='HSW_TEST_SAVED = { schema = 3, history = { [1] = { Heal = 1, Crt = 2.8 } }, front = 1, back = 0 }')
         g = addon.hsw.db["global"]
-        self.assertEqual((g.front, g.history[1].Heal), (1, 1))
+        self.assertEqual((g.front, g.history[1].Heal, g.history[1].Crt), (1, 1, 2.8))
+
+    def test_schema_2_history_has_its_crit_turned_into_per_percent(self):
+        _, addon = start(extra='HSW_TEST_SAVED = { schema = 2, history = { [1] = { Heal = 1, Crt = 0.2, CrtPct = 28 }, [2] = { Heal = 1 } }, front = 2, back = 0 }')
+        g = addon.hsw.db["global"]
+        self.assertEqual((g.front, g.schema, g.history[1].Heal), (2, 3, 1))
+        self.assertAlmostEqual(g.history[1].Crt, 2.8)       # was per rating point, 14 to the percent
+        self.assertAlmostEqual(g.history[1].CrtPct, 2)
+        self.assertIsNone(g.history[2].Crt)
 
 
 class StatsForSegment(unittest.TestCase):
@@ -55,7 +63,7 @@ class StatsForSegment(unittest.TestCase):
         seg.poolShare = 0.5                        # half the mana pool went into the fight
         heal, crt, hst, int_, spi, mp5 = addon.GetStatsForSegment(addon, seg)
         self.assertEqual(heal, 1)
-        self.assertAlmostEqual(crt, seg.t.crit / seg.t.heal)
+        self.assertAlmostEqual(crt, seg.t.crit / seg.t.heal)        # per 1% crit, as t.crit is
         self.assertEqual(hst, 0)                    # no chain casts
         self.assertAlmostEqual(int_, (seg.t.int + 15 * 1.0 * 1000 / 660 * 0.5) / seg.t.heal)
         self.assertAlmostEqual(spi, 0.125 * 1.10 * 100 * (1000 / 660) / seg.t.heal)   # default regen per Spirit
@@ -80,6 +88,7 @@ class History(unittest.TestCase):
         self.assertAlmostEqual(h.Crt, stats[1])
         self.assertAlmostEqual(h.Mp5, stats[5])
         self.assertAlmostEqual(h.HealPct, 1000 / 100 / seg.t.heal)
+        self.assertAlmostEqual(h.CrtPct, 1000 / 100 / seg.t.crit)                 # percent of crit for 1% of the healing
         self.assertAlmostEqual(h.Mp5Pct, 1000 / 100 / seg.GetMP5(seg))
         self.assertEqual((h.Talents[1].name, h.Talents[1].rank), ("Illumination", 5))
         self.assertIsNone(h.Name)                                                 # no player/realm/region in the log
@@ -126,7 +135,8 @@ class History(unittest.TestCase):
         addon.AddHistoricalSegment(addon, fought_segment(lua, addon))
         t = addon.BuildOptionsTableForHistorySegment(addon, 0)
         names = [v.name for _, v in t.items() if v.name]
-        for label in ("+Healing", "Crit Rating", "Haste (HPCT)", "Intellect", "Spirit", "MP5", "Pawn >>", "icon_Illumination"):
+        self.assertFalse(any("Crit Rating" in n for n in names), names)
+        for label in ("+Healing", "Crit (1%)", "Crit %\nPer 1% HPS", "Haste (HPCT)", "Intellect", "Spirit", "MP5", "Pawn >>", "icon_Illumination"):
             self.assertTrue(any(label in n for n in names), label)
 
     def test_history_segment_shows_the_spec_notes_and_no_resources(self):

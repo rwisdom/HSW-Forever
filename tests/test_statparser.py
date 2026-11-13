@@ -44,7 +44,7 @@ def heal(addon, ev, spell, amount, crit=False, dest="Player-1"):
 class Conversions(unittest.TestCase):
     def test_defaults_at_level_30(self):
         _, addon, _ = start("PALADIN")
-        self.assertEqual((addon.CritConv, addon.HasteConv, addon.IntPerCrit, addon.RegenPerSpirit), (14, 100, 31.9, 0.125))
+        self.assertEqual((addon.CritConv, addon.HasteConv, addon.IntPerCrit, addon.RegenPerSpirit), (None, 100, 31.9, 0.125))   # crit is per 1% throughout: no rating conversion
 
     def test_int_per_crit_level_lookup_and_overrides(self):
         lua, addon, _ = start("DRUID", extra="STUB.level = 60")
@@ -181,7 +181,7 @@ class Derivatives(unittest.TestCase):
         _, addon, seg = start("PALADIN")                          # crit 10%, haste 0
         heal(addon, "SPELL_HEAL", HL, 1000)
         per1 = 1000 * 0.5 / 1.05 / 100                            # value of +1% crit
-        self.assertAlmostEqual(seg.t.crit, per1 / 14)
+        self.assertAlmostEqual(seg.t.crit, per1)
         self.assertAlmostEqual(seg.t.int, per1 / 31.9 * 1.10)     # Divine Intellect 5/5: 1 Int on gear is 1.10 on the sheet
         self.assertAlmostEqual(seg.t.haste_hpct, 1000 / 100)
         self.assertEqual(seg.t.spirit, 0)
@@ -262,11 +262,11 @@ class Overrides(unittest.TestCase):
         _, addon, seg = start("PALADIN", overrides=ov)
         heal(addon, "SPELL_HEAL", HL, 1000)
         per1 = 1000 * 1.0 / 2.0 / 100                             # crit chance and crit bonus overridden to 100%
-        self.assertAlmostEqual(seg.t.crit, per1 / 14 + 1)
+        self.assertAlmostEqual(seg.t.crit, per1 + 1)
         ttl = addon.SegmentManager.Get(addon.SegmentManager, "Total")
-        self.assertAlmostEqual(ttl.t.crit, per1 / 14 + 2)
-        # Int buys crit with its extras (14 rating = 31.9 Int = 1%), and all of it scales with Divine Intellect 5/5
-        self.assertAlmostEqual(seg.t.int, ((per1 / 14 + 1) * 14 / 31.9 + seg.t.heal) * 1.10)
+        self.assertAlmostEqual(ttl.t.crit, per1 + 2)
+        # Int buys crit with its extras (31.9 Int = 1%), and all of it scales with Divine Intellect 5/5
+        self.assertAlmostEqual(seg.t.int, ((per1 + 1) / 31.9 + seg.t.heal) * 1.10)
         self.assertAlmostEqual(seg.t.spirit, 0.5 * seg.t.heal)
         heal(addon, "SPELL_HEAL", HL, 2000, crit=True)            # a crit heal is normalised with the overridden bonus
         self.assertAlmostEqual(seg.t.heal, 2 * 0.714 * 1000 / (1580 + 0.714 * 200))

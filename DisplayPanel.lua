@@ -5,10 +5,12 @@ local media = LibStub("LibSharedMedia-3.0");
 	Strings & Patterns
 ------------------------------------------------------------------------------]]
 local pattern_title = "%s";
-local pattern_left = "+Healing\nCrit Rating\nHaste (HPCT)\nIntellect\nSpirit\nMP5";
+local pattern_left = "+Healing\nCrit (1%)\nHaste (HPCT)\nIntellect\nSpirit\nMP5";
 local pattern_right = "%.2f\n%.2f\n%.2f\n%.2f\n%.2f\n%.2f";
 -- Pawn stat identifiers as Pawn on Forever exports them (sample from Ryan, 2026-11-07): "Healing", not Classic's "HealingPower".
-local pawn_pattern = [[( Pawn: v1: "%s": Class=%s, Spec=%s, Healing=%.2f, SpellCritRating=%.2f, SpellHaste=%.2f, Intellect=%.2f, Spirit=%.2f, Mp5=%.2f)]];
+-- CritRating and HasteRating are Pawn's names (its own export of a scale, 2026-11-13; it knows no "SpellHaste")
+-- and both are per 1%: Pawn reads "critical strike by 1.0%" or "casting speed by 1.0%" as one point.
+local pawn_pattern = [[( Pawn: v1: "%s": Class=%s, Spec=%s, Healing=%.2f, CritRating=%.2f, HasteRating=%.2f, Intellect=%.2f, Spirit=%.2f, Mp5=%.2f)]];
 local pawn_title = "Pawn String (Ctrl+A to select all, Ctrl+C to copy):";
 local pawn_dialog_name = "HSW_GETPAWNSTRING";
 local clearsegments_dialog_name = "HSW_CLEARALLSEGMENTS";

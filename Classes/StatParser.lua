@@ -4,7 +4,6 @@ local name, addon = ...;
 	Forever constants
 ------------------------------------------------------------------------------]]
 addon.CritBonus = 0.5;              -- heals crit for +50%
-addon.CritRatingPerPct = 14;        -- 14 crit rating = 1% crit at every level
 addon.ManaPerInt = 15;
 addon.FSR_SECONDS = 5;              -- five-second rule
 
@@ -55,7 +54,6 @@ function addon:SetupConversionFactors()
 	local db = self.hsw.db.global;
 	local _, class = UnitClass("player");
 	local level = math.max(UnitLevel("player") or 1, 1);
-	self.CritConv = self.CritRatingPerPct;                 -- per-1% values / CritConv = per rating point
 	self.HasteConv = 100 * (db.hasteRatingPerPct or 1);    -- heal/(1+H)/HasteConv = per haste point
 	local override = db.intPerCritOverride and db.intPerCritOverride[class];
 	if override and override > 0 then
@@ -152,7 +150,8 @@ function addon:EquippedPieces(names)
 end
 
 --[[----------------------------------------------------------------------------
-	Per-heal derivatives, in healing per 1 stat point. `heal` is the non-crit amount.
+	Per-heal derivatives, in healing per 1 stat point (crit: per 1% of crit chance, the unit item
+	tooltips use; 1% is 14 rating underneath, checklist A23). `heal` is the non-crit amount.
 ------------------------------------------------------------------------------]]
 -- +Healing: r = heal / (base + coeff*SP) absorbs every % multiplier; d(heal)/d(SP) = coeff * r
 local function _Healing(ev, s, heal, SP)
@@ -171,7 +170,6 @@ local function critPer1Pct(s, heal, C, CB)
 	return heal * CB / (1 + C * CB) / 100;
 end
 
-local function _CriticalStrike(s, heal, C, CB) return critPer1Pct(s, heal, C, CB) / addon.CritConv end
 local function _Haste(s, heal, H)
 	if not s.hstHPCT then return 0 end
 	return heal / (1 + H) / addon.HasteConv;
@@ -248,20 +246,19 @@ function StatParser:Allocate(ev, s, heal, destUnit, f, SP, C, CB, H, segments)
 	-- a flat add-on (Oath of Light) crits with the rest of the heal but did not come from +Healing
 	local flat = f.FlatBonus and f.FlatBonus(ev, s, destUnit) or 0;
 	local _SP = _Healing(ev, s, math.max(heal - flat, 0), SP);
-	local _C  = _CriticalStrike(s, heal, C, CB);
+	local _C  = critPer1Pct(s, heal, C, CB);
 	local _H  = _Haste(s, heal, H);
-	-- 1 Int on gear is ply_intmult Int on the sheet, and sheet Int buys crit like rating does: with
-	-- all a crit brings (returned mana, Divine Aegis), at IntPerCrit a percent for CritConv.
+	-- 1 Int on gear is ply_intmult Int on the sheet, and sheet Int buys crit like gear crit does: with
+	-- all a crit brings (returned mana, Divine Aegis), at IntPerCrit Int a percent.
 	-- Verified in game 2026-11-12 on Ancestral Knowledge 5/5 (checklist A22): the talent multiplies
 	-- gear Int, and sheet Int gives crit at one rate whatever raised it.
 	local intmult = addon.ply_intmult or 1;
-	local ratingPerInt = addon.CritConv / addon.IntPerCrit;
 
 	for _, seg in ipairs(segments) do
 		local c  = f.CriticalStrike and f.CriticalStrike(ev, s, heal, destUnit, C, CB, seg) or 0;
 		local i  = f.Intellect and f.Intellect(ev, s, heal, destUnit, _SP, seg) or 0;
 		local sp = f.Spirit and f.Spirit(ev, s, heal, destUnit, _SP, seg) or 0;
-		seg:AllocateHeal(_SP, _C + c, _H, ((_C + c) * ratingPerInt + i) * intmult, sp, s.spellID);
+		seg:AllocateHeal(_SP, _C + c, _H, ((_C + c) / addon.IntPerCrit + i) * intmult, sp, s.spellID);
 	end
 
 	addon:UpdateDisplayStats();

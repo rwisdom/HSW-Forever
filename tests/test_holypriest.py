@@ -28,19 +28,19 @@ class HolyPriestTests(unittest.TestCase):
         lua, addon, seg = start("PRIEST", HOLY, FILES)         # Holy crit 10%
         set_auras(lua, INNER_FOCUS)
         heal(addon, "SPELL_HEAL", FH, 1000)
-        self.assertAlmostEqual(seg.t.crit, crit_per_pct(1000, 0.35) / 14)
+        self.assertAlmostEqual(seg.t.crit, crit_per_pct(1000, 0.35))
         heal(addon, "SPELL_PERIODIC_HEAL", RENEW, 500)
-        self.assertAlmostEqual(seg.t.crit, (crit_per_pct(1000, 0.35) + crit_per_pct(500, 0.10)) / 14)
+        self.assertAlmostEqual(seg.t.crit, (crit_per_pct(1000, 0.35) + crit_per_pct(500, 0.10)))
         set_auras(lua)
         heal(addon, "SPELL_HEAL", FH, 1000)
-        self.assertAlmostEqual(seg.t.crit, (crit_per_pct(1000, 0.35) + crit_per_pct(500, 0.10) + crit_per_pct(1000, 0.10)) / 14)
+        self.assertAlmostEqual(seg.t.crit, (crit_per_pct(1000, 0.35) + crit_per_pct(500, 0.10) + crit_per_pct(1000, 0.10)))
 
     def test_holy_specialization_adds_crit_on_every_holy_heal(self):
         _, addon, seg = start("PRIEST", [("Discipline", []), ("Holy", [("Holy Specialization", 5)])], FILES)   # Holy crit 10% on the sheet
         heal(addon, "SPELL_HEAL", FH, 1000)
-        self.assertAlmostEqual(seg.t.crit, crit_per_pct(1000, 0.15) / 14)
+        self.assertAlmostEqual(seg.t.crit, crit_per_pct(1000, 0.15))
         heal(addon, "SPELL_PERIODIC_HEAL", RENEW, 500)
-        self.assertAlmostEqual(seg.t.crit, (crit_per_pct(1000, 0.15) + crit_per_pct(500, 0.15)) / 14)
+        self.assertAlmostEqual(seg.t.crit, (crit_per_pct(1000, 0.15) + crit_per_pct(500, 0.15)))
 
     def test_without_spiritual_guidance(self):
         _, addon, seg = start("PRIEST", [("Discipline", []), ("Holy", [("Spiritual Healing", 3)])], FILES)

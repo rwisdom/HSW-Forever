@@ -1,7 +1,7 @@
 # Healer Stat Weights (Forever)
 
 Live healer stat weights for **World of Warcraft Forever**, computed from your own casts and the
-client's built-in damage meter. Shows the relative value of +Healing (always 1.00), Crit Rating,
+client's built-in damage meter. Shows the relative value of +Healing (always 1.00), 1% Crit,
 Haste, Intellect, Spirit and MP5 for the current fight, the last few fights and three running totals,
 and exports a Pawn string.
 
@@ -71,7 +71,12 @@ between fights too, so a pull started on half a bar starts there. A fight's shar
 count rose over the fight, divided by maximum mana and kept between 0 and 1. A short pull that
 barely touches the pool gives Intellect little; a total adds the shares of its fights.
 
-Conversions Forever does not expose through the API: 14 crit rating per 1% crit; Intellect per 1%
+Crit is shown and exported per 1% of crit chance, as item tooltips word it ("Improves your chance to
+get a critical strike by 1.0%"); Pawn counts each percent on a tooltip as one point, so the exported
+scale prices such an item correctly. Underneath, 1% is 14 crit rating, one rating for melee and
+spells (measured at level 27); the addon works in percent throughout and never uses the rating.
+
+Conversions Forever does not expose through the API: Intellect per 1%
 spell crit from a per-class table keyed by level (foreverdb.net values at 30 and 60, interpolated
 between them) with an override on the Options tab; haste rating per 1% defaults to 1 (weights read as
 Haste per 1%) until the conversion is known, also settable there.

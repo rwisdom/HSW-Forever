@@ -178,7 +178,9 @@ class Display(unittest.TestCase):
         lua.execute(HEAL)
         addon.SetCurrentSegment(addon, 0)
         s = addon.GetPawnString(addon)
-        self.assertTrue(s.startswith('( Pawn: v1: "Boss": Class=PALADIN, Spec=1, Healing=1.00, SpellCritRating='), s)   # Pawn on Forever: "Healing"; scale named after the segment
+        self.assertTrue(s.startswith('( Pawn: v1: "Boss": Class=PALADIN, Spec=1, Healing=1.00, CritRating='), s)   # Pawn on Forever: "Healing"; scale named after the segment
+        self.assertIn(", HasteRating=", s)                                       # Pawn's own names: it knows no "SpellHaste"
+        self.assertNotIn("Spell", s)
         self.assertTrue(s.endswith(")") and "Mp5=" in s and "Versatility" not in s, s)
         lua.execute("STUB.time = 50")
         addon.EndFight(addon)

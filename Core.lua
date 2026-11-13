@@ -2,7 +2,7 @@ local name, addon = ...;
 local hsw = LibStub("AceAddon-3.0"):NewAddon("HealerStatWeights", "AceConsole-3.0", "AceEvent-3.0");
 local lsmlists = AceGUIWidgetLSMlists;
 
-local SCHEMA = 2; -- bump when history entries change shape; older entries are wiped on load
+local SCHEMA = 3; -- bump when history entries change shape; older entries are wiped on load (2 -> 3 is converted: OnInitialize)
 
 --[[----------------------------------------------------------------------------
 	Defaults
@@ -47,8 +47,8 @@ local historySelected = 0;
 local SegmentLabels = { -- history entry field -> label (OptionsBuilder:AddKVPair)
 	Heal     = "+Healing",
 	HealPct  = "+Healing\nPer 1% HPS",
-	Crt      = "Crit Rating",
-	CrtPct   = "Crit Rating\nPer 1% HPS",
+	Crt      = "Crit (1%)",
+	CrtPct   = "Crit %\nPer 1% HPS",
 	Hst      = "Haste (HPCT)",
 	HstPct   = "Haste (HPCT)\nPer 1% HPS",
 	Int      = "Intellect",
@@ -378,7 +378,7 @@ function addon:BuildOptionsTableForHistorySegment(i)
 		local pctOptions = { Type = "integer" };
 		OptionsBuilder:AddDivider("Stat Points Per 1% HPS");
 		OptionsBuilder:AddKVPair("HealPct", pctOptions);
-		OptionsBuilder:AddKVPair("CrtPct", pctOptions);
+		OptionsBuilder:AddKVPair("CrtPct"); -- percent of crit, not points: decimals matter
 		OptionsBuilder:AddNewLine();
 		OptionsBuilder:AddNewLine();
 		OptionsBuilder:AddKVPair("HstPct", pctOptions);
@@ -462,8 +462,8 @@ function addon:PrintPlayerStats()
 		tostring(self.ply_sp), self.ply_crt or 0, self.ply_hst or 0, tostring(self.ply_int), tostring(self.ply_spi), tostring(self.ply_maxmana)));
 	self:Msg(string.format("regen base=%.2f cast=%.2f castpct=%.2f (flat %.2f/s taken out, gear mp5 %s of it) intmult=%.3f spiritmult=%.3f",
 		self.ply_regen_base or 0, self.ply_regen_cast or 0, self.ply_castpct or 0, self.ply_flat or 0, tostring(self.ply_mp5 or 0), self.ply_intmult or 1, self.ply_spiritmult or 1));
-	self:Msg(string.format("CritConv=%s HasteConv=%s IntPerCrit=%s RegenPerSpirit=%.4f",
-		tostring(self.CritConv), tostring(self.HasteConv), tostring(self.IntPerCrit), self.RegenPerSpirit or 0));
+	self:Msg(string.format("HasteConv=%s IntPerCrit=%s RegenPerSpirit=%.4f",
+		tostring(self.HasteConv), tostring(self.IntPerCrit), self.RegenPerSpirit or 0));
 	-- the estimate of mana below a full bar, to hold against the real bar in game
 	self:Msg(string.format("mana deficit=%.0f drink=%.1f/s buffs=%.1f/s", self.ManaDeficit:Advance(), self.ManaDeficit.drinkRate, self.ManaDeficit:UnseenBuffRate()));
 	self.ManaDeficit:Mark("stats"); -- a line in the `/hsw mana` log, to match it to a screenshot of this print
@@ -528,6 +528,8 @@ addon.History = addon.Queue.CreateHistoryQueue();
 
 -- Stat weights of a segment relative to +Healing = 1: crit, haste (HPCT), Int, Spirit, MP5.
 -- Int and Spirit add the live mana-based terms to the per-heal buckets.
+-- Crit is per 1% of crit chance: Forever's tooltips word every crit item as a percent (14 rating
+-- underneath) and Pawn counts each percent as one point.
 function addon:GetStatsForSegment(segment)
 	if not segment or not segment.t or segment.t.heal == 0 then
 		return 1, 0, 0, 0, 0, 0;
@@ -653,6 +655,14 @@ end
 function hsw:OnInitialize()
 	self.db = LibStub("AceDB-3.0"):New("HSW_DB", defaults);
 
+	-- Schema 2 entries hold crit per rating point, 14 to the percent; it is per 1% of crit since schema 3.
+	if self.db.global.schema == 2 then
+		for _, h in pairs(self.db.global.history) do
+			if h.Crt then h.Crt = h.Crt * 14 end
+			if h.CrtPct then h.CrtPct = h.CrtPct / 14 end
+		end
+		self.db.global.schema = SCHEMA;
+	end
 	-- History entries from the retail build (Int/Vrs/Mst/Lee keys) cannot be shown: wipe once.
 	if self.db.global.schema ~= SCHEMA then
 		wipe(self.db.global.history);

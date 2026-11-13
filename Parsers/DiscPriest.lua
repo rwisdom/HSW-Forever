@@ -38,7 +38,7 @@ local function CriticalStrike(ev, s, heal, destUnit, C, CB, seg)
 	if not s.canCrit or (ev == "SPELL_PERIODIC_HEAL" and s.name ~= "Penance") then return 0 end
 	local rank = addon:GetTalentRank("Divine Aegis");
 	if rank == 0 then return 0 end
-	return 0.01 * math.min(0.05 * rank * heal * (1 + CB), DIVINE_AEGIS_CAP) / addon.CritConv;
+	return 0.01 * math.min(0.05 * rank * heal * (1 + CB), DIVINE_AEGIS_CAP);
 end
 
 addon.StatParser:Create(addon.SpellType.DPRIEST, {

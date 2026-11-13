@@ -24,7 +24,7 @@ end
 ------------------------------------------------------------------------------]]
 local function CriticalStrike(ev, s, heal, destUnit, C, CB, seg)
 	if not s.canCrit or addon.BuffTracker:Get(addon.Shaman.WaterShield) == 0 then return 0 end
-	return 0.01 * 0.02 * (addon.ply_maxmana or 0) * seg:GetFillerHPM() / addon.CritConv;
+	return 0.01 * 0.02 * (addon.ply_maxmana or 0) * seg:GetFillerHPM();
 end
 
 -- The mana Water Shield actually returns on this crit while a globe remains (2% of max mana).

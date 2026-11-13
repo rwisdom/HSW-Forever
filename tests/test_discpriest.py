@@ -12,7 +12,7 @@ WEAKENED_SOUL, INNER_FOCUS = 6788, 14751
 
 def aegis(heal_amount, rank=3, CB=0.5):
     """Per-rating value of Divine Aegis: +1% crit -> 0.05*rank of the crit amount absorbed, up to 1,200."""
-    return 0.01 * min(0.05 * rank * heal_amount * (1 + CB), 1200) / 14
+    return 0.01 * min(0.05 * rank * heal_amount * (1 + CB), 1200)
 
 
 class DiscPriestTests(unittest.TestCase):
@@ -24,12 +24,12 @@ class DiscPriestTests(unittest.TestCase):
     def test_renewed_hope_needs_weakened_soul(self):
         lua, addon, seg = start("PRIEST", DISC, FILES)           # Holy crit 10%
         heal(addon, "SPELL_HEAL", FH, 1000)
-        self.assertAlmostEqual(seg.t.crit, crit_per_pct(1000, 0.10) / 14 + aegis(1000))
+        self.assertAlmostEqual(seg.t.crit, crit_per_pct(1000, 0.10) + aegis(1000))
         # crit from Int absorbs through Divine Aegis too; Mental Strength 5/5 makes 1 Int on gear 1.10 on the sheet
-        self.assertAlmostEqual(seg.t.int, (crit_per_pct(1000, 0.10) / 14 + aegis(1000)) * 14 / 26.9 * 1.10)
+        self.assertAlmostEqual(seg.t.int, (crit_per_pct(1000, 0.10) + aegis(1000)) / 26.9 * 1.10)
         addon.BuffTracker.MarkTarget(addon.BuffTracker, "Me", WEAKENED_SOUL, 15)
         heal(addon, "SPELL_HEAL", FH, 1000)
-        self.assertAlmostEqual(seg.t.crit, (crit_per_pct(1000, 0.10) + crit_per_pct(1000, 0.20)) / 14 + 2 * aegis(1000))
+        self.assertAlmostEqual(seg.t.crit, (crit_per_pct(1000, 0.10) + crit_per_pct(1000, 0.20)) + 2 * aegis(1000))
 
     def test_binding_heal_is_gone(self):
         _, addon, seg = start("PRIEST", DISC, FILES)
@@ -42,20 +42,20 @@ class DiscPriestTests(unittest.TestCase):
         lua, addon, seg = start("PRIEST", DISC, FILES)
         addon.BuffTracker.MarkTarget(addon.BuffTracker, "Me", WEAKENED_SOUL, 15)
         heal(addon, "SPELL_PERIODIC_HEAL", PENANCE, 500)
-        self.assertAlmostEqual(seg.t.crit, crit_per_pct(500, 0.20) / 14 + aegis(500))
+        self.assertAlmostEqual(seg.t.crit, crit_per_pct(500, 0.20) + aegis(500))
         heal(addon, "SPELL_PERIODIC_HEAL", RENEW, 500)           # ticks crit, but Aegis is non-periodic only
-        self.assertAlmostEqual(seg.t.crit, (crit_per_pct(500, 0.20) + crit_per_pct(500, 0.10)) / 14 + aegis(500))
+        self.assertAlmostEqual(seg.t.crit, (crit_per_pct(500, 0.20) + crit_per_pct(500, 0.10)) + aegis(500))
 
     def test_aegis_absorb_caps_at_1200(self):
         _, addon, seg = start("PRIEST", DISC, FILES)
         heal(addon, "SPELL_HEAL", FH, 10000)                     # 0.15 * 15000 = 2250 absorb -> capped
-        self.assertAlmostEqual(seg.t.crit, crit_per_pct(10000, 0.10) / 14 + 0.01 * 1200 / 14)
+        self.assertAlmostEqual(seg.t.crit, crit_per_pct(10000, 0.10) + 0.01 * 1200)
 
     def test_inner_focus_and_spiritual_guidance_shared_with_holy(self):
         lua, addon, seg = start("PRIEST", DISC, FILES)
         set_auras(lua, INNER_FOCUS)
         heal(addon, "SPELL_HEAL", FH, 841 + 0.429 * 200)
-        self.assertAlmostEqual(seg.t.crit, crit_per_pct(841 + 0.429 * 200, 0.35) / 14 + aegis(841 + 0.429 * 200))
+        self.assertAlmostEqual(seg.t.crit, crit_per_pct(841 + 0.429 * 200, 0.35) + aegis(841 + 0.429 * 200))
         self.assertAlmostEqual(seg.t.spirit, 0.10 * 0.429)
         self.assertAlmostEqual(addon.ply_intmult, 1.10)        # Mental Strength 2%/rank
 
@@ -72,5 +72,5 @@ class DiscPriestTests(unittest.TestCase):
         lua, addon, seg = start("PRIEST", [("Discipline", [("Meditation", 3)]), ("Holy", [])], FILES)
         addon.BuffTracker.MarkTarget(addon.BuffTracker, "Me", WEAKENED_SOUL, 15)
         heal(addon, "SPELL_HEAL", FH, 1000)
-        self.assertAlmostEqual(seg.t.crit, crit_per_pct(1000, 0.10) / 14)
+        self.assertAlmostEqual(seg.t.crit, crit_per_pct(1000, 0.10))
         self.assertEqual(seg.t.spirit, 0)

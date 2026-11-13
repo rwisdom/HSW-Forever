@@ -19,7 +19,7 @@ class RestoShamanTests(unittest.TestCase):
         amount = 1615 + 0.857 * 200
         heal(addon, "SPELL_HEAL", HW, amount)
         self.assertAlmostEqual(seg.t.heal, 0.857)
-        self.assertAlmostEqual(seg.t.crit, crit_per_pct(amount, 0.17) / 14)
+        self.assertAlmostEqual(seg.t.crit, crit_per_pct(amount, 0.17))
         self.assertAlmostEqual(seg.t.int, crit_per_pct(amount, 0.17) / 28.2 + 0.30 * 0.857)
         self.assertEqual(seg.t.spirit, 0)
 
@@ -27,19 +27,19 @@ class RestoShamanTests(unittest.TestCase):
         lua, addon, seg = start("SHAMAN", RESTO, FILES)         # max mana 3000
         seg.IncFillerCasts(seg, 620)
         heal(addon, "SPELL_HEAL", HW, 1000)                     # HPM 1000/620, no shield -> no extra
-        self.assertAlmostEqual(seg.t.crit, crit_per_pct(1000, 0.17) / 14)
+        self.assertAlmostEqual(seg.t.crit, crit_per_pct(1000, 0.17))
         set_auras(lua, WATER_SHIELD)
         heal(addon, "SPELL_HEAL", CHAIN, 1000)                  # HPM now 2000/620
-        shield = 0.01 * 0.02 * 3000 * (2000 / 620) / 14
-        self.assertAlmostEqual(seg.t.crit, (crit_per_pct(1000, 0.17) * 2) / 14 + shield)
-        self.assertAlmostEqual(seg.t.int, ((crit_per_pct(1000, 0.17) * 2) / 14 + shield) * 14 / 28.2 + 0.30 * seg.t.heal)   # crit from Int spends globes too
+        shield = 0.01 * 0.02 * 3000 * (2000 / 620)
+        self.assertAlmostEqual(seg.t.crit, (crit_per_pct(1000, 0.17) * 2) + shield)
+        self.assertAlmostEqual(seg.t.int, ((crit_per_pct(1000, 0.17) * 2) + shield) / 28.2 + 0.30 * seg.t.heal)   # crit from Int spends globes too
         ttl =addon.SegmentManager.Get(addon.SegmentManager, "Total")
-        self.assertAlmostEqual(ttl.t.crit, (crit_per_pct(1000, 0.17) * 2) / 14)   # Total: no filler mana -> HPM 0
+        self.assertAlmostEqual(ttl.t.crit, (crit_per_pct(1000, 0.17) * 2))   # Total: no filler mana -> HPM 0
 
     def test_without_talents(self):
         _, addon, seg = start("SHAMAN", [("Elemental", []), ("Enhancement", []), ("Restoration", [("Purification", 5)])], FILES)
         heal(addon, "SPELL_HEAL", HW, 1000)
-        self.assertAlmostEqual(seg.t.crit, crit_per_pct(1000, 0.12) / 14)
+        self.assertAlmostEqual(seg.t.crit, crit_per_pct(1000, 0.12))
         self.assertAlmostEqual(seg.t.int, crit_per_pct(1000, 0.12) / 28.2)
 
     def test_water_shield_mana_is_credited_on_crits(self):
@@ -64,4 +64,4 @@ class RestoShamanTests(unittest.TestCase):
         for _ in range(3):
             bt.UseCharge(bt, WATER_SHIELD)
         heal(addon, "SPELL_HEAL", HW, 1000)
-        self.assertAlmostEqual(seg.t.crit, crit_per_pct(1000, 0.17) / 14)   # no shield part
+        self.assertAlmostEqual(seg.t.crit, crit_per_pct(1000, 0.17))   # no shield part

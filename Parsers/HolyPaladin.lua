@@ -50,7 +50,7 @@ local function CriticalStrike(ev, s, heal, destUnit, C, CB, seg)
 	if ev == "SPELL_PERIODIC_HEAL" or not illuminationSpells[s.name] then return 0 end
 	local rank = addon:GetTalentRank("Illumination");
 	if rank == 0 then return 0 end
-	return 0.01 * (0.2 * rank) * 0.5 * s.manaCost * seg:GetFillerHPM() / addon.CritConv;
+	return 0.01 * (0.2 * rank) * 0.5 * s.manaCost * seg:GetFillerHPM();
 end
 
 -- The mana an Illumination proc actually returns on this crit: (0.2 * rank) chance x 50% of the
