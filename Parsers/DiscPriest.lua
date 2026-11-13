@@ -3,13 +3,7 @@ local name, addon = ...;
 addon.SpecInfo = addon.SpecInfo or {};
 addon.SpecInfo[addon.SpellType.DPRIEST] = {
 	{
-		key = "url",
-		name = "talentsforever.com",
-		desc = "Forever talent calculator; source of the spell and talent data this addon uses.",
-		value = "https://talentsforever.com/",
-	},
-	{
-		key = "Discipline Priest\nNotes:",
+		key = "Discipline Priest",
 		value = "Power Word: Shield absorbs count as healing (coefficient is an estimate until measured). Crit includes Divine Aegis absorbs (direct heals only, capped at 1,200) and Renewed Hope on Weakened Soul targets. Penance bolts are treated as direct heals for both. Mental Strength and Meditation are read from talents/client.",
 	},
 };

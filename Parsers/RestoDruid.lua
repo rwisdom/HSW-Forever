@@ -3,13 +3,7 @@ local name, addon = ...;
 addon.SpecInfo = addon.SpecInfo or {};
 addon.SpecInfo[addon.SpellType.DRUID] = {
 	{
-		key = "url",
-		name = "talentsforever.com",
-		desc = "Forever talent calculator; source of the spell and talent data this addon uses.",
-		value = "https://talentsforever.com/",
-	},
-	{
-		key = "Resto Druid\nNotes:",
+		key = "Resto Druid",
 		value = "HoT ticks can crit on Forever, so Crit is valued on every Rejuvenation/Regrowth/Wild Growth/Tranquility tick. Swiftmend is approximated as a Rejuvenation R11 heal. Living Spirit, Heart of the Wild and Natural Instinct (+Healing from Intellect) are read from your talents; Reflection, Innervate and Clearcasting are read from the client (regen rates, buffs). Bloom heals (Spirit on HoT expiry) are not attributed yet.",
 	},
 };

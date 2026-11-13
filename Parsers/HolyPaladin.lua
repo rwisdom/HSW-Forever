@@ -3,13 +3,7 @@ local name, addon = ...;
 addon.SpecInfo = addon.SpecInfo or {};
 addon.SpecInfo[addon.SpellType.PALADIN] = {
 	{
-		key = "url",
-		name = "talentsforever.com",
-		desc = "Forever talent calculator; source of the spell and talent data this addon uses.",
-		value = "https://talentsforever.com/",
-	},
-	{
-		key = "Holy Paladin\nNotes:",
+		key = "Holy Paladin",
 		value = "Crit includes the mana Illumination returns (50% of base cost on Flash of Light, Holy Light, Holy Shock and Light's Vigil crits), valued at your filler healing-per-mana; the returned mana also comes off the filler mana spent. Holy Power raises the crit healing bonus (+10% per rank on the 50%). Boundless Light adds Holy Shock crit on allies without your Oath of Light, which is tracked from your own cast; the Oath's flat bonus (+400 Holy Light, +115 Flash of Light, +230 Holy Shock) is taken off those heals before +Healing is valued. Divine Favor's guaranteed crit is ignored (one heal per 2 minutes). Reverence is read from the client's regen rates.",
 	},
 };

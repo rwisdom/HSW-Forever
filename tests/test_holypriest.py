@@ -12,7 +12,7 @@ class HolyPriestTests(unittest.TestCase):
     def test_parser_info_and_shared_functions_registered(self):
         _, addon, _ = start("PRIEST", HOLY, FILES)
         self.assertIsNotNone(addon.StatParser[257])
-        self.assertTrue(addon.SpecInfo[257][1].value.startswith("https://"))
+        self.assertEqual(addon.SpecInfo[257][1].key, "Holy Priest")
         self.assertIsNotNone(addon.Priest.CritChance)
         self.assertIsNotNone(addon.Priest.Spirit)
 

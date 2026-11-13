@@ -3,13 +3,7 @@ local name, addon = ...;
 addon.SpecInfo = addon.SpecInfo or {};
 addon.SpecInfo[addon.SpellType.SHAMAN] = {
 	{
-		key = "url",
-		name = "talentsforever.com",
-		desc = "Forever talent calculator; source of the spell and talent data this addon uses.",
-		value = "https://talentsforever.com/",
-	},
-	{
-		key = "Resto Shaman\nNotes:",
+		key = "Resto Shaman",
 		value = "Crit includes the mana Water Shield returns on heal crits (2% of max mana, valued at filler healing-per-mana) while the shield is up; the returned mana also comes off the filler mana spent. Intellect includes Mental Quickness (+Healing from Int). Riptide's Chain Heal bonus and Healing Way are captured automatically from the heal amounts. Healing Stream Totem ticks have no coefficient until measured. Earthfury: with 5 pieces the average mana returned comes off the Healing Wave and Lesser Healing Wave cost; with 8 pieces Healing Wave jumps are credited to Healing Wave.",
 	},
 };

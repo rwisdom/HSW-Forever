@@ -14,7 +14,7 @@ class HolyPaladinTests(unittest.TestCase):
     def test_parser_and_info_registered(self):
         _, addon, _ = start("PALADIN", HOLY, FILES)
         self.assertIsNotNone(addon.StatParser[65])
-        self.assertTrue(addon.SpecInfo[65][1].value.startswith("https://"))
+        self.assertEqual(addon.SpecInfo[65][1].key, "Holy Paladin")
 
     def test_holy_power_raises_the_crit_bonus_and_illumination(self):
         _, addon, seg = start("PALADIN", HOLY, FILES)          # Holy crit 10% (Holy Power no longer adds crit chance)

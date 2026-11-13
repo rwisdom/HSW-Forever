@@ -11,7 +11,7 @@ class RestoDruidTests(unittest.TestCase):
     def test_parser_and_info_registered(self):
         _, addon, _ = start("DRUID", RESTO, FILES)
         self.assertIsNotNone(addon.StatParser[105])
-        self.assertTrue(addon.SpecInfo[105][1].value.startswith("https://"))
+        self.assertEqual(addon.SpecInfo[105][1].key, "Resto Druid")
 
     def test_improved_regrowth_on_direct_and_tick(self):
         _, addon, seg = start("DRUID", RESTO, FILES)           # Nature crit 12% + 50%

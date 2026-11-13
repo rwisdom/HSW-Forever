@@ -129,6 +129,17 @@ class History(unittest.TestCase):
         for label in ("+Healing", "Crit Rating", "Haste (HPCT)", "Intellect", "Spirit", "MP5", "Pawn >>", "icon_Illumination"):
             self.assertTrue(any(label in n for n in names), label)
 
+    def test_history_segment_shows_the_spec_notes_and_no_resources(self):
+        lua, addon = start()
+        addon.AddHistoricalSegment(addon, fought_segment(lua, addon))
+        names = [v.name for _, v in addon.BuildOptionsTableForHistorySegment(addon, 0).items() if v.name]
+        self.assertIn("Notes", names)                                             # the divider
+        self.assertIn("|cFFFFF569Holy Paladin|r", names)                          # the note's label
+        self.assertFalse(any("Notes:" in n for n in names), names)
+        self.assertTrue(any("Illumination returns" in n for n in names), names)
+        for gone in ("Resources", "Do Stats Matter?", "Forever\nData", "talentsforever.com"):
+            self.assertFalse(any(gone in n for n in names), gone)
+
     def test_history_entry_carries_the_trinket_snapshot(self):
         trinket = ('function GetInventoryItemLink(_, slot) return slot == 13 and "|Hitem:1|h[Lucky Charm]|h" or nil end'
                    '; function GetItemInfo(link) return "Lucky Charm", link, 3, 45, 40, "Armor", "Trinket", 1, "INVTYPE_TRINKET", "icon_charm" end')

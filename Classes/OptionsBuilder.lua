@@ -206,25 +206,6 @@ end
 
 
 --[[----------------------------------------------------------------------------
-    URL - Add a wide control that contains a URL
-------------------------------------------------------------------------------]]
-function OptionsBuilder:AddURL(url,name,desc)
-    local url = url or "";
-    local desc = desc or "";
-
-    self:AddCtrl({
-        type = "input",
-        name = name,
-        desc = desc,
-        get = function(info) return url end,
-        set = function(info,val) end,
-        width = 2.75
-    });
-end
-
-
-
---[[----------------------------------------------------------------------------
     AddExport - a full-width multi-line box holding text the user can copy out
 ------------------------------------------------------------------------------]]
 function OptionsBuilder:AddExport(name, getText)

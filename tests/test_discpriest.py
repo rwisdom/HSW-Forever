@@ -19,7 +19,7 @@ class DiscPriestTests(unittest.TestCase):
     def test_parser_and_info_registered(self):
         _, addon, _ = start("PRIEST", DISC, FILES)
         self.assertIsNotNone(addon.StatParser[256])
-        self.assertTrue(addon.SpecInfo[256][1].value.startswith("https://"))
+        self.assertEqual(addon.SpecInfo[256][1].key, "Discipline Priest")
 
     def test_renewed_hope_needs_weakened_soul(self):
         lua, addon, seg = start("PRIEST", DISC, FILES)           # Holy crit 10%

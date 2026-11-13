@@ -79,17 +79,6 @@ local spec_icons = {
 -- Spec slot in Pawn's Classic class/spec list (verify on Forever, Task 17).
 addon.PawnSpecIndex = { [65] = 1, [256] = 1, [257] = 2, [264] = 3, [105] = 3 };
 
-local globalResources = {
-	{
-		key = "Do Stats Matter?",
-		value = "A little. But, not as much as you might think. Seriously, simple gameplay improvements have a much larger impact on performance than your stats... and this is coming from someone who wrote an entire addon to calculate statweights for you. :)",
-	},
-	{
-		key = "Forever\nData",
-		value = "Spell coefficients and talents come from the talentsforever.com export of the Forever client; numbers can lag live tuning. Use /hsw discover on to report unknown healing spells.",
-	},
-};
-
 --[[----------------------------------------------------------------------------
 	Options
 ------------------------------------------------------------------------------]]
@@ -410,18 +399,12 @@ function addon:BuildOptionsTableForHistorySegment(i)
 	end
 
 	if self.SpecInfo[h.SpecID] then
-		OptionsBuilder:AddDivider("Resources");
+		OptionsBuilder:AddDivider("Notes");
 		local specInfoOptions = { Width = 2.75, Type = "string" };
-		for _, list in ipairs({ globalResources, self.SpecInfo[h.SpecID] }) do
-			for _, v in ipairs(list) do
-				if v.key == "url" then
-					OptionsBuilder:AddURL(v.value, v.name, v.desc);
-				else
-					OptionsBuilder:AddKVPairRaw(v.key, v.value, specInfoOptions);
-				end
-				OptionsBuilder:AddNewLine();
-				OptionsBuilder:AddNewLine();
-			end
+		for _, v in ipairs(self.SpecInfo[h.SpecID]) do
+			OptionsBuilder:AddKVPairRaw(v.key, v.value, specInfoOptions);
+			OptionsBuilder:AddNewLine();
+			OptionsBuilder:AddNewLine();
 		end
 	end
 

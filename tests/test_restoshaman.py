@@ -12,7 +12,7 @@ class RestoShamanTests(unittest.TestCase):
     def test_parser_and_info_registered(self):
         _, addon, _ = start("SHAMAN", RESTO, FILES)
         self.assertIsNotNone(addon.StatParser[264])
-        self.assertTrue(addon.SpecInfo[264][1].value.startswith("https://"))
+        self.assertEqual(addon.SpecInfo[264][1].key, "Resto Shaman")
 
     def test_tidal_mastery_and_mental_quickness(self):
         _, addon, seg = start("SHAMAN", RESTO, FILES)           # Nature crit 12% + 5%
