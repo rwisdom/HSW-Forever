@@ -165,9 +165,9 @@ function addon:OnPlayerSpellcast(spellID)
 
 	-- buffs we cast ourselves are the only ones visible in combat
 	if spellID == self.Shaman.WaterShield then
-		-- recast in a fight: the old shield's globes cannot be read here, and a shield is recast
-		-- when it has run out, so the ones not seen going are taken as spent
-		self:CreditWaterShield(self.BuffTracker:Get(spellID));
+		-- recast in a fight: the old shield's globes cannot be read here. They are replaced, not
+		-- spent, and a shield is refreshed with globes left (Stockade 2026-11-12: crediting them put
+		-- the count 73 and 109 under the bar). Ones that did go unseen before it are not credited.
 		self.BuffTracker:MarkCast(spellID, self.Shaman.WaterShieldDuration, self.Shaman.WaterShieldGlobes);
 	elseif spellID == self.Priest.InnerFocus then
 		self.BuffTracker:MarkCast(spellID, self.Priest.InnerFocusDuration);

@@ -404,15 +404,17 @@ class UnitEvents(unittest.TestCase):
         fire(addon, "UNIT_AURA", "player")
         self.assertEqual((bt.Get(bt, WATER_SHIELD), md.deficit), (3, 820))
 
-    def test_recasting_water_shield_in_combat_counts_the_old_globes_as_spent(self):
+    def test_recasting_water_shield_in_combat_credits_no_mana(self):
+        # Stockade 2026-11-12: the shield is refreshed with globes left (3 charges and a fresh 10 m on the screenshot after
+        # each recast), and the bar gained nothing: counting the old globes as spent put the count 73 and 109 under the bar.
         lua, addon, seg = start(SHAMAN, 264)
         bt, md = addon.BuffTracker, addon.ManaDeficit
         md.Spend(md, 1000, 0)
-        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", WATER_SHIELD)   # none known before: nothing to credit
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", WATER_SHIELD)
         self.assertEqual((bt.Get(bt, WATER_SHIELD), seg.manaRestore), (3, 0))
         bt.UseCharge(bt, WATER_SHIELD)                                       # a heal crit took one and was credited then
-        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", WATER_SHIELD)   # buffs cannot be read in combat: the other two went unseen
-        self.assertEqual((bt.Get(bt, WATER_SHIELD), seg.manaRestore, md.deficit), (3, 120, 880))
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", WATER_SHIELD)   # the other two are replaced, not spent
+        self.assertEqual((bt.Get(bt, WATER_SHIELD), seg.manaRestore, md.deficit), (3, 0, 1000))
 
     def test_casts_and_heals_are_logged_on_the_live_segment(self):
         lua, addon, seg = start(extra=PARTY)
