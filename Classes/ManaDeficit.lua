@@ -15,7 +15,8 @@ local ManaDeficit = { deficit = 0, drinkRate = 0, endedDrink = 0, buffs = {}, lo
 -- The last changes to the deficit, printed by `/hsw mana`: the time, what happened, the deficit
 -- before and after, and how many mana events came since the line before. Regen is not noted; it
 -- is the fall between one line and the next. `spentAt` is set on a spend until a mana event
--- beside it shows the bar moved: a cast counted at a cost it did not have stays flagged.
+-- beside it shows the bar moved: a cast counted at a cost it did not have stays flagged. Below a
+-- full bar a regen event comes every 2 s, so most such casts go unflagged: no flag proves little.
 -- `saved` holds the same entries in the saved variables (ManaDeficit:SaveTo), to read a whole run
 -- from the file: there `spentAt` set means "no mana change seen".
 local LOG_SIZE, SAVED_SIZE = 120, 5000;
