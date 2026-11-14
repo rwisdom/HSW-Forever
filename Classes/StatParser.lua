@@ -319,7 +319,7 @@ function StatParser:DecompHealingForCurrentSpec(ev, destGUID, spellID, critFlag)
 	end
 	if not addon.Spells:IsForSpec(s, specId) then return end
 
-	local destUnit = addon.UnitManager:Find(destGUID); -- the player and the group only
+	local destUnit = addon.UnitManager:Find(destGUID); -- the player, the group and its pets only
 	if not destUnit then return end
 
 	if addon.hsw.db.global.excludeRaidHealingCooldowns and s.cd then return end

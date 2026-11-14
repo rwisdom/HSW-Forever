@@ -58,7 +58,8 @@ function HealMatcher:SentTarget(spellID)
 	return sentTarget[spellID] or playerName();
 end
 
--- The group member the player has selected, by name; nil for no target, a hostile one or a stranger.
+-- The group member or group pet the player has selected, by name; nil for no target, a hostile one
+-- or a stranger.
 local function selectedGroupMember()
 	local guid = addon.Compat.PlainString(UnitGUID("target"));
 	local token = guid and addon.UnitManager:Find(guid);

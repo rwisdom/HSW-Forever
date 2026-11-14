@@ -22,6 +22,22 @@ class UnitManagerTests(unittest.TestCase):
         self.assertEqual((um.Find(um, "Player-2"), um.FindByName(um, "Cat")), ("party1", "party2"))
         self.assertEqual(sorted(um.GroupNames(um).values()), ["Bob", "Cat", "Me"])
 
+    def test_group_members_pets_are_cached(self):
+        # Blackfathom Deeps 2026-11-13: heals on a hunter's pet were cast and landed, and none was counted
+        setup = ('STUB.group = "party"; STUB.groupSize = 2; STUB.guids.party1 = "Player-2"; STUB.names.party1 = "Bob"'
+                 '; STUB.guids.partypet1 = "Pet-9"; STUB.names.partypet1 = "Let"')
+        _, addon = load(FILES, setup=setup)
+        um = addon.UnitManager
+        um.Cache(um)
+        self.assertEqual((um.Find(um, "Pet-9"), um.FindByName(um, "Let")), ("partypet1", "partypet1"))
+        self.assertEqual(sorted(um.GroupNames(um).values()), ["Bob", "Let", "Me"])
+        setup = ('STUB.group = "raid"; STUB.groupSize = 2; STUB.guids.raid1 = "Player-1"; STUB.names.raid1 = "Me"'
+                 '; STUB.guids.raid2 = "Player-2"; STUB.names.raid2 = "Bob"; STUB.guids.raidpet2 = "Pet-9"; STUB.names.raidpet2 = "Let"')
+        _, addon = load(FILES, setup=setup)
+        um = addon.UnitManager
+        um.Cache(um)
+        self.assertEqual(um.Find(um, "Pet-9"), "raidpet2")
+
     def test_secret_unit_identity_is_skipped(self):
         # A secret GUID or name (a unit reached through a hostile one in combat) cannot be a table key: the unit is left out.
         setup = ('issecretvalue = function(v) return v == "SECRET" end; STUB.group = "party"; STUB.groupSize = 1'

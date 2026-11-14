@@ -156,6 +156,17 @@ class UnitEvents(unittest.TestCase):
         fire(addon, "UNIT_COMBAT", "party1", "HEAL", "", 1000, 2)
         self.assertEqual(seg.hits[HL].targets.Bob, 1)
 
+    def test_heal_on_a_group_members_pet_with_a_secret_name_is_counted(self):
+        # Blackfathom Deeps 2026-11-13: a hunter's pet as cast target has a secret name. The cast went to
+        # the player ("secret cast target for spell 332, using Hop") and the heal on the pet came out
+        # unattributed: 15 casts with no hit.
+        lua, addon, seg = start(extra=PARTY + '; issecretvalue = function(v) return v == "SECRET" end'
+                                '; STUB.guids.partypet1 = "Pet-9"; STUB.names.partypet1 = "Let"'
+                                '; STUB.guids.target = "Pet-9"; STUB.names.target = "Let"')
+        cast(addon, HL, "SECRET")
+        fire(addon, "UNIT_COMBAT", "partypet1", "HEAL", "", 1000, 2)
+        self.assertEqual(seg.hits[HL].targets.Let, 1)
+
     def test_quiet_failure_of_a_duplicate_sent_leaves_one_expectation(self):
         # Forever sends a queued cast twice and fails one copy quietly
         lua, addon, seg = start(extra=PARTY)
