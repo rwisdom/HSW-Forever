@@ -184,6 +184,13 @@ S:Define(1277376, T.PRIEST, "Divine Grace", { coeff = 0.429, base = 894, cd = tr
 S:Define(1277377, T.PRIEST, "Divine Grace", { coeff = 0.429, base = 1187, cd = true }); -- Rank 6
 S:Define(1277378, T.PRIEST, "Divine Grace", { coeff = 0.429, base = 1399, cd = true }); -- Rank 7
 
+-- Contingency Plan
+S:Define(1277462, T.PRIEST, "Contingency Plan", { coeffTick = 0.2, baseTick = 25, cd = true, duration = 15, tick = 3 }); -- Rank 1
+S:Define(1277634, T.PRIEST, "Contingency Plan", { coeffTick = 0.2, baseTick = 40, cd = true, duration = 15, tick = 3 }); -- Rank 2
+S:Define(1277638, T.PRIEST, "Contingency Plan", { coeffTick = 0.2, baseTick = 56, cd = true, duration = 15, tick = 3 }); -- Rank 3
+S:Define(1277639, T.PRIEST, "Contingency Plan", { coeffTick = 0.2, baseTick = 102, cd = true, duration = 15, tick = 3 }); -- Rank 4
+S:Define(1277640, T.PRIEST, "Contingency Plan", { coeffTick = 0.2, baseTick = 134, cd = true, duration = 15, tick = 3 }); -- Rank 5
+
 -- Healing Wave
 S:Define(331, T.SHAMAN, "Healing Wave", { coeff = 0.429, base = 41, mana = 25, cast = 1.5 }); -- Rank 1
 S:Define(332, T.SHAMAN, "Healing Wave", { coeff = 0.571, base = 76, mana = 45, cast = 2 }); -- Rank 2

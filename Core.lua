@@ -102,7 +102,7 @@ local options = {
 				},
 				excludeBigCDs = {
 					name = "Exclude Raid Healing Cooldowns",
-					desc = "When checked, excludes Tranquility, Lay on Hands, Divine Grace and Desperate Prayer. Not retroactive: set it before combat.",
+					desc = "When checked, excludes Tranquility, Lay on Hands, Divine Grace, Desperate Prayer and Contingency Plan. Not retroactive: set it before combat.",
 					type = "toggle",
 					order = 2,
 					width = "full",

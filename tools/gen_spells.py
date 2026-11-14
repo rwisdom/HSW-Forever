@@ -20,14 +20,16 @@ WHITELIST = {
     "Paladin": ("PALADIN", ["Holy Light", "Flash of Light", "Holy Shock", "Light's Vigil", "Lay on Hands"]),
     "Priest": ("PRIEST", ["Lesser Heal", "Heal", "Greater Heal", "Flash Heal", "Renew", "Prayer of Healing",
                           "Holy Nova", "Prayer of Mending", "Penance", "Power Word: Shield",
-                          "Desperate Prayer", "Divine Grace"]),
+                          "Desperate Prayer", "Divine Grace", "Contingency Plan"]),
     "Shaman": ("SHAMAN", ["Healing Wave", "Lesser Healing Wave", "Chain Heal", "Riptide", "Healing Stream Totem"]),
 }
 # Seconds between HoT ticks for spells whose tooltip says only "N over D sec" (verify in game and
 # regenerate if wrong). Spells that say "every I sec" carry their interval in the text.
-TICK_INTERVAL = {"Rejuvenation": 3, "Regrowth": 3, "Renew": 3, "Riptide": 3, "Wild Growth": 1}
-RAID_COOLDOWN = {"Tranquility", "Lay on Hands", "Divine Grace", "Desperate Prayer"}   # excluded by the "raid cooldowns" option
+TICK_INTERVAL = {"Rejuvenation": 3, "Regrowth": 3, "Renew": 3, "Riptide": 3, "Wild Growth": 1, "Contingency Plan": 3}
+RAID_COOLDOWN = {"Tranquility", "Lay on Hands", "Divine Grace", "Desperate Prayer", "Contingency Plan"}   # excluded by the "raid cooldowns" option
 NO_CRIT = {"Power Word: Shield", "Lay on Hands"}
+# Shields that only appear if a ward fires: nothing to credit at cast, so the absorb is not a direct part.
+WARD_ABSORB = {"Contingency Plan"}
 # Seconds a periodic effect lasts when its tooltip does not say (totems stay until replaced; 5 min).
 HOT_DURATION = {"Healing Stream Totem": 300}
 # Direct heals that land on several units at once (Chain Heal bounces, party heals).
@@ -46,7 +48,7 @@ RE_SINGLE = [re.compile(p) for p in (
     r"absorbing " + NUM + r" damage",               # Power Word: Shield
     r"for " + NUM + r" the next time",              # Prayer of Mending
 )]
-RE_HOT = re.compile(r"(?:for|another|additional|of) " + NUM + r"(?: damage)? over (\d+) sec")   # "N over D sec"
+RE_HOT = re.compile(r"(?:for|another|additional|of) " + NUM + r"(?: damage| Health)? over (\d+) sec")   # "N over D sec"
 RE_EVERY = re.compile(r"for " + NUM + r" every (\d+) sec")                                      # "N every D sec(onds)"
 RE_EVERY_FOR = re.compile(r"every (\d+) sec(?:onds)? for (\d+) sec")                            # "every I sec for D sec"
 RE_EVERY_ONLY = re.compile(r"every (\d+) sec")                                                   # "every I sec(onds)" with no duration
@@ -84,6 +86,8 @@ def parse_desc(name, d):
             if m:
                 base = num(m.group(1))
                 break
+    if name in WARD_ABSORB:
+        base = None
     m = RE_HOT.search(d)
     if m:
         total, duration = num(m.group(1)), int(m.group(2))

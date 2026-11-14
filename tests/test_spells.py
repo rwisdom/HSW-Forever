@@ -81,6 +81,9 @@ class DataTests(unittest.TestCase):
         self.assertEqual((self.get(402174).duration, self.get(402174).tick), (2, 1))       # Penance bolts
         self.assertEqual((self.get(408120).duration, self.get(408120).tick, self.get(408120).party), (7, 1, True))   # Wild Growth
         self.assertEqual(self.get(2061).spellType, 5)      # Flash Heal is PRIEST (Holy + Disc)
+        cp = self.get(1277640)                              # Contingency Plan R5: periodic part only, a cooldown
+        self.assertEqual((cp.base, cp.coeff, cp.baseTick, cp.coeffTick, cp.duration, cp.tick), (0, 0, 134, 0.2, 15, 3))
+        self.assertEqual((cp.cd, cp.filler, cp.spellType), (True, False, 5))
 
     def test_manual_overrides_and_aliases(self):
         self.assertEqual(self.get(740).coeffTick, 0.214)
