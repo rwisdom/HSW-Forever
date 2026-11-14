@@ -520,6 +520,31 @@ class Finaliser(unittest.TestCase):
         self.assertEqual((first.totalHealing, second.totalHealing), (100, 200))
         self.assertEqual(addon.History.Size(addon.History), 2)
 
+    def test_a_pull_chained_into_the_meters_open_session_is_priced_from_what_it_added(self):
+        # Blackfathom Deeps 2026-11-13: a pull 5 s after the last one opened no new session. Session 10
+        # read 28 s at the first fight's end and 40 s at the second's, and the second fight ended
+        # `Trash: sessions 10 to 10, healing 0, 1 hits`.
+        lua, addon = start(extra=ALWAYS)
+        addon.StartFight(addon, None)
+        first = seg(addon)
+        lua.execute('STUB.sessions[1] = { sessionID = 1, name = "Blackfathom Myrmidon", durationSeconds = 28, heals = { ["Player-1"] = { [25292] = 336 } } }; STUB.time = 26')
+        addon.EndFight(addon)
+        self.assertEqual((first.id, first.totalHealing), ("Blackfathom Myrmidon", 336))
+        addon.StartFight(addon, None)
+        second = seg(addon)
+        lua.execute('STUB.sessions[1].durationSeconds = 40; STUB.sessions[1].heals["Player-1"][25292] = 500; STUB.time = 38')   # no new session: the open one grew
+        addon.EndFight(addon)
+        self.assertEqual((second.sessionFrom, second.sessionTo), (1, 1))
+        self.assertEqual(second.totalHealing, 164)
+        self.assertEqual(second.id, "Blackfathom Myrmidon(2)")                    # named after the session it sat in
+        self.assertEqual(seg(addon, "Total").totalHealing, 500)
+        self.assertEqual(addon.History.Size(addon.History), 2)
+        addon.StartFight(addon, None)
+        third = seg(addon)
+        lua.execute("STUB.time = 50")
+        addon.EndFight(addon)
+        self.assertEqual((third.id, third.totalHealing), ("Trash", 0))            # nothing added: not that session's fight
+
     def test_a_fight_started_while_one_is_pending_begins_after_it(self):
         # Both boundaries secret: the second fight starts on the stale watermark, so the finaliser moves
         # its start to the first fight's resolved end. Sessions opened before the first fight is priced

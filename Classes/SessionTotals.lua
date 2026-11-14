@@ -19,6 +19,11 @@ local SessionTotals = {};
 -- watermark belongs to the fight running or starting.
 SessionTotals.watermark = 0;
 
+-- The last session read and the player's per-spell totals in it at that moment. The meter keeps a
+-- session open across a short gap between pulls (Blackfathom Deeps 2026-11-13: same id, a longer
+-- duration), so healing lands in a session after a fight has read it.
+local taken = {};
+
 local function healingDone()
 	return Enum and Enum.DamageMeterType and Enum.DamageMeterType.HealingDone or 2;
 end
@@ -41,10 +46,13 @@ end
 
 -- Raise the watermark to `id`. Without one, set it to the newest readable session: an out-of-combat
 -- reading below the watermark means the meter restarted its ids (Deadmines 2026-11-10: 10 -> 7).
+-- A newest session other than the one last read is an untracked fight's or a restarted id: what
+-- was read no longer says anything about the session a fight will start on.
 function SessionTotals.Advance(id)
 	local newest = not id and SessionTotals.Newest();
 	if newest then
 		SessionTotals.watermark = newest;
+		if taken.id ~= newest then taken = {} end
 	elseif id and id > SessionTotals.watermark then
 		SessionTotals.watermark = id;
 	end
@@ -56,19 +64,34 @@ function SessionTotals.Restart(id)
 	SessionTotals.watermark = id;
 end
 
-local function read(from, to)
+-- { [spellID] = amount } for the player in one session; nil while a value is secret.
+local function session(id)
 	local P = addon.Compat.PlainNumber;
 	local totals = {};
-	for id = from + 1, to do
-		-- nil: no session with that id, or the player healed nothing in it
-		local source = C_DamageMeter.GetCombatSessionSourceFromID(id, healingDone(), UnitGUID("player"));
-		for _, spell in ipairs(source and source.combatSpells or {}) do
-			local spellID, amount = P(spell.spellID), P(spell.totalAmount);
-			if not spellID or not amount then return nil end
-			totals[spellID] = (totals[spellID] or 0) + amount;
-		end
+	-- nil: no session with that id, or the player healed nothing in it
+	local source = C_DamageMeter.GetCombatSessionSourceFromID(id, healingDone(), UnitGUID("player"));
+	for _, spell in ipairs(source and source.combatSpells or {}) do
+		local spellID, amount = P(spell.spellID), P(spell.totalAmount);
+		if not spellID or not amount then return nil end
+		totals[spellID] = amount;
 	end
 	return totals;
+end
+
+-- The range starts on a session already read (`from`): it gives what it gained since, or nothing
+-- when the reading was not ours. Returns the totals and the last session's own.
+local function read(from, to)
+	local totals, last = {}, nil;
+	for id = from, to do
+		last = session(id);
+		if not last then return nil end
+		local before = id == from and (taken.id == id and taken.totals or last) or {};
+		for spellID, amount in pairs(last) do
+			local gained = amount - (before[spellID] or 0);
+			if gained > 0 then totals[spellID] = (totals[spellID] or 0) + gained end
+		end
+	end
+	return totals, last;
 end
 
 -- Name of the longest session with from < id <= to (the mob the meter named it after); nil when
@@ -112,12 +135,15 @@ function SessionTotals.Recent(count)
 	return ok and text or "unreadable";
 end
 
--- { [spellID] = effective healing } for the player over the sessions from < id <= to.
+-- { [spellID] = effective healing } for the player over the sessions from < id <= to, and what
+-- session `from` gained since the read that ended on it. A read that succeeds is remembered, so
+-- the same healing is handed out once.
 -- nil without the API or while any value is secret (iterating a secret table throws: same answer).
 function SessionTotals.Read(from, to)
 	if not C_DamageMeter or not C_DamageMeter.GetCombatSessionSourceFromID then return nil end
-	local ok, totals = pcall(read, from, to);
-	if not ok then return nil end
+	local ok, totals, last = pcall(read, from, to);
+	if not ok or not totals then return nil end
+	if last then taken = { id = to, totals = last } end
 	return totals;
 end
 

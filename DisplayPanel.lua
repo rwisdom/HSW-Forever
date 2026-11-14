@@ -305,7 +305,9 @@ function addon:FinalizePending()
 			-- a hostile's name is secret in a dungeon, so the fight is still "Trash": the meter named
 			-- its session after the mob, and that name is plain once the totals are
 			if not seg.nameSet then
-				self.SegmentManager:Name(seg, self.SessionTotals.Name(seg.sessionFrom, seg.sessionTo));
+				-- a pull priced from the session the fight before ended on was fought in that session
+				local chained = seg.sessionTo == seg.sessionFrom and seg.totalHealing > 0;
+				self.SegmentManager:Name(seg, self.SessionTotals.Name(seg.sessionFrom - (chained and 1 or 0), seg.sessionTo));
 			end
 			self:AddHistoricalSegment(seg);
 			if seg.t.heal == 0 and next(seg.hits) then

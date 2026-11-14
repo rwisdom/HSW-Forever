@@ -116,6 +116,44 @@ class Read(unittest.TestCase):
         _, _, st = start("C_DamageMeter = nil")
         self.assertIsNone(st.Read(0, 1))
 
+    def test_a_session_read_before_gives_only_what_it_gained_since(self):
+        # Blackfathom Deeps 2026-11-13: the meter kept a session open across a short gap between pulls
+        # (same id, longer duration). The first fight read it, the second fight's healing landed in it
+        # and the second fight read an empty range: nine fights with hits priced nothing.
+        lua, _, st = start(SESSIONS)
+        self.assertEqual(totals(st.Read(0, 2)), {HW1: 200, HW3: 300})
+        lua.execute('STUB.sessions[2].heals["Player-1"] = { [331] = 130, [547] = 300, [8004] = 60 }')   # the next pull lands in session 2
+        self.assertEqual(totals(st.Read(2, 2)), {HW1: 50, 8004: 60})
+        self.assertEqual(totals(st.Read(2, 2)), {})                        # taken once
+        lua.execute('STUB.sessions[2].heals["Player-1"][331] = 150; STUB.sessions[3].heals = { ["Player-1"] = { [331] = 40 } }')
+        self.assertEqual(totals(st.Read(2, 3)), {HW1: 60})                 # the rest of session 2 and all of session 3
+
+    def test_a_session_this_addon_never_read_gives_nothing_as_a_start(self):
+        # the start of a range is a session seen out of combat (an untracked fight): none of it is ours
+        lua, _, st = start(SESSIONS)
+        self.assertEqual(totals(st.Read(2, 2)), {})
+        lua.execute('STUB.sessions[2].heals["Player-1"][331] = 100')
+        self.assertEqual(totals(st.Read(2, 2)), {HW1: 20})                 # read once, it is followed from there
+
+    def test_what_was_read_is_forgotten_when_untracked_combat_moves_the_meter_on(self):
+        # the meter restarts its ids and untracked fights bring them back to the id last read: that
+        # session is another fight's, and the old amounts say nothing about it
+        lua, _, st = start(SESSIONS)
+        st.Read(0, 2)
+        lua.execute('STUB.sessions = { { sessionID = 1, name = "Boar" } }')
+        st.Advance()
+        lua.execute('STUB.sessions[2] = { sessionID = 2, name = "Boar", heals = { ["Player-1"] = { [331] = 500 } } }')
+        st.Advance()
+        self.assertEqual(totals(st.Read(2, 2)), {})                        # not 500 less the 80 read before the restart
+
+    def test_secret_totals_take_nothing(self):
+        lua, _, st = start(SESSIONS)
+        st.Read(0, 2)
+        lua.execute('STUB.sessions[2].heals["Player-1"][331] = 130; STUB.secret = true')
+        self.assertIsNone(st.Read(2, 2))
+        lua.execute("STUB.secret = false")
+        self.assertEqual(totals(st.Read(2, 2)), {HW1: 50})
+
     def test_a_missing_session_in_range_contributes_nothing(self):
         _, _, st = start(SESSIONS)
         self.assertEqual(totals(st.Read(0, 5)), {HW1: 200, HW3: 300})     # ids 4 and 5 do not exist
