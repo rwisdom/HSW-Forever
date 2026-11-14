@@ -81,6 +81,27 @@ class Name(unittest.TestCase):
         self.assertIsNone(st.Name(0, 3))
 
 
+class Recent(unittest.TestCase):
+    """The meter's last sessions as text, for the discover log."""
+
+    def test_last_sessions_with_id_name_and_duration(self):
+        _, _, st = start(SESSIONS)
+        self.assertEqual(st.Recent(2), "2 Mangy Wolf 14s, 3 Mangy Wolf 7s")
+        self.assertEqual(st.Recent(5), "1 Forest Spider 7s, 2 Mangy Wolf 14s, 3 Mangy Wolf 7s")
+
+    def test_a_value_that_is_secret_or_missing_reads_as_a_question_mark(self):
+        _, _, st = start(SESSIONS + "; STUB.secret = true")
+        self.assertEqual(st.Recent(1), "? Mangy Wolf ?s")
+
+    def test_none_without_sessions_or_the_api_and_unreadable_when_the_list_throws(self):
+        _, _, st = start()
+        self.assertEqual(st.Recent(5), "none")
+        _, _, st = start("C_DamageMeter = nil")
+        self.assertEqual(st.Recent(5), "none")
+        _, _, st = start('C_DamageMeter.GetAvailableCombatSessions = function() error("secret") end')
+        self.assertEqual(st.Recent(5), "unreadable")
+
+
 class Read(unittest.TestCase):
     def test_sums_the_players_spells_over_the_range(self):
         _, _, st = start(SESSIONS)

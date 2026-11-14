@@ -301,6 +301,7 @@ class ApplyTotals(unittest.TestCase):
         self.assertAlmostEqual(seg.t.heal, 0.714 * 1.05)
         self.assertEqual(seg.totalHealing, 1580 + 0.714 * 200)
         self.assertIn("had no matched heals", lua.globals().MSGS[1])
+        self.assertTrue(addon.hsw.db["global"].discoverLog[1].endswith("healing by Holy Light had no matched heals."))
 
     def test_crits_normalise_the_total(self):
         lua, addon, seg = start("PALADIN")                       # CB 0.5
@@ -380,3 +381,38 @@ class ApplyTotals(unittest.TestCase):
         self.assertEqual(lua.globals().MSGS[1], "count spellid=25292 destunit=player tick=0 crit=1")
         self.apply(lua, HL, 1500)
         self.assertEqual(lua.globals().MSGS[2], "allocate spellid=25292 destunit=player amount=1000")
+
+
+class DiscoverLog(unittest.TestCase):
+    """addon:Discover: a discover-mode line goes to chat and, with the time, to the saved variables."""
+
+    def start(self):
+        lua, addon, seg = start("PALADIN")
+        lua.execute('MSGS = {}; function HSW_TEST_ADDON:Msg(s) table.insert(MSGS, tostring(s)) end')
+        return lua, addon
+
+    def saved(self, addon):
+        return list(addon.hsw.db["global"].discoverLog.values())
+
+    def test_off_prints_and_saves_nothing(self):
+        lua, addon = self.start()
+        addon.Discover(addon, "fight started.")
+        self.assertEqual(list(lua.globals().MSGS.values()), [])
+        self.assertEqual(self.saved(addon), [])
+
+    def test_on_prints_the_line_and_saves_it_with_the_time(self):
+        lua, addon = self.start()
+        addon.discoverSpells = True
+        addon.Discover(addon, "fight started.")
+        self.assertEqual(list(lua.globals().MSGS.values()), ["[HealerStatWeights]: fight started."])
+        self.assertEqual(self.saved(addon), ["Jan 01, 12:00 AM fight started."])       # the stub's date()
+
+    def test_saved_log_keeps_the_newest_lines(self):
+        lua, addon = self.start()
+        addon.discoverSpells = True
+        for i in range(2002):
+            addon.Discover(addon, "line %d" % i)
+        saved = self.saved(addon)
+        self.assertEqual(len(saved), 2000)
+        self.assertTrue(saved[0].endswith(" line 2"), saved[0])
+        self.assertTrue(saved[-1].endswith(" line 2001"), saved[-1])

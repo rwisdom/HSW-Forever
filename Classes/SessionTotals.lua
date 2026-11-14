@@ -91,6 +91,27 @@ function SessionTotals.Name(from, to)
 	return best;
 end
 
+local function recent(count)
+	local P, S = addon.Compat.PlainNumber, addon.Compat.PlainString;
+	local sessions = C_DamageMeter.GetAvailableCombatSessions() or {};
+	local parts = {};
+	for i = math.max(1, #sessions - count + 1), #sessions do
+		local s = sessions[i];
+		local id, duration = P(s.sessionID), P(s.durationSeconds);
+		parts[#parts + 1] = (id and tostring(id) or "?") .. " " .. (S(s.name) or "?") .. " "
+			.. (duration and string.format("%.0f", duration) or "?") .. "s";
+	end
+	return #parts > 0 and table.concat(parts, ", ") or "none";
+end
+
+-- The meter's last `count` sessions as "id name duration", for the discover log (addon:Discover).
+-- "?" stands for a value that is secret or missing, "unreadable" for a list that throws.
+function SessionTotals.Recent(count)
+	if not C_DamageMeter or not C_DamageMeter.GetAvailableCombatSessions then return "none" end
+	local ok, text = pcall(recent, count);
+	return ok and text or "unreadable";
+end
+
 -- { [spellID] = effective healing } for the player over the sessions from < id <= to.
 -- nil without the API or while any value is secret (iterating a secret table throws: same answer).
 function SessionTotals.Read(from, to)

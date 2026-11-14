@@ -444,6 +444,40 @@ class Finaliser(unittest.TestCase):
         self.assertFalse(any("no healing" in m for m in msgs), msgs)
         self.assertTrue(any("segment Priced finalised." in m for m in msgs), msgs)
 
+    def saved(self, addon):
+        return list(addon.hsw.db["global"].discoverLog.values())
+
+    def test_discover_mode_saves_what_the_finaliser_read(self):
+        # A14: the session range and the meter's list were chat and /hsw debug only; a run is now read from the saved variables
+        lua, addon = start(extra=ALWAYS + '; STUB.sessions = { { sessionID = 3, name = "Earlier", durationSeconds = 5 } }')
+        addon.SessionTotals.Advance()
+        addon.discoverSpells = True
+        addon.StartFight(addon, "Boss", True)
+        lua.execute('HSW_TEST_ADDON.SegmentManager:Get(0):CountHeal(25292, "SPELL_HEAL", "Hop", false)'
+                    '; STUB.sessions[2] = { sessionID = 4, name = "Mob", durationSeconds = 9, heals = { ["Player-1"] = { [25292] = 1000 } } }; STUB.time = 30')
+        addon.EndFight(addon)
+        saved = self.saved(addon)
+        self.assertTrue(any(s.endswith(" segment Boss finalised.") for s in saved), saved)
+        self.assertTrue(saved[-1].endswith(" segment Boss: sessions 3 to 4, healing 1000, 1 hits; meter: 3 Earlier 5s, 4 Mob 9s."), saved)
+
+    def test_discover_mode_saves_the_range_of_a_fight_that_priced_nothing(self):
+        lua, addon = start(extra=ALWAYS)
+        addon.discoverSpells = True
+        addon.StartFight(addon, "Boss", True)
+        lua.execute('local s = HSW_TEST_ADDON.SegmentManager:Get(0); s:CountHeal(25292, "SPELL_HEAL", "Hop", false); s:CountHeal(25292, "SPELL_HEAL", "Hop", true); STUB.time = 10')
+        addon.EndFight(addon)
+        self.assertEqual(addon.History.Size(addon.History), 0)                   # no history entry: the log is the only record
+        self.assertTrue(self.saved(addon)[-1].endswith(" segment Boss: sessions 0 to 0, healing 0, 2 hits; meter: none."), self.saved(addon))
+
+    def test_discover_mode_saves_the_range_of_a_dropped_segment(self):
+        lua, addon = start(extra=ALWAYS + "; " + SESSION + "; STUB.secret = true")
+        addon.discoverSpells = True
+        addon.StartFight(addon, "Boss", True)
+        lua.execute("STUB.time = 10")
+        addon.EndFight(addon)
+        lua.execute("STUB.time = 71; STUB.tick()")
+        self.assertTrue(self.saved(addon)[-1].endswith(" segment Boss: sessions 0 to ?, healing 0, 0 hits; meter: ? Mob ?s."), self.saved(addon))
+
     def test_unnamed_fight_takes_the_meter_sessions_name_when_priced(self):
         # Dungeon trash: the hostile's name is secret at PLAYER_REGEN_DISABLED, so the fight starts "Trash".
         # The meter names its session after the mob, readable once the totals are.

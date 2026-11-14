@@ -97,6 +97,14 @@ class UnitEvents(unittest.TestCase):
         self.assertEqual(list(lua.globals().FIGHTS.values()), ["end", "start:Lucifron", "end"])
         self.assertFalse(addon.inBossFight)
 
+    def test_discover_mode_saves_the_combat_boundaries(self):
+        lua, addon, seg = start(extra=PARTY)
+        lua.execute("function HSW_TEST_ADDON:EndFight() end; STUB.combat.party1 = true; HSW_TEST_ADDON.discoverSpells = true")
+        addon.hsw.PLAYER_REGEN_ENABLED(addon.hsw)
+        addon.hsw.ENCOUNTER_END(addon.hsw)
+        saved = list(addon.hsw.db["global"].discoverLog.values())
+        self.assertEqual([s.split(" AM ")[1] for s in saved], ["player left combat, group still fighting.", "encounter ended."])
+
     def test_encounter_start_with_no_open_fight(self):
         lua, addon, seg = start()
         lua.execute("""
@@ -213,6 +221,7 @@ class UnitEvents(unittest.TestCase):
         fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", POTION)
         self.assertEqual(seg.manaGained, 0)
         self.assertEqual(len([m for m in lua.globals().MSGS.values() if "437" in m]), 1)
+        self.assertIn("spell 437 has no readable description", addon.hsw.db["global"].discoverLog[1])
         lua.execute('STUB.spellDesc[437] = "Restores 140 to 180 mana."')
         fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", POTION)       # readable now: counted
         self.assertEqual(seg.manaGained, 160)

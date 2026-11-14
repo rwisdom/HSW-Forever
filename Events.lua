@@ -76,9 +76,7 @@ function addon.hsw:PLAYER_REGEN_ENABLED()
 		addon.SessionTotals.Advance();
 		return;
 	end
-	if addon.discoverSpells then
-		addon:Msg("[HealerStatWeights]: player left combat, group " .. (groupInCombat() and "still fighting." or "out of combat."));
-	end
+	addon:Discover("player left combat, group " .. (groupInCombat() and "still fighting." or "out of combat."));
 	if not groupInCombat() then
 		addon:EndFight();
 	elseif not combatPoll then
@@ -102,7 +100,7 @@ end
 
 function addon.hsw:ENCOUNTER_END()
 	addon.inBossFight = false;
-	if addon.discoverSpells then addon:Msg("[HealerStatWeights]: encounter ended.") end
+	addon:Discover("encounter ended.");
 	addon:EndFight();
 end
 
@@ -194,7 +192,7 @@ function addon:OnPlayerSpellcast(spellID)
 			self.ManaDeficit:Gain(gained, now, "potion " .. spellID);
 		elseif not gained and self.discoverSpells and not restoreWarned[spellID] then
 			restoreWarned[spellID] = true;
-			self:Msg("[HealerStatWeights]: spell " .. tostring(spellID) .. " has no readable description: a mana potion would not be counted.");
+			self:Discover("spell " .. tostring(spellID) .. " has no readable description: a mana potion would not be counted.");
 		end
 	end
 

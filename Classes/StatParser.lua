@@ -219,6 +219,22 @@ function addon:LogEvent(kind, s, target, amount, crit, cost)
 		cost and string.format("%g", cost) or ""));
 end
 
+--[[----------------------------------------------------------------------------
+	Discover log - discover mode (/hsw discover on) narrates the fight boundaries and
+	the heals it could not place. Each line goes to chat and, with the time, to the
+	saved variables (HSW_DB.global.discoverLog), so a run is read from the file after
+	a logout or /reload with no chat copy.
+------------------------------------------------------------------------------]]
+local DISCOVER_LOG_SIZE = 2000;
+
+function addon:Discover(text)
+	if not self.discoverSpells then return end
+	self:Msg("[HealerStatWeights]: " .. text);
+	local log = self.hsw.db.global.discoverLog;
+	log[#log + 1] = date("%m-%d %H:%M:%S") .. " " .. text;
+	if #log > DISCOVER_LOG_SIZE then table.remove(log, 1) end
+end
+
 function StatParser:IncManaRestore(mana)
 	addon.SegmentManager:ForEachLive(function(seg) seg:IncManaRestore(mana) end);
 	addon.ManaDeficit:Gain(mana, nil, "mana return");
@@ -367,7 +383,7 @@ function StatParser:ApplyTotals(seg, totals)
 				Tt = T;
 			else -- healing the matcher never saw: one non-crit heal of the part the spell has
 				if s.coeff > 0 or s.base > 0 or s.tick == 0 then Td, d = T, { n = 1, crit = 0 } else Tt, t = T, { n = 1, crit = 0 } end
-				if addon.discoverSpells then addon:Msg("[HealerStatWeights]: healing by " .. s.name .. " had no matched heals.") end
+				addon:Discover("healing by " .. s.name .. " had no matched heals.");
 			end
 			if Td > 0 then
 				logTotal(seg, s, Td);

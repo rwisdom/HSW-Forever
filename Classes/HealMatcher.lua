@@ -46,9 +46,7 @@ function HealMatcher:Reset()
 end
 
 local function unattributed(unitName)
-	if addon.discoverSpells then
-		addon:Msg("[HealerStatWeights]: unattributed heal on " .. unitName .. ".");
-	end
+	addon:Discover("unattributed heal on " .. unitName .. ".");
 end
 
 local function credit(ev, guid, spellID, crit)
@@ -78,8 +76,8 @@ function HealMatcher:OnCastSent(spellID, targetName, now, castGUID)
 		targetName = bareName(plain) or playerName();
 	else
 		targetName = selectedGroupMember() or playerName();
-		if addon.discoverSpells and s then -- a hostile target's name is secret too: say nothing for attacks
-			addon:Msg("[HealerStatWeights]: secret cast target for spell " .. tostring(spellID) .. ", using " .. targetName .. ".");
+		if s then -- a hostile target's name is secret too: say nothing for attacks
+			addon:Discover("secret cast target for spell " .. tostring(spellID) .. ", using " .. targetName .. ".");
 		end
 	end
 	sentTarget[spellID] = targetName;

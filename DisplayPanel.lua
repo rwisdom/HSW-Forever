@@ -237,11 +237,6 @@ function addon:UpdateFightButton()
 	btn.title, btn.description = s.title, s.desc;
 end
 
--- Discover mode narrates the fight boundaries: a silent heal is then readable as attributed or dropped.
-local function discoverMsg(text)
-	if addon.discoverSpells then addon:Msg("[HealerStatWeights]: " .. text) end
-end
-
 --[[----------------------------------------------------------------------------
 	Finaliser. The damage meter's numbers are secret until the player is out of
 	combat lockdown with no combat restriction; a segment that just ended waits here
@@ -258,6 +253,21 @@ local function restricted()
 		if state and state > 0 then return true end
 	end
 	return false;
+end
+
+local function hitsCounted(seg)
+	local n = 0;
+	for _, h in pairs(seg.hits) do n = n + h.direct.n + h.tick.n end
+	return n;
+end
+
+-- Discover mode: the session range the finaliser read for the fight and the meter's last sessions.
+-- A fight that priced nothing leaves no history entry, so this line is its record.
+local function discoverSessions(seg)
+	if not addon.discoverSpells then return end
+	addon:Discover(string.format("segment %s: sessions %s to %s, healing %.0f, %d hits; meter: %s.",
+		tostring(seg.id), tostring(seg.sessionFrom), tostring(seg.sessionTo or "?"), seg.totalHealing,
+		hitsCounted(seg), addon.SessionTotals.Recent(5)));
 end
 
 -- The test segment /hsw end closed: HSW_ENABLE_FOR_TESTING stays on until it is priced.
@@ -301,12 +311,11 @@ function addon:FinalizePending()
 			if seg.t.heal == 0 and next(seg.hits) then
 				-- the matcher saw heals land but the meter has nothing for them: a session it never
 				-- opened (Westfall 2026-11-08), or all overheal. Nothing to price either way.
-				local n = 0;
-				for _, h in pairs(seg.hits) do n = n + h.direct.n + h.tick.n end
-				discoverMsg("segment " .. tostring(seg.id) .. " finalised: meter recorded no healing (" .. n .. " hits counted).");
+				addon:Discover("segment " .. tostring(seg.id) .. " finalised: meter recorded no healing (" .. hitsCounted(seg) .. " hits counted).");
 			else
-				discoverMsg("segment " .. tostring(seg.id) .. " finalised.");
+				addon:Discover("segment " .. tostring(seg.id) .. " finalised.");
 			end
+			discoverSessions(seg);
 			releaseTesting(seg);
 			floor = seg.sessionTo;
 			self.SessionTotals.Advance(seg.sessionTo);
@@ -314,7 +323,8 @@ function addon:FinalizePending()
 			if live and live.sessionFrom < seg.sessionTo then live.sessionFrom = seg.sessionTo end
 		elseif GetTime() - seg.pendingSince > PENDING_TIMEOUT then
 			seg.pendingSince = nil;
-			discoverMsg("segment " .. tostring(seg.id) .. " dropped: session totals never became readable.");
+			addon:Discover("segment " .. tostring(seg.id) .. " dropped: session totals never became readable.");
+			discoverSessions(seg);
 			releaseTesting(seg);
 		else
 			table.insert(keep, seg);
@@ -359,9 +369,9 @@ end
 -- isBossFight: the segment is logged even as raid trash (an encounter, or one the player asked for).
 function addon:StartFight(id, isBossFight)
 	if self.inCombat then return end
-	discoverMsg("fight start requested (" .. tostring(id) .. ").");
-	if not self:Enabled() then discoverMsg("fight not started: not enabled here."); return end
-	discoverMsg("fight started.");
+	addon:Discover("fight start requested (" .. tostring(id) .. ").");
+	if not self:Enabled() then addon:Discover("fight not started: not enabled here."); return end
+	addon:Discover("fight started.");
 	self:UpdatePlayerStats();
 	self.UnitManager:Cache();
 	self.HealMatcher:Reset();
@@ -394,7 +404,7 @@ end
 
 function addon:EndFight()
 	if not self.inCombat then return end
-	discoverMsg("fight ended.");
+	addon:Discover("fight ended.");
 	self:ScanPlayerBuffs(); -- buffs read again once the player is out of combat: Water Shield globes spent in the fight count in it
 	self.inCombat = false;
 	self.manualFight = nil;

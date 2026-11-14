@@ -264,6 +264,7 @@ class SecretValues(unittest.TestCase):
         self.assertEqual(len(list(lua.globals().MSGS.keys())), 0)
         hm.OnCastSent(hm, HS, "SECRET", 0)
         self.assertEqual(len(list(lua.globals().MSGS.keys())), 1)
+        self.assertTrue(addon.hsw.db["global"].discoverLog[1].endswith("secret cast target for spell %d, using Me." % HS))
 
     def test_secret_amount_is_attributed_like_any_other(self):
         # Release build: amounts are secret everywhere; the heal still counts, the session total prices it later
@@ -354,3 +355,4 @@ class Housekeeping(unittest.TestCase):
         hm.OnUnitCombat(hm, "player", "HEAL", "", 777, 1)
         self.assertEqual(len(list(lua.globals().MSGS.keys())), 1)
         self.assertIn("Me", lua.globals().MSGS[1])
+        self.assertTrue(addon.hsw.db["global"].discoverLog[1].endswith("unattributed heal on Me."))   # saved too: A14 reads it from the file

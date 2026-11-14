@@ -36,6 +36,7 @@ local defaults = {
 		hasteRatingPerPct = 1,
 		intPerCritOverride = { PALADIN = 0, PRIEST = 0, SHAMAN = 0, DRUID = 0 },
 		manaLog = {},
+		discoverLog = {}, -- what discover mode said, with the time (addon:Discover)
 	},
 };
 
