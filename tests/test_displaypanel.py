@@ -207,6 +207,12 @@ class Display(unittest.TestCase):
         self.assertTrue(shown[1].startswith('( Pawn: v1: "Boss"'), shown[1])
         self.assertTrue(shown[2].startswith('( Pawn: v1: "Boss"'), shown[2])
 
+    def test_window_labels(self):
+        lua, addon = start()
+        lua.execute("HSW_TEST_ADDON.frame = { textL = { SetText = function(_, s) LABELS = s end } }")
+        addon.UpdateDisplayLabels(addon)
+        self.assertEqual(lua.globals().LABELS, "Healing\nCrit\nHaste\nIntellect\nSpirit\nMP5")
+
     def test_chat_start_end_and_segment_menu(self):
         lua, addon = start()
         addon.hsw.ChatCommand(addon.hsw, "start")

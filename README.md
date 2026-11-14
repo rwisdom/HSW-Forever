@@ -1,7 +1,7 @@
 # Healer Stat Weights (Forever)
 
 Live healer stat weights for **World of Warcraft Forever**, computed from your own casts and the
-client's built-in damage meter. Shows the relative value of +Healing (always 1.00), 1% Crit,
+client's built-in damage meter. Shows the relative value of Healing (always 1.00), 1% Crit,
 Haste, Intellect, Spirit and MP5 for the current fight, the last few fights and three running totals,
 and exports a Pawn string.
 
@@ -116,7 +116,7 @@ Consequences and known limits:
   is what the base rate holds above what Spirit alone gives, min(Spirit / 4, 6.25 + Spirit / 8),
   measured on a paladin and a shaman. On another class, `/hsw stats` unbuffed should read
   `flat 0.00/s`; if it does not, the formula is off for that class and Spirit reads low.
-- In combat the client hides +Healing, crit chance and buffs: the last out-of-combat reading is used,
+- In combat the client hides Healing, crit chance and buffs: the last out-of-combat reading is used,
   Inner Focus and Water Shield are tracked from your own casts, Clearcasting procs are not seen.
 - Not yet measured or attributed: Prayer of Mending and Healing Stream Totem coefficients, the
   Holy Binding self-heal, Bloom heals on HoT expiry, Riptide tick timing, Holy Power's exact reading.

@@ -4,7 +4,7 @@ addon.SpecInfo = addon.SpecInfo or {};
 addon.SpecInfo[addon.SpellType.HPRIEST] = {
 	{
 		key = "Holy Priest",
-		value = "Spirit is valued both as regen (Meditation share read from the client) and as +Healing through Spiritual Guidance. Inner Focus adds 25% crit to the next direct heal while the buff is up. Litany of Light's mana return (5% of base cost per rank when the previous heal was a different spell) comes off the filler mana spent. Prayer of Mending has no coefficient until measured in game. Holy Binding's self-heal (50% of a Flash Heal on someone else) is not attributed yet.",
+		value = "Spirit is valued both as regen (Meditation share read from the client) and as Healing through Spiritual Guidance. Inner Focus adds 25% crit to the next direct heal while the buff is up. Litany of Light's mana return (5% of base cost per rank when the previous heal was a different spell) comes off the filler mana spent. Prayer of Mending has no coefficient until measured in game. Holy Binding's self-heal (50% of a Flash Heal on someone else) is not attributed yet.",
 	},
 };
 

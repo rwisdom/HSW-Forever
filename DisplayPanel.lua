@@ -5,7 +5,7 @@ local media = LibStub("LibSharedMedia-3.0");
 	Strings & Patterns
 ------------------------------------------------------------------------------]]
 local pattern_title = "%s";
-local pattern_left = "+Healing\nCrit\nHaste\nIntellect\nSpirit\nMP5";
+local pattern_left = "Healing\nCrit\nHaste\nIntellect\nSpirit\nMP5";
 local pattern_right = "%.2f\n%.2f\n%.2f\n%.2f\n%.2f\n%.2f";
 -- Pawn stat identifiers as Pawn on Forever exports them (sample from Ryan, 2026-11-07): "Healing", not Classic's "HealingPower".
 -- CritRating and HasteRating are Pawn's names (its own export of a scale, 2026-11-13; it knows no "SpellHaste")

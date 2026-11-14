@@ -46,8 +46,8 @@ local historySelected = 0;
 	Labels
 ------------------------------------------------------------------------------]]
 local SegmentLabels = { -- history entry field -> label (OptionsBuilder:AddKVPair)
-	Heal     = "+Healing",
-	HealPct  = "+Healing\nPer 1% HPS",
+	Heal     = "Healing",
+	HealPct  = "Healing\nPer 1% HPS",
 	Crt      = "Crit",
 	CrtPct   = "Crit\nPer 1% HPS",
 	Hst      = "Haste",
