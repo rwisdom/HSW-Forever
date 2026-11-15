@@ -55,6 +55,20 @@ local function stopCombatPoll()
 	if combatPoll then combatPoll:Cancel(); combatPoll = nil end
 end
 
+-- Ends the fight now, or as soon as the whole group is out of combat.
+local function endFightWithGroup()
+	if not groupInCombat() then
+		addon:EndFight();
+	elseif not combatPoll then
+		combatPoll = C_Timer.NewTicker(1, function()
+			if not groupInCombat() then
+				stopCombatPoll();
+				addon:EndFight();
+			end
+		end);
+	end
+end
+
 function addon.hsw:PLAYER_REGEN_DISABLED()
 	addon.ManaDeficit:SetDrinkRate(0); -- combat ends a drink, and buffs cannot be read from here on
 	addon.foughtSinceBuffs = true; -- so Water Shield globes can go unseen (ScanPlayerBuffs)
@@ -77,16 +91,7 @@ function addon.hsw:PLAYER_REGEN_ENABLED()
 		return;
 	end
 	addon:Discover("player left combat, group " .. (groupInCombat() and "still fighting." or "out of combat."));
-	if not groupInCombat() then
-		addon:EndFight();
-	elseif not combatPoll then
-		combatPoll = C_Timer.NewTicker(1, function()
-			if not groupInCombat() then
-				stopCombatPoll();
-				addon:EndFight();
-			end
-		end);
-	end
+	endFightWithGroup();
 end
 
 -- A boss pulled while a fight is open (trash, or the healer entered combat first) gets its own
@@ -98,10 +103,13 @@ function addon.hsw:ENCOUNTER_START(eventName, encounterId, encounterName)
 	addon.inBossFight = true; -- wait for ENCOUNTER_END to close the segment
 end
 
+-- A boss that dies with adds still up is not the end of the fight (Shadetooth 2026-11-14: heals
+-- cast after the encounter were priced in the boss's segment without their casts): the segment
+-- stays open until the group is out of combat.
 function addon.hsw:ENCOUNTER_END()
 	addon.inBossFight = false;
-	addon:Discover("encounter ended.");
-	addon:EndFight();
+	addon:Discover("encounter ended" .. (groupInCombat() and ", group still fighting." or "."));
+	endFightWithGroup();
 end
 
 --[[----------------------------------------------------------------------------

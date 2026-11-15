@@ -93,17 +93,38 @@ class UnitEvents(unittest.TestCase):
         self.assertEqual(len(list(lua.globals().STUB.tickers.keys())), 0)    # the trash poll cannot end the boss fight
         addon.hsw.PLAYER_REGEN_ENABLED(addon.hsw)                            # mid-boss flicker: ignored
         self.assertTrue(addon.inCombat)
+        lua.execute("STUB.combat.party1 = false")
         addon.hsw.ENCOUNTER_END(addon.hsw)
         self.assertEqual(list(lua.globals().FIGHTS.values()), ["end", "start:Lucifron", "end"])
         self.assertFalse(addon.inBossFight)
+
+    def test_boss_fight_outlives_the_encounter_while_the_group_fights(self):
+        # Shadetooth 2026-11-14: the boss died with adds up, the segment closed at ENCOUNTER_END and
+        # the heals of the next 13 s were priced in it (the meter's session ran on) without their casts.
+        lua, addon, seg = start(extra=PARTY)
+        lua.execute("function HSW_TEST_ADDON:EndFight() self.inCombat = false end; function HSW_TEST_ADDON:StartFight() end")
+        addon.inBossFight = True
+        lua.execute("STUB.combat.player = true; STUB.combat.party1 = true")
+        addon.hsw.ENCOUNTER_END(addon.hsw)
+        self.assertFalse(addon.inBossFight)
+        self.assertTrue(addon.inCombat)                                    # adds are up: the fight is not over
+        lua.execute("STUB.combat.player = false")
+        addon.hsw.PLAYER_REGEN_ENABLED(addon.hsw)                            # the healer drops out, Bob fights on
+        self.assertTrue(addon.inCombat)
+        lua.execute("STUB.combat.party1 = false; STUB.tick()")
+        self.assertFalse(addon.inCombat)
+        self.assertEqual(len(list(lua.globals().STUB.tickers.keys())), 0)
 
     def test_discover_mode_saves_the_combat_boundaries(self):
         lua, addon, seg = start(extra=PARTY)
         lua.execute("function HSW_TEST_ADDON:EndFight() end; STUB.combat.party1 = true; HSW_TEST_ADDON.discoverSpells = true")
         addon.hsw.PLAYER_REGEN_ENABLED(addon.hsw)
         addon.hsw.ENCOUNTER_END(addon.hsw)
+        lua.execute("STUB.combat.party1 = false")
+        addon.hsw.ENCOUNTER_END(addon.hsw)
         saved = list(addon.hsw.db["global"].discoverLog.values())
-        self.assertEqual([s.split(" AM ")[1] for s in saved], ["player left combat, group still fighting.", "encounter ended."])
+        self.assertEqual([s.split(" AM ")[1] for s in saved], ["player left combat, group still fighting.",
+                                                               "encounter ended, group still fighting.", "encounter ended."])
 
     def test_encounter_start_with_no_open_fight(self):
         lua, addon, seg = start()
