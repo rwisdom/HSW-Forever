@@ -44,26 +44,6 @@ function SessionTotals.Newest()
 	return newest;
 end
 
--- Raise the watermark to `id`. Without one, set it to the newest readable session: an out-of-combat
--- reading below the watermark means the meter restarted its ids (Deadmines 2026-11-10: 10 -> 7).
--- A newest session other than the one last read is an untracked fight's or a restarted id: what
--- was read no longer says anything about the session a fight will start on.
-function SessionTotals.Advance(id)
-	local newest = not id and SessionTotals.Newest();
-	if newest then
-		SessionTotals.watermark = newest;
-		if taken.id ~= newest then taken = {} end
-	elseif id and id > SessionTotals.watermark then
-		SessionTotals.watermark = id;
-	end
-end
-
--- Lower the watermark to `id`: a fight was priced below its start, so the meter restarted its ids
--- since the watermark was read.
-function SessionTotals.Restart(id)
-	SessionTotals.watermark = id;
-end
-
 -- { [spellID] = amount } for the player in one session; nil while a value is secret.
 local function session(id)
 	local P = addon.Compat.PlainNumber;
@@ -76,6 +56,30 @@ local function session(id)
 		totals[spellID] = amount;
 	end
 	return totals;
+end
+
+-- Raise the watermark to `id`. Without one, set it to the newest readable session: an out-of-combat
+-- reading below the watermark means the meter restarted its ids (Deadmines 2026-11-10: 10 -> 7).
+-- A newest session other than the one last read is an untracked fight's or a restarted id: what
+-- was read says nothing about it. The meter may leave it open for the next fight (a zone-in after
+-- a wipe, 2026-11-14), so its totals are read now and that fight takes what it gains from here.
+function SessionTotals.Advance(id)
+	local newest = not id and SessionTotals.Newest();
+	if newest then
+		SessionTotals.watermark = newest;
+		if taken.id ~= newest then
+			local ok, totals = pcall(session, newest);
+			taken = ok and totals and { id = newest, totals = totals } or {};
+		end
+	elseif id and id > SessionTotals.watermark then
+		SessionTotals.watermark = id;
+	end
+end
+
+-- Lower the watermark to `id`: a fight was priced below its start, so the meter restarted its ids
+-- since the watermark was read.
+function SessionTotals.Restart(id)
+	SessionTotals.watermark = id;
 end
 
 -- The range starts on a session already read (`from`): it gives what it gained since, or nothing

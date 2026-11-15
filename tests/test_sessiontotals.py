@@ -146,6 +146,19 @@ class Read(unittest.TestCase):
         st.Advance()
         self.assertEqual(totals(st.Read(2, 2)), {})                        # not 500 less the 80 read before the restart
 
+    def test_a_session_open_when_the_watermark_moved_onto_it_gives_what_it_gained_since(self):
+        # Dungeon 2026-11-14: the group died on session 60, the zone-in moved the watermark onto
+        # session 61, which the meter had left open, and the next pull was fought in it: 2 hits,
+        # "meter recorded no healing".
+        lua, _, st = start(SESSIONS)
+        st.Read(0, 2)
+        lua.execute('STUB.sessions[3].heals = { ["Player-1"] = { [331] = 70 } }')   # before the zone-in: not a fight's
+        st.Advance()
+        self.assertEqual(st.watermark, 3)
+        lua.execute('STUB.sessions[3].heals["Player-1"] = { [331] = 190, [547] = 300 }')   # the pull lands in session 3
+        self.assertEqual(totals(st.Read(3, 3)), {HW1: 120, HW3: 300})
+        self.assertEqual(totals(st.Read(3, 3)), {})                        # taken once
+
     def test_secret_totals_take_nothing(self):
         lua, _, st = start(SESSIONS)
         st.Read(0, 2)
