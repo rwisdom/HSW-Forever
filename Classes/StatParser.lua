@@ -172,9 +172,9 @@ end
 
 -- value of +1% haste. Item tooltips word haste as a percent, as they do crit, and Pawn counts each
 -- percent as one point of HasteRating (its Forever pattern "Increases your attack speed and casting
--- speed by #%"). Not yet seen on an item in game (checklist A8).
-local function _Haste(s, heal, H)
-	if not s.hstHPCT then return 0 end
+-- speed by #%"). Not yet seen on an item in game (checklist A8). Every spell carries it: haste
+-- divides the cast time and the global cooldown alike (1.5 s -> 1.304 s under 15%, 2026-11-15).
+local function _Haste(heal, H)
 	return heal / (1 + H) / 100;
 end
 
@@ -268,7 +268,7 @@ function StatParser:Allocate(ev, s, heal, n, destUnit, f, SP, C, CB, H, segments
 	local flat = (f.FlatBonus and f.FlatBonus(ev, s, destUnit) or 0) * n;
 	local _SP = _Healing(ev, s, math.max(heal - flat, 0), SP) * crits;
 	local _C  = critPer1Pct(s, heal, CB);
-	local _H  = _Haste(s, heal, H) * crits;
+	local _H  = _Haste(heal, H) * crits;
 	-- 1 Int on gear is ply_intmult Int on the sheet, and sheet Int buys crit like gear crit does: with
 	-- all a crit brings (returned mana, Divine Aegis), at IntPerCrit Int a percent.
 	-- Verified in game 2026-11-12 on Ancestral Knowledge 5/5 (checklist A22): the talent multiplies

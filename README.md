@@ -86,12 +86,12 @@ between them) with an override on the Options tab.
 
 Haste is shown and exported per 1% of haste, the way item tooltips word it ("Increases your attack
 speed and casting speed by 1%"); Pawn counts each percent as one point of `HasteRating`. No haste
-item has been checked in game yet. The weight is the healing gained from shorter cast times, on the
-assumption that the time saved goes into more casts; those casts cost mana, so a healer who runs
-out of mana gets less from haste than the weight says. Only spells with a cast time or a channel
-are given haste value. Instant spells are given none, and retail's second haste weight, for
-heal-over-time effects that tick faster, is not shown: whether Forever's haste shortens the global
-cooldown or speeds up ticks has not been checked in game.
+item has been checked in game yet. The weight is the healing gained from shorter cast times and a
+shorter global cooldown (haste divides both: 15% haste takes the global cooldown from 1.5 to 1.3
+sec), on the assumption that the time saved goes into more casts; those casts cost mana, so a
+healer who runs out of mana gets less from haste than the weight says. Retail's second haste
+weight, for heal-over-time effects that tick faster, is not shown: whether Forever's haste speeds
+up ticks has not been checked in game.
 
 This is a port of Bastas' retail HealerStatWeights (v1.9.1). Spell and talent data come from the
 talentsforever.com export of the Forever client (build 1.60.1.70755 with the server hotfixes through

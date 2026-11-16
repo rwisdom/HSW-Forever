@@ -47,7 +47,6 @@ function Spells:Define(id, spellType, spellName, o)
 		coeffTick = o.coeffTick or 0,
 		baseTick = o.baseTick or 0,
 		canCrit = o.canCrit ~= false,
-		hstHPCT = cast ~= 0,
 		castTime = cast,
 		duration = o.duration or 0,
 		tick = o.tick or 0,

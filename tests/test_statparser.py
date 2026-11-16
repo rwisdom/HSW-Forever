@@ -202,7 +202,7 @@ class Derivatives(unittest.TestCase):
         _, addon, seg = start("DRUID")                            # SP 200
         heal(addon, "SPELL_PERIODIC_HEAL", REJUV, 194 + 0.2 * 200)
         self.assertAlmostEqual(seg.t.heal, 0.2 * 1.06)            # Nature crit 12%
-        self.assertEqual(seg.t.haste_hpct, 0)                     # instant: no HPCT value
+        self.assertAlmostEqual(seg.t.haste_hpct, 234 * 1.06 / 100)   # an instant: haste shortens the global cooldown (checklist A8)
         self.assertGreater(seg.t.crit, 0)                         # HoT ticks crit on Forever
 
     def test_percent_of_base_mana_spell_is_filler_only_when_the_client_prices_it(self):
@@ -234,7 +234,8 @@ class Derivatives(unittest.TestCase):
         _, addon, seg = start("PRIEST")
         addon.StatParser.DecompShieldCast(addon.StatParser, "Player-1", PWS)     # expected size 928 + 0.10 * 200
         self.assertAlmostEqual(seg.t.heal, 0.10)                  # cannot crit: nothing on top
-        self.assertEqual((seg.t.crit, seg.t.int, seg.t.haste_hpct), (0, 0, 0))
+        self.assertEqual((seg.t.crit, seg.t.int), (0, 0))
+        self.assertAlmostEqual(seg.t.haste_hpct, 948 / 100)       # an instant gains from a shorter global cooldown
 
     def test_filter_rules(self):
         lua, addon, seg = start("PALADIN")

@@ -17,7 +17,7 @@ class SchemaTests(unittest.TestCase):
         s = self.define(1, "{ coeff = 0.5, base = 10, mana = 35, cast = 2.5 }")
         self.assertEqual((s.spellID, s.spellType, s.name), (1, 65, "x"))
         self.assertEqual((s.coeff, s.base, s.coeffTick, s.baseTick, s.manaCost), (0.5, 10, 0, 0, 35))
-        self.assertEqual((s.canCrit, s.hstHPCT, s.cd, s.filler), (True, True, False, True))
+        self.assertEqual((s.canCrit, s.cd, s.filler), (True, False, True))
         self.assertEqual((s.castTime, s.duration, s.tick, s.targets, s.party), (2.5, 0, 0, 1, False))
 
     def test_timing_and_target_fields(self):
@@ -29,8 +29,6 @@ class SchemaTests(unittest.TestCase):
         self.assertEqual((s.castTime, s.party), (-1, True))
 
     def test_cast_cd_and_filler_rules(self):
-        self.assertFalse(self.define(2, "{ mana = 25 }").hstHPCT)                 # instant: no HPCT value
-        self.assertTrue(self.define(3, "{ mana = 25, cast = -1 }").hstHPCT)       # channeled
         s = self.define(4, "{ mana = 375, cast = -1, cd = true }")
         self.assertEqual((s.cd, s.filler), (True, False))                          # raid cooldown is never a filler
         s = self.define(5, "{ canCrit = false }")
@@ -70,10 +68,10 @@ class DataTests(unittest.TestCase):
 
     def test_generated_spot_values(self):
         hl = self.get(25292)
-        self.assertEqual((hl.name, hl.coeff, hl.base, hl.manaCost, hl.hstHPCT, hl.filler, hl.spellType), ("Holy Light", 0.714, 1580, 660, True, True, 65))
+        self.assertEqual((hl.name, hl.coeff, hl.base, hl.manaCost, hl.filler, hl.spellType), ("Holy Light", 0.714, 1580, 660, True, 65))
         self.assertEqual((hl.castTime, hl.duration, hl.tick, hl.targets, hl.party), (2.5, 0, 0, 1, False))
         rj = self.get(774)
-        self.assertEqual((rj.coeffTick, rj.baseTick, rj.hstHPCT, rj.canCrit), (0.2, 8, False, True))
+        self.assertEqual((rj.coeffTick, rj.baseTick, rj.canCrit), (0.2, 8, True))
         self.assertEqual((rj.duration, rj.tick), (12, 3))
         self.assertEqual((self.get(10623).coeff, self.get(10623).targets), (0.714, 3))     # Chain Heal bounces
         self.assertEqual((self.get(740).duration, self.get(740).tick, self.get(740).party), (10, 2, True))   # Tranquility
