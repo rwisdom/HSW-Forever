@@ -115,6 +115,17 @@ class UnitEvents(unittest.TestCase):
         self.assertFalse(addon.inCombat)
         self.assertEqual(len(list(lua.globals().STUB.tickers.keys())), 0)
 
+    def test_poll_stops_when_the_fight_ends_without_it(self):
+        lua, addon, seg = start(extra=PARTY)
+        lua.execute("function HSW_TEST_ADDON:EndFight() self.inCombat = false end; function HSW_TEST_ADDON:StartFight() end")
+        addon.inBossFight = True
+        lua.execute("STUB.combat.player = true; STUB.combat.party1 = true")
+        addon.hsw.ENCOUNTER_END(addon.hsw)                                   # adds are up: the poll starts
+        lua.execute("STUB.combat.player = false; STUB.combat.party1 = false")
+        addon.hsw.PLAYER_REGEN_ENABLED(addon.hsw)                            # the last add dies before the next tick
+        self.assertFalse(addon.inCombat)
+        self.assertEqual(len(list(lua.globals().STUB.tickers.keys())), 0)    # no poll left to end a segment opened by hand
+
     def test_discover_mode_saves_the_combat_boundaries(self):
         lua, addon, seg = start(extra=PARTY)
         lua.execute("function HSW_TEST_ADDON:EndFight() end; STUB.combat.party1 = true; HSW_TEST_ADDON.discoverSpells = true")

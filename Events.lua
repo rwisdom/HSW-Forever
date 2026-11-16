@@ -58,6 +58,7 @@ end
 -- Ends the fight now, or as soon as the whole group is out of combat.
 local function endFightWithGroup()
 	if not groupInCombat() then
+		stopCombatPoll(); -- a poll from ENCOUNTER_END must not end the next segment
 		addon:EndFight();
 	elseif not combatPoll then
 		combatPoll = C_Timer.NewTicker(1, function()
