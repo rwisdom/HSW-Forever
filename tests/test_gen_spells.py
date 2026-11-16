@@ -100,5 +100,5 @@ class RealData(unittest.TestCase):
             'S:Define(1277462, T.PRIEST, "Contingency Plan", { coeffTick = 0.2, baseTick = 25, cd = true, duration = 15, tick = 3 }); -- Rank 1',
         ]:
             self.assertIn(line, text)
-        self.assertGreaterEqual(text.count("S:Define("), 160)   # 168 rank entries at export 2026-10-15
+        self.assertGreaterEqual(text.count("S:Define("), 160)   # 167 rank entries at export 2026-11-13
         self.assertTrue(text.startswith("-- GENERATED"))

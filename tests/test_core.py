@@ -205,7 +205,6 @@ class History(unittest.TestCase):
         lua, addon = start()
         opts = lua.globals().HSW_TEST_OPTIONS.HealerStatWeights().args.optionsTab.args
         g = addon.hsw.db["global"]
-        self.assertIsNone(opts.hasteRatingPerPct)                                # haste is per 1% throughout: no rating to set
         opts.intPerCrit.set(None, "40")
         self.assertEqual((g.intPerCritOverride.PALADIN, addon.IntPerCrit, opts.intPerCrit.get(None)), (40, 40, "40"))
         opts.intPerCrit.set(None, "x")                                           # not a number: back to the table

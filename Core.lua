@@ -244,7 +244,7 @@ local options = {
 				},
 				headerCalibration = {
 					name = "Calibration",
-					desc = "Conversion factors that Forever does not expose through the API.",
+					desc = "A conversion factor that Forever does not expose through the API.",
 					type = "header",
 					order = 30,
 				},

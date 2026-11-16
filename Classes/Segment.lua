@@ -89,7 +89,7 @@ function Segment:GetHasteHPCT()
 	if self.chainCasts == 0 or self.fillerCasts == 0 then return 0 end
 	local avgFillerHealingPerCast = self.fillerHealing / self.fillerCasts;
 	local avgHasteDuringChainCasts = self.chainHaste / self.chainCasts;
-	local est = avgFillerHealingPerCast * self.chainCasts / (1 + avgHasteDuringChainCasts) / addon.HasteConv;
+	local est = avgFillerHealingPerCast * self.chainCasts / (1 + avgHasteDuringChainCasts) / 100; -- per 1% haste
 	return math.min(est, self.t.haste_hpct);
 end
 

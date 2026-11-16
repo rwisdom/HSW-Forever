@@ -5,7 +5,6 @@ FILES = ["Classes/Compat.lua", "Classes/Util.lua", "Classes/Segment.lua"]
 SETUP = """
 HSW_TEST_ADDON.ManaPerInt = 15
 HSW_TEST_ADDON.FSR_SECONDS = 5
-HSW_TEST_ADDON.HasteConv = 100
 HSW_TEST_ADDON.RegenPerSpirit = 0.1
 HSW_TEST_ADDON.ply_intmult = 1
 HSW_TEST_ADDON.ply_spiritmult = 1

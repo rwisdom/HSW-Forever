@@ -44,7 +44,7 @@ def heal(addon, ev, spell, amount, crit=False, dest="Player-1"):
 class Conversions(unittest.TestCase):
     def test_defaults_at_level_30(self):
         _, addon, _ = start("PALADIN")
-        self.assertEqual((addon.CritConv, addon.HasteConv, addon.IntPerCrit, addon.RegenPerSpirit), (None, 100, 31.9, 0.125))   # crit and haste are per 1% throughout: no rating conversion
+        self.assertEqual((addon.IntPerCrit, addon.RegenPerSpirit), (31.9, 0.125))
 
     def test_int_per_crit_level_lookup_and_overrides(self):
         lua, addon, _ = start("DRUID", extra="STUB.level = 60")

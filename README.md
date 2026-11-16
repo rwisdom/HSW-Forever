@@ -86,7 +86,7 @@ item has been checked in game yet.
 
 This is a port of Bastas' retail HealerStatWeights (v1.9.1). Spell and talent data come from the
 talentsforever.com export of the Forever client (build 1.60.1.70755 with the server hotfixes through
-4 Nov 2026); numbers can lag live tuning.
+12 Nov 2026); numbers can lag live tuning.
 
 ## How it measures on Forever
 

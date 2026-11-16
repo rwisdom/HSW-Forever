@@ -5,10 +5,6 @@ local name, addon = ...;
 ------------------------------------------------------------------------------]]
 addon.CritBonus = 0.5;              -- heals crit for +50%
 addon.ManaPerInt = 15;
--- Haste is valued per 1%: heal / (1 + H) / HasteConv. Item tooltips word haste as a percent, as
--- they do crit, and Pawn counts each percent as one point of HasteRating (its Forever pattern
--- "Increases your attack speed and casting speed by #%"). Not yet seen on an item in game (checklist A8).
-addon.HasteConv = 100;
 addon.FSR_SECONDS = 5;              -- five-second rule
 
 -- Intellect per 1% spell crit, keyed by level. 30: foreverdb.net/stats (beta); 60: foreverdb.net/stats
@@ -52,7 +48,7 @@ function addon:GetRegenPerSpirit(spirit)
 end
 
 --[[----------------------------------------------------------------------------
-	SetupConversionFactors - rating/stat conversions (level independent on Forever)
+	SetupConversionFactors - Intellect per 1% crit and regen per Spirit, for the player's class, level and Spirit
 ------------------------------------------------------------------------------]]
 function addon:SetupConversionFactors()
 	local db = self.hsw.db.global;
@@ -174,9 +170,12 @@ local function critPer1Pct(s, heal, CB)
 	return heal * CB / 100;
 end
 
+-- value of +1% haste. Item tooltips word haste as a percent, as they do crit, and Pawn counts each
+-- percent as one point of HasteRating (its Forever pattern "Increases your attack speed and casting
+-- speed by #%"). Not yet seen on an item in game (checklist A8).
 local function _Haste(s, heal, H)
 	if not s.hstHPCT then return 0 end
-	return heal / (1 + H) / addon.HasteConv;
+	return heal / (1 + H) / 100;
 end
 
 --[[----------------------------------------------------------------------------
