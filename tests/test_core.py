@@ -36,7 +36,7 @@ class Database(unittest.TestCase):
         _, addon = start()
         g = addon.hsw.db["global"]
         self.assertEqual((g.schema, g.enabledInDungeons, g.enabledInRaids, g.enabledInBattlegrounds), (3, True, True, False))
-        self.assertEqual((g.hasteRatingPerPct, g.intPerCritOverride.PALADIN, g.maxSegments, g.neverShow, g.logEvents), (1, 0, 10, False, False))
+        self.assertEqual((g.intPerCritOverride.PALADIN, g.maxSegments, g.neverShow, g.logEvents), (0, 10, False, False))
         self.assertEqual(addon.hsw.optionsFrame.settingsCategoryID, "HSW_TEST_CATEGORY")   # Configure button → Settings.OpenToCategory(id)
 
     def test_old_history_is_wiped_once(self):
@@ -205,11 +205,7 @@ class History(unittest.TestCase):
         lua, addon = start()
         opts = lua.globals().HSW_TEST_OPTIONS.HealerStatWeights().args.optionsTab.args
         g = addon.hsw.db["global"]
-        opts.hasteRatingPerPct.set(None, "abc")
-        opts.hasteRatingPerPct.set(None, "0")
-        self.assertEqual((g.hasteRatingPerPct, addon.HasteConv), (1, 100))      # rejected: unchanged
-        opts.hasteRatingPerPct.set(None, "10")
-        self.assertEqual((g.hasteRatingPerPct, addon.HasteConv, opts.hasteRatingPerPct.get(None)), (10, 1000, "10"))
+        self.assertIsNone(opts.hasteRatingPerPct)                                # haste is per 1% throughout: no rating to set
         opts.intPerCrit.set(None, "40")
         self.assertEqual((g.intPerCritOverride.PALADIN, addon.IntPerCrit, opts.intPerCrit.get(None)), (40, 40, "40"))
         opts.intPerCrit.set(None, "x")                                           # not a number: back to the table

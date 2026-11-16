@@ -5,6 +5,10 @@ local name, addon = ...;
 ------------------------------------------------------------------------------]]
 addon.CritBonus = 0.5;              -- heals crit for +50%
 addon.ManaPerInt = 15;
+-- Haste is valued per 1%: heal / (1 + H) / HasteConv. Item tooltips word haste as a percent, as
+-- they do crit, and Pawn counts each percent as one point of HasteRating (its Forever pattern
+-- "Increases your attack speed and casting speed by #%"). Not yet seen on an item in game (checklist A8).
+addon.HasteConv = 100;
 addon.FSR_SECONDS = 5;              -- five-second rule
 
 -- Intellect per 1% spell crit, keyed by level. 30: foreverdb.net/stats (beta); 60: foreverdb.net/stats
@@ -54,7 +58,6 @@ function addon:SetupConversionFactors()
 	local db = self.hsw.db.global;
 	local _, class = UnitClass("player");
 	local level = math.max(UnitLevel("player") or 1, 1);
-	self.HasteConv = 100 * (db.hasteRatingPerPct or 1);    -- heal/(1+H)/HasteConv = per haste point
 	local override = db.intPerCritOverride and db.intPerCritOverride[class];
 	if override and override > 0 then
 		self.IntPerCrit = override;

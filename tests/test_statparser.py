@@ -44,7 +44,7 @@ def heal(addon, ev, spell, amount, crit=False, dest="Player-1"):
 class Conversions(unittest.TestCase):
     def test_defaults_at_level_30(self):
         _, addon, _ = start("PALADIN")
-        self.assertEqual((addon.CritConv, addon.HasteConv, addon.IntPerCrit, addon.RegenPerSpirit), (None, 100, 31.9, 0.125))   # crit is per 1% throughout: no rating conversion
+        self.assertEqual((addon.CritConv, addon.HasteConv, addon.IntPerCrit, addon.RegenPerSpirit), (None, 100, 31.9, 0.125))   # crit and haste are per 1% throughout: no rating conversion
 
     def test_int_per_crit_level_lookup_and_overrides(self):
         lua, addon, _ = start("DRUID", extra="STUB.level = 60")
@@ -58,9 +58,9 @@ class Conversions(unittest.TestCase):
         lua.execute("STUB.level = 70")
         addon.SetupConversionFactors(addon)
         self.assertEqual(addon.IntPerCrit, 59.9)                 # above the highest key: highest key
-        lua.execute("HSW_TEST_ADDON.hsw.db.global.intPerCritOverride.DRUID = 40; HSW_TEST_ADDON.hsw.db.global.hasteRatingPerPct = 10")
+        lua.execute("HSW_TEST_ADDON.hsw.db.global.intPerCritOverride.DRUID = 40")
         addon.SetupConversionFactors(addon)
-        self.assertEqual((addon.IntPerCrit, addon.HasteConv), (40, 1000))
+        self.assertEqual(addon.IntPerCrit, 40)
         _, addon, _ = start("SHAMAN", extra="STUB.level = 29")
         self.assertAlmostEqual(addon.IntPerCrit, (26.3 + 28.2) / 2)   # between the level-28 measurement and the level-30 value
         _, addon, _ = start("SHAMAN", extra="STUB.level = 26")

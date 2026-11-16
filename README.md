@@ -78,8 +78,11 @@ spells (measured at level 27); the addon works in percent throughout and never u
 
 Conversions Forever does not expose through the API: Intellect per 1%
 spell crit from a per-class table keyed by level (foreverdb.net values at 30 and 60, interpolated
-between them) with an override on the Options tab; haste rating per 1% defaults to 1 (weights read as
-Haste per 1%) until the conversion is known, also settable there.
+between them) with an override on the Options tab.
+
+Haste is shown and exported per 1% of haste, the way item tooltips word it ("Increases your attack
+speed and casting speed by 1%"); Pawn counts each percent as one point of `HasteRating`. No haste
+item has been checked in game yet.
 
 This is a port of Bastas' retail HealerStatWeights (v1.9.1). Spell and talent data come from the
 talentsforever.com export of the Forever client (build 1.60.1.70755 with the server hotfixes through

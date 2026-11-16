@@ -33,7 +33,6 @@ local defaults = {
 		fontColor = Color(1, 1, 1, 1),
 		fontStr = false,
 		history = {},
-		hasteRatingPerPct = 1,
 		intPerCritOverride = { PALADIN = 0, PRIEST = 0, SHAMAN = 0, DRUID = 0 },
 		manaLog = {},
 		discoverLog = {}, -- what discover mode said, with the time (addon:Discover)
@@ -263,22 +262,6 @@ local options = {
 						addon:UpdateDisplayStats();
 					end,
 				},
-				hasteRatingPerPct = {
-					name = "Haste rating per 1% haste (1 = report Haste per 1%)",
-					desc = "Set this once the haste rating conversion is known. Applies to new heals.",
-					type = "input",
-					order = 32,
-					width = "full",
-					get = function(info) return tostring(hsw.db.global.hasteRatingPerPct or 1) end,
-					set = function(info, val)
-						local n = tonumber(val);
-						if n and n > 0 then
-							hsw.db.global.hasteRatingPerPct = n;
-							addon:SetupConversionFactors();
-							addon:UpdateDisplayStats();
-						end
-					end,
-				},
 			},
 		},
 		historyTab = {
@@ -463,8 +446,8 @@ function addon:PrintPlayerStats()
 		tostring(self.ply_sp), self.ply_crt or 0, self.ply_hst or 0, tostring(self.ply_int), tostring(self.ply_spi), tostring(self.ply_maxmana)));
 	self:Msg(string.format("regen base=%.2f cast=%.2f castpct=%.2f (flat %.2f/s taken out, gear mp5 %s of it) intmult=%.3f spiritmult=%.3f",
 		self.ply_regen_base or 0, self.ply_regen_cast or 0, self.ply_castpct or 0, self.ply_flat or 0, tostring(self.ply_mp5 or 0), self.ply_intmult or 1, self.ply_spiritmult or 1));
-	self:Msg(string.format("HasteConv=%s IntPerCrit=%s RegenPerSpirit=%.4f",
-		tostring(self.HasteConv), tostring(self.IntPerCrit), self.RegenPerSpirit or 0));
+	self:Msg(string.format("IntPerCrit=%s RegenPerSpirit=%.4f",
+		tostring(self.IntPerCrit), self.RegenPerSpirit or 0));
 	-- the estimate of mana below a full bar, to hold against the real bar in game
 	self:Msg(string.format("mana deficit=%.0f drink=%.1f/s buffs=%.1f/s", self.ManaDeficit:Advance(), self.ManaDeficit.drinkRate, self.ManaDeficit:UnseenBuffRate()));
 	self.ManaDeficit:Mark("stats"); -- a line in the `/hsw mana` log, to match it to a screenshot of this print
