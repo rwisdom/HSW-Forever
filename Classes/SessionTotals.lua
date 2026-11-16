@@ -70,6 +70,9 @@ function SessionTotals.Advance(id)
 		if taken.id ~= newest then
 			local ok, totals = pcall(session, newest);
 			taken = ok and totals and { id = newest, totals = totals } or {};
+			if not taken.id then -- ids plain, amounts secret: not seen in game, so discover mode says so
+				addon:Discover("session " .. newest .. " could not be read at the watermark: a fight that goes on in it prices nothing from it.");
+			end
 		end
 	elseif id and id > SessionTotals.watermark then
 		SessionTotals.watermark = id;

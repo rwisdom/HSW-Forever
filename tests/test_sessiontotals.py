@@ -159,6 +159,27 @@ class Read(unittest.TestCase):
         self.assertEqual(totals(st.Read(3, 3)), {HW1: 120, HW3: 300})
         self.assertEqual(totals(st.Read(3, 3)), {})                        # taken once
 
+    def test_discover_mode_says_when_the_watermark_session_cannot_be_read(self):
+        # ids plain, amounts still secret: the session's totals are not known, so a fight that goes on
+        # in it prices nothing from it. Not seen in game; the line is there to show it if it happens.
+        lua, _, st = start(SESSIONS)
+        lua.execute("""
+            LINES = {}
+            function HSW_TEST_ADDON:Discover(s) table.insert(LINES, s) end
+            local read = C_DamageMeter.GetCombatSessionSourceFromID
+            C_DamageMeter.GetCombatSessionSourceFromID = function(...)
+                if SECRET_AMOUNTS then return { combatSpells = { { spellID = 331, totalAmount = "secret" } } } end
+                return read(...)
+            end
+        """)
+        st.Advance()                                                       # readable: nothing to say
+        self.assertEqual(list(lua.globals().LINES.values()), [])
+        lua.execute('SECRET_AMOUNTS = true; STUB.sessions[4] = { sessionID = 4, name = "Boar" }')
+        st.Advance()
+        self.assertEqual(st.watermark, 4)
+        self.assertEqual(list(lua.globals().LINES.values()),
+                         ["session 4 could not be read at the watermark: a fight that goes on in it prices nothing from it."])
+
     def test_secret_totals_take_nothing(self):
         lua, _, st = start(SESSIONS)
         st.Read(0, 2)
