@@ -7,6 +7,10 @@ and exports a Pawn string.
 
 Supported specs: Holy Paladin, Restoration Shaman, Restoration Druid, Holy Priest, Discipline Priest.
 
+Note: Restoration Druid, Holy Priest and Discipline Priest have had less in-game testing than the
+other two specs. Their stat weights may move by more than ±5% in later versions as more in-game
+information and testing is gathered.
+
 ## Installation
 
 Download the release zip and extract it into your WoW Forever `Interface/AddOns/` folder. The zip
