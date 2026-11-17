@@ -256,6 +256,26 @@ class SecretValues(unittest.TestCase):
         hm.OnUnitCombat(hm, "player", "HEAL", "", 500, 0.1)
         self.assertEqual(heals(lua), [("SPELL_HEAL", "Player-1", HS, False)])
 
+    def test_secret_cast_target_is_the_group_pet_under_the_mouse(self):
+        # Razorfen Kraul 2026-11-16: a pet healed by a mouseover macro with a party member selected. The
+        # cast went to that member ("secret cast target for spell 332, using Kon") and the heal on the
+        # pet came out unattributed, 12 times.
+        lua, addon, hm = start(PARTY + "; " + SECRET + '; STUB.guids.partypet2 = "Pet-9"; STUB.names.partypet2 = "Pussycat"'
+                               '; STUB.guids.target = "Player-2"; STUB.names.target = "Bob"'
+                               '; STUB.guids.mouseover = "Pet-9"; STUB.names.mouseover = "Pussycat"')
+        hm.OnCastSent(hm, HS, "SECRET", 0)
+        hm.OnUnitCombat(hm, "partypet2", "HEAL", "", 500, 0.1)
+        self.assertEqual(heals(lua), [("SPELL_HEAL", "Pet-9", HS, False)])
+        self.assertEqual(hm.SentTarget(hm, HS), "Pussycat")
+
+    def test_a_group_member_under_the_mouse_does_not_take_a_secret_cast(self):
+        # a player's name is plain at SENT, so a secret one is not the member the mouse rests on
+        lua, addon, hm = start(PARTY + "; " + SECRET + '; STUB.guids.partypet2 = "Pet-9"; STUB.names.partypet2 = "Pussycat"'
+                               '; STUB.guids.target = "Pet-9"; STUB.names.target = "Pussycat"'
+                               '; STUB.guids.mouseover = "Player-2"; STUB.names.mouseover = "Bob"')
+        hm.OnCastSent(hm, HS, "SECRET", 0)
+        self.assertEqual(hm.SentTarget(hm, HS), "Pussycat")
+
     def test_secret_target_of_a_non_healing_spell_is_not_reported(self):
         # Dungeon 2026-11-07: Flame Shock on a mob (secret name) printed "secret cast target" on every cast
         lua, addon, hm = start(SECRET)

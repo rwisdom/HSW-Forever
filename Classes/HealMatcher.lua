@@ -58,16 +58,23 @@ function HealMatcher:SentTarget(spellID)
 	return sentTarget[spellID] or playerName();
 end
 
--- The group member or group pet the player has selected, by name; nil for no target, a hostile one
--- or a stranger.
-local function selectedGroupMember()
-	local guid = addon.Compat.PlainString(UnitGUID("target"));
-	local token = guid and addon.UnitManager:Find(guid);
-	return token and addon.Compat.PlainString(UnitName(token)) or nil;
+-- Who a cast with a secret target name went to, by name: the group pet under the mouse (a mouseover
+-- macro heals it with another unit selected, Razorfen Kraul 2026-11-16), else the group member or
+-- group pet the player has selected; nil for neither. A member under the mouse is not it: a
+-- player's name is plain.
+local function secretTarget()
+	for _, unit in ipairs({ "mouseover", "target" }) do
+		local guid = addon.Compat.PlainString(UnitGUID(unit));
+		local token = guid and addon.UnitManager:Find(guid);
+		if token and (unit == "target" or token:find("pet")) then
+			return addon.Compat.PlainString(UnitName(token));
+		end
+	end
 end
 
 -- UNIT_SPELLCAST_SENT: targetName is "" for self casts and totems. In a dungeon the client hands
--- it over as a secret string that cannot be read: then the selected group member, else the player.
+-- it over as a secret string that cannot be read: then the pet under the mouse or the selected
+-- group member, else the player.
 -- The target is remembered out of combat too (Oath of Light is sworn before the pull); expectations
 -- open only in a fight.
 function HealMatcher:OnCastSent(spellID, targetName, now, castGUID)
@@ -76,7 +83,7 @@ function HealMatcher:OnCastSent(spellID, targetName, now, castGUID)
 	if plain or targetName == nil then
 		targetName = bareName(plain) or playerName();
 	else
-		targetName = selectedGroupMember() or playerName();
+		targetName = secretTarget() or playerName();
 		if s then -- a hostile target's name is secret too: say nothing for attacks
 			addon:Discover("secret cast target for spell " .. tostring(spellID) .. ", using " .. targetName .. ".");
 		end

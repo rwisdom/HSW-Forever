@@ -25,7 +25,8 @@ end
 	Cache() - GUID -> unit token, unit name -> unit token, and the group's names,
 	for the player, the group and the group's pets: the only units our heals land on.
 	Names matter on Forever: UNIT_SPELLCAST_SENT reports the cast target by name
-	(a pet's as a secret string: HealMatcher finds it here by the selected unit's GUID).
+	(a pet's as a secret string: HealMatcher finds it here by the GUID of the unit under the mouse
+	or selected).
 ------------------------------------------------------------------------------]]
 function UnitManager:Cache()
 	self.units = {};
