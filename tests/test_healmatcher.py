@@ -81,11 +81,25 @@ class DirectHeals(unittest.TestCase):
         hm.OnUnitCombat(hm, "party1", "HEAL", "", 500, 0.1)            # Bob: still expected
         self.assertEqual(heals(lua), [("SPELL_HEAL", "Player-2", HS, False)])
 
-    def test_expectation_expires_after_cast_time_plus_window(self):
+    def test_expectation_expires_two_seconds_after_the_cast_time(self):
         lua, addon, hm = start()
-        hm.OnCastSent(hm, HL, "", 0)                                   # 2.5 s cast: landing window closes at 3.5
-        hm.OnUnitCombat(hm, "player", "HEAL", "", 1000, 3.6)
+        hm.OnCastSent(hm, HL, "", 0)                                   # 2.5 s cast: with no word of its end the wait closes at 4.5
+        hm.OnUnitCombat(hm, "player", "HEAL", "", 1000, 4.6)
         self.assertEqual(heals(lua), [])
+        hm.OnCastSent(hm, HL, "", 10)
+        hm.OnUnitCombat(hm, "player", "HEAL", "", 1000, 14.4)          # inside it
+        self.assertEqual(len(heals(lua)), 1)
+
+    def test_a_cast_that_ends_late_keeps_its_expectation_through_other_heals(self):
+        # Razorfen Kraul 2026-11-16: three casts with a cast row and no heal row, their heal unattributed
+        # in the same second. Each ended over a second late (lag or pushback), and a heal on someone
+        # else in between dropped the expectation before UNIT_SPELLCAST_SUCCEEDED could extend it.
+        lua, addon, hm = start(PARTY)
+        hm.OnCastSent(hm, HL, "", 0)                                   # 2.5 s cast
+        hm.OnUnitCombat(hm, "party1", "HEAL", "", 300, 3.7)            # not ours, on Bob: expired expectations go here
+        hm.OnCastSucceeded(hm, HL, 3.9)                                # the cast ends 1.4 s late
+        hm.OnUnitCombat(hm, "player", "HEAL", "", 1000, 3.9)
+        self.assertEqual(heals(lua), [("SPELL_HEAL", "Player-1", HL, False)])
 
     def test_succeeded_reopens_the_window_for_a_cast_stretched_by_pushback(self):
         # Dungeon 2026-11-07: a Healing Wave cast while being hit finished late and its heal went unattributed

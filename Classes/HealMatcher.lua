@@ -18,7 +18,8 @@ local name, addon = ...;
 	Heals from other healers cannot be told apart; the windows keep that noise small.
 ------------------------------------------------------------------------------]]
 local HealMatcher = {};
-local LANDING_WINDOW = 1.0;             -- seconds after the cast time in which a direct heal must land
+local LANDING_WINDOW = 1.0;             -- seconds after a cast's end in which its direct heal must land
+local LATE_CAST = 2.0;                  -- seconds past its cast time a cast may end (lag, pushback) and keep its expectation
 local SEEN_WINDOW = 1.0;                -- how long dedupe keys are kept
 local TICK_WINDOW = 0.5;                -- seconds a HoT tick may land off its due time
 local TOTEM = "Healing Stream Totem";
@@ -96,7 +97,7 @@ function HealMatcher:OnCastSent(spellID, targetName, now, castGUID)
 	if direct then
 		table.insert(expectations, {
 			spellID = spellID, target = targetName, remaining = s.targets, castGUID = castGUID,
-			jumps = addon:CastJumps(s), expires = now + math.max(s.castTime, 0) + LANDING_WINDOW,
+			jumps = addon:CastJumps(s), expires = now + math.max(s.castTime, 0) + LATE_CAST,
 		});
 	end
 end
