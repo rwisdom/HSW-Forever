@@ -99,8 +99,11 @@ end
 -- segment: the open one is closed, so the boss is not logged under a trash name.
 function addon.hsw:ENCOUNTER_START(eventName, encounterId, encounterName)
 	stopCombatPoll();
+	local open = addon.inCombat and addon.SegmentManager:Get(0);
 	addon:EndFight();
 	addon:StartFight(encounterName, true);
+	local boss = addon.SegmentManager:Get(0);
+	if open and boss ~= open then open.cutShortBy = boss end -- the finaliser settles who gets a session both sat in
 	addon.inBossFight = true; -- wait for ENCOUNTER_END to close the segment
 end
 

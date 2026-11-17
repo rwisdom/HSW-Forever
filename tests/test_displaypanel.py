@@ -9,8 +9,8 @@ HEAL = ('local a = HSW_TEST_ADDON; a.SegmentManager:Get(0):IncFillerCasts(660)'
         '; a.StatParser:ApplyTotals(a.SegmentManager:Get(0), { [25292] = 1000 })')
 
 
-def start(extra=""):
-    lua, addon = load(FILES, setup=PALADIN + "\n" + extra)
+def start(extra="", files=FILES):
+    lua, addon = load(files, setup=PALADIN + "\n" + extra)
     lua.execute("""
         local a = HSW_TEST_ADDON
         a.hsw:OnInitialize()
@@ -550,6 +550,48 @@ class Finaliser(unittest.TestCase):
         lua.execute("STUB.time = 50")
         addon.EndFight(addon)
         self.assertEqual((third.id, third.totalHealing), ("Trash", 0))            # nothing added: not that session's fight
+
+    def boss_pulled_over_trash(self, boss_session):
+        """A trash fight on session 12 cut short by a boss pull; `boss_session` is where the boss's 3139 lands."""
+        lua, addon = start(extra=ALWAYS + '; STUB.sessions = { { sessionID = 11, name = "Razorfen Dustweaver", durationSeconds = 13 } }',
+                           files=FILES + ["Events.lua"])
+        addon.SessionTotals.Advance()
+        addon.StartFight(addon, None)
+        trash = seg(addon)
+        lua.execute('STUB.sessions[2] = { sessionID = 12, name = "Quilguard Champion", durationSeconds = 1 }; STUB.lockdown = true; STUB.time = 1')
+        addon.hsw.ENCOUNTER_START(addon.hsw, "ENCOUNTER_START", 1, "Death Speaker Jargba")
+        boss = seg(addon)
+        lua.execute('STUB.sessions[3] = %s' % ("{ sessionID = 13 }" if boss_session == 13 else "nil")
+                    + '; local s = STUB.sessions[%d]; s.name = "(!) Death Speaker Jargba"; s.durationSeconds = 48' % (boss_session - 10)
+                    + '; s.heals = { ["Player-1"] = { [25292] = 3139 } }; STUB.lockdown = false; STUB.time = 48')
+        addon.hsw.ENCOUNTER_END(addon.hsw)
+        return addon, trash, boss
+
+    def test_a_boss_fought_in_the_session_of_the_fight_it_cut_short_takes_that_session(self):
+        # Razorfen Kraul 2026-11-16: Death Speaker Jargba was pulled 1 s into a trash fight and the meter
+        # kept one session for both. The trash segment, priced first, read it whole (`sessions 11 to 12,
+        # healing 3139, 0 hits`) and the boss ended `sessions 12 to 12, healing 0, 11 hits`.
+        addon, trash, boss = self.boss_pulled_over_trash(12)
+        self.assertEqual((trash.sessionFrom, trash.sessionTo, trash.totalHealing), (11, 11, 0))
+        self.assertEqual((boss.sessionFrom, boss.sessionTo, boss.totalHealing), (11, 12, 3139))
+        self.assertEqual(addon.History.Size(addon.History), 1)
+        self.assertEqual(addon.History.Get(addon.History, 0).Segment, "Death Speaker Jargba")
+
+    def test_a_boss_with_a_session_of_its_own_leaves_the_fight_it_cut_short_its_session(self):
+        # Roogug the same night: `Quilguard Champion(4): sessions 22 to 23`, `Roogug: sessions 23 to 24`
+        addon, trash, boss = self.boss_pulled_over_trash(13)
+        self.assertEqual((trash.sessionFrom, trash.sessionTo), (11, 12))
+        self.assertEqual((boss.sessionFrom, boss.sessionTo, boss.totalHealing), (12, 13, 3139))
+
+    def test_a_fight_ended_by_a_boss_pull_that_starts_no_segment_keeps_its_session(self):
+        # a manual segment outside enabled content: the encounter ends it and the gate refuses the boss
+        lua, addon = start(files=FILES + ["Events.lua"])
+        addon.ToggleFight(addon)
+        manual = seg(addon)
+        lua.execute('STUB.sessions[1] = { sessionID = 1, name = "Boar", heals = { ["Player-1"] = { [25292] = 100 } } }; STUB.lockdown = true; STUB.time = 10')
+        addon.hsw.ENCOUNTER_START(addon.hsw, "ENCOUNTER_START", 1, "Lucifron")
+        lua.execute("STUB.lockdown = false; STUB.tick()")
+        self.assertEqual((manual.sessionTo, manual.totalHealing), (1, 100))
 
     def test_a_fight_started_while_one_is_pending_begins_after_it(self):
         # Both boundaries secret: the second fight starts on the stale watermark, so the finaliser moves

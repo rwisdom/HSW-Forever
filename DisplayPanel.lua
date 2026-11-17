@@ -285,6 +285,13 @@ function addon:FinalizePending()
 	for _, seg in ipairs(self.pendingSegments) do
 		if floor and seg.sessionFrom < floor then seg.sessionFrom = floor end
 		if not seg.sessionTo then seg.sessionTo = self.SessionTotals.Newest() end
+		-- A boss pulled over this fight that ends on the session this fight ended on opened none of
+		-- its own (Death Speaker Jargba 2026-11-16, pulled 1 s into a trash fight): the meter cannot
+		-- split that session, and it goes to the boss, with whatever this fight healed in it.
+		local boss = seg.cutShortBy;
+		if boss and seg.sessionTo and boss.sessionTo == seg.sessionTo and seg.sessionTo > seg.sessionFrom then
+			seg.sessionTo = seg.sessionTo - 1;
+		end
 		if seg.sessionTo and seg.sessionTo < seg.sessionFrom then
 			-- the meter restarted its ids since the watermark was read: the fight's sessions count from 1,
 			-- or from the end of a fight this pass priced on the new ids
