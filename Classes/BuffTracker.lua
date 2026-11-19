@@ -97,7 +97,11 @@ function addon:ScanPlayerBuffs()
 	local shield = self.Shaman.WaterShield;
 	local globes = BuffTracker:Get(shield);
 	if BuffTracker:UpdatePlayerBuffs() then
-		local spent = globes - BuffTracker:Get(shield);
+		local now = BuffTracker:Get(shield);
+		-- more globes than a cast gives by itself: an item adds one. A recast in a fight, where the
+		-- buff cannot be read, is marked with as many (Events.lua) until the gear changes.
+		if now > (self.ply_globes or self.Shaman.WaterShieldGlobes) then self.ply_globes = now end
+		local spent = globes - now;
 		if spent > 1 and not self.foughtSinceBuffs then spent = 0 end
 		self.foughtSinceBuffs = nil;
 		self:CreditWaterShield(spent);

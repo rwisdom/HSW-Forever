@@ -19,7 +19,7 @@ end
 
 --[[----------------------------------------------------------------------------
 	Water Shield: a heal crit restores 2% of max mana while a globe remains, and
-	spends the globe (three to a cast; hits on the shaman spend them too).
+	spends the globe (three to a cast, four with an item that adds one; hits on the shaman spend them too).
 	Value per 1% crit = 0.01 * 0.02 * maxMana * HPM.
 ------------------------------------------------------------------------------]]
 local function CriticalStrike(ev, s, heal, destUnit, C, CB, seg)

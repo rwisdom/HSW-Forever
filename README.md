@@ -119,7 +119,8 @@ Consequences and known limits:
   counted as one of your hits. The total is still yours alone; the stray count only shifts the crit
   normalisation slightly.
 - Power Word: Shield is credited at cast with its expected size (Classic coefficient); Illumination
-  and Water Shield mana is credited on each crit. Water Shield has three globes: a heal crit spends
+  and Water Shield mana is credited on each crit. Water Shield has three globes (four with an item
+  that adds one, read off the buff out of combat): a heal crit spends
   one as it lands, and globes spent by hits on you or by other spells' crits are credited from the
   buff's charges when buffs can be read (out of combat and as a fight ends). Crit is valued for
   that mana only while a globe remains when the fight is priced.

@@ -139,7 +139,11 @@ function addon.hsw:CHARACTER_POINTS_CHANGED() RefreshCharacter() end
 function addon.hsw:PLAYER_TALENT_UPDATE() RefreshCharacter() end
 function addon.hsw:TRAIT_TREE_CURRENCY_INFO_UPDATED() RefreshCharacter() end
 function addon.hsw:COMBAT_RATING_UPDATE() addon:UpdatePlayerStats() end
-function addon.hsw:PLAYER_EQUIPMENT_CHANGED() addon:UpdateEquipment(); addon:UpdatePlayerStats() end
+function addon.hsw:PLAYER_EQUIPMENT_CHANGED()
+	addon.ply_globes = nil; -- the item that adds a Water Shield globe may be the piece taken off: read again off the next shield (ScanPlayerBuffs)
+	addon:UpdateEquipment();
+	addon:UpdatePlayerStats();
+end
 
 function addon.hsw:GROUP_ROSTER_UPDATE()
 	if addon.inCombat then -- someone joined/left mid-combat
@@ -179,7 +183,7 @@ function addon:OnPlayerSpellcast(spellID)
 		-- recast in a fight: the old shield's globes cannot be read here. They are replaced, not
 		-- spent, and a shield is refreshed with globes left (Stockade 2026-11-12: crediting them put
 		-- the count 73 and 109 under the bar). Ones that did go unseen before it are not credited.
-		self.BuffTracker:MarkCast(spellID, self.Shaman.WaterShieldDuration, self.Shaman.WaterShieldGlobes);
+		self.BuffTracker:MarkCast(spellID, self.Shaman.WaterShieldDuration, self.ply_globes or self.Shaman.WaterShieldGlobes);
 	elseif spellID == self.Priest.InnerFocus then
 		self.BuffTracker:MarkCast(spellID, self.Priest.InnerFocusDuration);
 	end

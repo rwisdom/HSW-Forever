@@ -498,6 +498,34 @@ class UnitEvents(unittest.TestCase):
         fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", WATER_SHIELD)   # the other two are replaced, not spent
         self.assertEqual((bt.Get(bt, WATER_SHIELD), seg.manaRestore, md.deficit), (3, 0, 1000))
 
+    def test_a_fourth_water_shield_globe_is_learned_from_the_buff(self):
+        # An item adds a globe. In a fight the buff cannot be read, so a recast there is marked with as many globes as the
+        # fullest shield read out of it showed.
+        lua, addon, seg = start(SHAMAN, 264)
+        bt, md = addon.BuffTracker, addon.ManaDeficit
+        md.Spend(md, 1000, 0)
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", WATER_SHIELD)
+        lua.execute("STUB.auras = { { id = 408510, count = 4 } }")          # the shield reads four: nothing was spent
+        fire(addon, "UNIT_AURA", "player")
+        self.assertEqual((bt.Get(bt, WATER_SHIELD), seg.manaRestore, md.deficit), (4, 0, 1000))
+        for _ in range(4):
+            bt.UseCharge(bt, WATER_SHIELD)
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", WATER_SHIELD)
+        self.assertEqual(bt.Get(bt, WATER_SHIELD), 4)
+
+    def test_a_gear_change_forgets_the_fourth_water_shield_globe(self):
+        lua, addon, seg = start(SHAMAN, 264)
+        bt = addon.BuffTracker
+        lua.execute("STUB.auras = { { id = 408510, count = 4 } }")
+        fire(addon, "UNIT_AURA", "player")
+        addon.hsw.PLAYER_EQUIPMENT_CHANGED(addon.hsw)                        # the item may be the piece taken off
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", WATER_SHIELD)
+        self.assertEqual(bt.Get(bt, WATER_SHIELD), 3)
+        lua.execute("STUB.auras = { { id = 408510, count = 4 } }")          # still worn: the next read says so
+        fire(addon, "UNIT_AURA", "player")
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", WATER_SHIELD)
+        self.assertEqual(bt.Get(bt, WATER_SHIELD), 4)
+
     def test_casts_and_heals_are_logged_on_the_live_segment(self):
         lua, addon, seg = start(extra=PARTY)
         cast(addon, HL, "Bob")                                               # table cost 660, t = 0
