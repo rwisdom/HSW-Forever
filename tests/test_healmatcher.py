@@ -298,7 +298,20 @@ class SecretValues(unittest.TestCase):
         self.assertEqual(len(list(lua.globals().MSGS.keys())), 0)
         hm.OnCastSent(hm, HS, "SECRET", 0)
         self.assertEqual(len(list(lua.globals().MSGS.keys())), 1)
-        self.assertTrue(addon.hsw.db["global"].discoverLog[1].endswith("secret cast target for spell %d, using Me." % HS))
+        self.assertTrue(addon.hsw.db["global"].discoverLog[1].endswith(
+            "secret cast target for spell %d, using Me (mouseover none, target none)." % HS))
+
+    def test_secret_cast_target_line_says_what_the_mouse_and_the_selection_held(self):
+        # The Underbelly 2026-11-19: a pet healed by mouseover read "using Hop" twice. The line could not tell a
+        # mouseover GUID that is secret from a pet missing from the group's cache.
+        lua, addon, hm = start(PARTY + "; " + SECRET + '; STUB.guids.mouseover = "Pet-0-1-2-3"; STUB.guids.target = "SECRET"')
+        lua.execute('function HSW_TEST_ADDON:Msg() end; HSW_TEST_ADDON.discoverSpells = true')
+        log = addon.hsw.db["global"].discoverLog
+        hm.OnCastSent(hm, HS, "SECRET", 0)
+        self.assertTrue(log[1].endswith("using Me (mouseover Pet not in the group, target secret)."), log[1])
+        lua.execute('STUB.guids.mouseover = nil; STUB.guids.target = "Player-2"; STUB.names.target = "Bob"')
+        hm.OnCastSent(hm, HS, "SECRET", 0)
+        self.assertTrue(log[2].endswith("using Bob (mouseover none, target party1)."), log[2])
 
     def test_secret_amount_is_attributed_like_any_other(self):
         # Release build: amounts are secret everywhere; the heal still counts, the session total prices it later

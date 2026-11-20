@@ -73,6 +73,15 @@ local function secretTarget()
 	end
 end
 
+-- What secretTarget had to go on, for the discover line: "using Hop" for a pet healed by mouseover
+-- (The Underbelly 2026-11-19) does not say whether the GUID was secret or the pet missing from the cache.
+local function heldBy(unit)
+	local raw = UnitGUID(unit);
+	local guid = addon.Compat.PlainString(raw);
+	if not guid then return unit .. (type(raw) == "string" and " secret" or " none") end -- a secret is only asked its type, as in PlainString
+	return unit .. " " .. (addon.UnitManager:Find(guid) or guid:match("^[^-]+") .. " not in the group");
+end
+
 -- UNIT_SPELLCAST_SENT: targetName is "" for self casts and totems. In a dungeon the client hands
 -- it over as a secret string that cannot be read: then the pet under the mouse or the selected
 -- group member, else the player.
@@ -86,7 +95,8 @@ function HealMatcher:OnCastSent(spellID, targetName, now, castGUID)
 	else
 		targetName = secretTarget() or playerName();
 		if s then -- a hostile target's name is secret too: say nothing for attacks
-			addon:Discover("secret cast target for spell " .. tostring(spellID) .. ", using " .. targetName .. ".");
+			addon:Discover("secret cast target for spell " .. tostring(spellID) .. ", using " .. targetName
+				.. " (" .. heldBy("mouseover") .. ", " .. heldBy("target") .. ").");
 		end
 	end
 	sentTarget[spellID] = targetName;
