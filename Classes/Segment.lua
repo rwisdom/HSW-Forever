@@ -46,6 +46,10 @@ function Segment.Create(id)
 	self.events = {};           -- CSV rows of every cast and attributed heal (addon:LogEvent), exported from the history tab
 	self.hits = {};             -- spellID -> { direct = { n=, crit= }, tick = { n=, crit= }, targets = { [name] = count } }, counted by HealMatcher; priced at fight end (StatParser:ApplyTotals)
 	self.fights = 0;            -- Total only: fights priced with healing since it began (named in the history entry)
+	self.spells = {};           -- spell name (every rank together) -> tallies, see Segment:Spell; read by TalentValues
+	self.totemMana = 0;         -- mana paid on casts whose spell name ends in "Totem" (Events.lua)
+	self.manaTideMana = 0;      -- mana the shaman's own Mana Tide Totem casts restored to the shaman (Events.lua)
+	self.shieldsEmptied = 0;    -- times a heal crit spent Water Shield's last globe (Parsers/RestoShaman.lua)
 	return self;
 end
 
@@ -150,6 +154,22 @@ function Segment:TopTarget(spellID)
 	return best;
 end
 
+-- Tallies of one spell over the segment, made on first use:
+--   healing   effective healing (StatParser:CreditHealing)
+--   crit      healing per 1% crit (StatParser:Allocate)
+--   casts     casts that cost mana (Events.lua), with
+--   mana      the mana paid for them, returns taken off,
+--   baseMana  their table cost and
+--   castTime  their table cast time, summed
+function Segment:Spell(spellName)
+	local r = self.spells[spellName];
+	if not r then
+		r = { healing = 0, crit = 0, casts = 0, mana = 0, baseMana = 0, castTime = 0 };
+		self.spells[spellName] = r;
+	end
+	return r;
+end
+
 function Segment:GetDuration()
 	local d = self.totalDuration;
 	if self.startTime >= 0 then d = d + (GetTime() - self.startTime) end
@@ -168,7 +188,8 @@ end
 ------------------------------------------------------------------------------]]
 -- Item data is secret in combat (a boss pull ends the trash segment mid-fight): a slot that cannot
 -- be read plainly is left out rather than written to the saved variables.
-local function FetchItemInfoFromSlot(t, id)
+-- priced: also keep the item's stats and whether it has a use effect (a trinket: TalentValues.Trinket).
+local function FetchItemInfoFromSlot(t, id, priced)
 	local P, N = addon.Compat.PlainString, addon.Compat.PlainNumber;
 	local link = P(GetInventoryItemLink("player", id));
 	if link then
@@ -176,6 +197,12 @@ local function FetchItemInfoFromSlot(t, id)
 		iname, ilvl, icon = P(iname), N(ilvl), N(icon) or P(icon);
 		if ilvl and icon and iname then
 			t[id] = { link = link, name = iname, ilvl = ilvl, icon = icon };
+			if priced then
+				local stats = {};
+				for k, v in pairs(addon.Compat.GetItemStats(link) or {}) do stats[k] = N(v) end
+				t[id].stats = stats;
+				t[id].use = addon.Compat.GetItemSpell(link) ~= nil or nil;
+			end
 		end
 	end
 end
@@ -184,8 +211,9 @@ function Segment:SnapshotTalentsAndEquipment()
 	self.talentsSnapshot = true;
 	self.selectedTalents = addon.Util.GetTalentSnapshot();
 	self.gear = self.gear or {};
-	FetchItemInfoFromSlot(self.gear, 13);
-	FetchItemInfoFromSlot(self.gear, 14);
+	FetchItemInfoFromSlot(self.gear, 13, true);
+	FetchItemInfoFromSlot(self.gear, 14, true);
+	FetchItemInfoFromSlot(self.gear, 18); -- the relic (slot confirmed in game 2026-11-21)
 end
 
 --[[----------------------------------------------------------------------------

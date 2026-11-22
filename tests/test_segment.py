@@ -144,3 +144,36 @@ class SegmentTests(unittest.TestCase):
         s.CountHeal(s, 331, "SPELL_HEAL", "Me", False)
         other = addon.Segment.Create("other")
         self.assertEqual(len(list(other.hits.keys())), 0)
+
+
+GEAR = ('function GetInventoryItemLink(_, slot) return ({ [13] = "trinket", [14] = "plain", [18] = "totem" })[slot] end'
+        '; function GetItemInfo(item)'
+        ' if item == "trinket" then return "Lucky Charm", item, 3, 45, 40, "Armor", "Trinket", 1, "INVTYPE_TRINKET", "icon_charm" end'
+        ' if item == "plain" then return "Plain Stone", item, 3, 30, 25, "Armor", "Trinket", 1, "INVTYPE_TRINKET", "icon_stone" end'
+        ' if item == "totem" then return "Totem of Tides", item, 3, 60, 55, "Armor", "Totem", 1, "INVTYPE_RELIC", "icon_tides" end end'
+        '; function GetItemStats(link) if link == "trinket" then return { ITEM_MOD_SPELL_HEALING_DONE_SHORT = 20, ITEM_MOD_STAMINA_SHORT = 5 } end end'
+        '; function GetItemSpell(link) if link == "trinket" then return "Lucky Strike" end end')
+
+
+class Tallies(unittest.TestCase):
+    def test_spell_tallies_start_at_zero_and_are_kept_by_name(self):
+        from harness import CORE_FILES
+        lua, addon = load(CORE_FILES)
+        seg = addon.Segment.Create("x")
+        r = seg.Spell(seg, "Healing Wave")
+        self.assertEqual((r.healing, r.crit, r.casts, r.mana, r.baseMana, r.castTime), (0, 0, 0, 0, 0, 0))
+        r.casts = 2
+        self.assertEqual(seg.Spell(seg, "Healing Wave").casts, 2)
+        self.assertEqual((seg.totemMana, seg.manaTideMana, seg.shieldsEmptied), (0, 0, 0))
+        self.assertIsNone(addon.Segment.Create("y").spells["Healing Wave"])   # not shared between segments
+
+    def test_snapshot_reads_the_relic_and_the_trinkets_stats(self):
+        from harness import CORE_FILES
+        lua, addon = load(CORE_FILES, setup=GEAR)
+        seg = addon.Segment.Create("x")
+        seg.SnapshotTalentsAndEquipment(seg)
+        self.assertEqual((seg.gear[18].name, seg.gear[18].icon), ("Totem of Tides", "icon_tides"))
+        self.assertIsNone(seg.gear[18].stats)                                 # the relic is priced by formula, not by stats
+        charm, stone = seg.gear[13], seg.gear[14]
+        self.assertEqual((charm.stats.ITEM_MOD_SPELL_HEALING_DONE_SHORT, charm.stats.ITEM_MOD_STAMINA_SHORT, charm.use), (20, 5, True))
+        self.assertEqual((len(list(stone.stats.keys())), stone.use), (0, None))  # no stats, no use effect

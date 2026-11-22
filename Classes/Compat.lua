@@ -82,6 +82,13 @@ function Compat.GetItemStats(link)
 	return f(link);
 end
 
+-- Name of the spell an item casts when used; nil when it has no use effect.
+function Compat.GetItemSpell(link)
+	local f = (C_Item and C_Item.GetItemSpell) or GetItemSpell;
+	if not f then return nil end
+	return (f(link));
+end
+
 function Compat.GetAddOnMetadata(addonName, field)
 	local f = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata;
 	if not f then return nil end
