@@ -47,6 +47,16 @@ segment's page has a "Casts and Heals" box with a CSV of every cast, every attri
 the client hides them) and one total row per spell (time, spell, target, amount, crit, mana) the
 weights were built from; click in it, Ctrl+A, Ctrl+C to copy.
 
+For a Resto Shaman a logged segment's page lists the talents taken, one row each: points, what a
+point was worth and what the talent was worth in that fight, with a totals row. Values are in points
+of +Healing, the scale of the stat weights under them: a talent at 62 did what 62 +Healing on gear
+would have done in that fight. `~` marks an estimate (Improved Healing Wave, Riptide, Mana Tide
+Totem, Totemic Focus, Totem of Sustaining); a dash marks a talent that heals nothing. Below the
+talents five healing totems are priced, each as if it had been worn in that fight, with the worn one
+marked: Tidal Totem, Totem of Sustaining, Totem of Urgency, Totem of Tides and Polished Driftwood
+Icon. For every spec the trinkets worn are valued by their stats at the fight's weights; use and
+proc effects are not counted. Other specs see their talents as a row of icons.
+
 Commands: `/hsw show`, `/hsw hide`, `/hsw lock`, `/hsw unlock` control the panel. `/hsw spec` prints
 the detected spec, `/hsw stats` the character values in use, `/hsw regen` the Spirit-regen rate
 (0.25 mana/s per Spirit under 50 Spirit, 0.125 from 50, gear MP5 taken out), `/hsw mana` the last
