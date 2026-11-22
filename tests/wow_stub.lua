@@ -196,5 +196,5 @@ C_Item = {
 	GetItemStats = function(link) return GetItemStats and GetItemStats(link) or nil end,
 };
 C_AddOns = { GetAddOnMetadata = function() return "test" end };
-MenuUtil = { CreateContextMenu = function(owner, build) build(owner, { CreateTitle = noop, CreateButton = noop }) end };
+MenuUtil = { CreateContextMenu = function(owner, build) build(owner, { CreateTitle = noop, CreateButton = noop, CreateDivider = noop }) end };
 Settings = { OpenToCategory = noop };

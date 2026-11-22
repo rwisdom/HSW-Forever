@@ -72,6 +72,9 @@ function addon:SegmentMenu()
 	for i = 1, self.SegmentManager:Size() - 1 do
 		local segment = self.SegmentManager:Get(i);
 		if segment then
+			if menu[#menu].key == 0 then -- the first past fight: a divider under "Current Fight"
+				table.insert(menu, { text = "", isDivider = true, disabled = true, notCheckable = true });
+			end
 			table.insert(menu, { text = segment.id, func = function() addon:SetCurrentSegment(i) end, key = i });
 		end
 	end

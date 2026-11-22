@@ -85,7 +85,8 @@ class CompatTests(unittest.TestCase):
         CALLS = {}
         MenuUtil = { CreateContextMenu = function(owner, build)
             local root = { CreateTitle = function(_, t) table.insert(CALLS, "title:" .. t) end,
-                           CreateButton = function(_, t, f) table.insert(CALLS, "button:" .. t); f() end }
+                           CreateButton = function(_, t, f) table.insert(CALLS, "button:" .. t); f() end,
+                           CreateDivider = function() table.insert(CALLS, "divider") end }
             build(owner, root)
         end }
         function EasyMenu() error("legacy menu used") end
@@ -93,9 +94,10 @@ class CompatTests(unittest.TestCase):
         lua, addon = load(["Classes/Compat.lua"], setup=setup)
         lua.execute("""
             HSW_TEST_ADDON.Compat.ShowContextMenu({ { text = "Pick", isTitle = true },
-                { text = "Total", func = function() table.insert(CALLS, "clicked") end } }, {})
+                { text = "Total", func = function() table.insert(CALLS, "clicked") end },
+                { text = "", isDivider = true, disabled = true, notCheckable = true } }, {})
         """)
-        self.assertEqual(list(lua.globals().CALLS.values()), ["title:Pick", "button:Total", "clicked"])
+        self.assertEqual(list(lua.globals().CALLS.values()), ["title:Pick", "button:Total", "clicked", "divider"])
 
     def test_options_category_opens_by_settings_id_or_legacy_frame(self):
         lua, addon = load(["Classes/Compat.lua"], setup="Settings = { OpenToCategory = function(id) OPENED = id end }")

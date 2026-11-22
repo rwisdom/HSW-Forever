@@ -119,12 +119,13 @@ function Compat.OpenOptionsCategory(frame)
 	end
 end
 
--- items: { {text=, isTitle=true} , {text=, func=, checked=} ... }
+-- items: { {text=, isTitle=true} , {text=, func=, checked=} , {text="", isDivider=true, disabled=true, notCheckable=true} ... }
 function Compat.ShowContextMenu(items, ownerFrame)
 	if MenuUtil and MenuUtil.CreateContextMenu then
 		MenuUtil.CreateContextMenu(ownerFrame, function(_, root)
 			for _, item in ipairs(items) do
 				if item.isTitle then root:CreateTitle(item.text)
+				elseif item.isDivider then root:CreateDivider()
 				elseif item.func then root:CreateButton(item.text, item.func) end
 			end
 		end);

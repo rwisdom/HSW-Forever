@@ -149,6 +149,13 @@ class ClassTotals(unittest.TestCase):
         addon.SetCurrentSegment(addon, "Trash")
         addon.SetCurrentSegment(addon, "Total")
         self.assertEqual(list(lua.globals().TITLES.values()), ["Boss Total", "Trash Total", "Total"])
+        lua.execute(HEAL + "; STUB.time = 100")
+        addon.EndFight(addon)
+        addon.StartFight(addon, "Add")
+        addon.SegmentMenu(addon)
+        rows = list(lua.globals().MENU.values())
+        self.assertEqual([r.text for r in rows][4:], ["Current Fight", "", "Boss"])   # past fights sit under a divider
+        self.assertTrue(rows[5].isDivider and rows[5].disabled and rows[5].func is None)   # the divider cannot be picked
 
 
 class Display(unittest.TestCase):
