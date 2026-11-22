@@ -33,6 +33,7 @@ Parsers/HolyPriest.lua
 Parsers/DiscPriest.lua
 Parsers/RestoDruid.lua
 Parsers/RestoShaman.lua
+Parsers/RestoShamanValues.lua
 Parsers/HolyPaladin.lua
 
 DisplayPanel.lua

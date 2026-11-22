@@ -1,5 +1,6 @@
 import unittest
 from harness import load, CORE_FILES
+from parsers import start as start_parser
 
 SHAMAN = 'STUB.class = "SHAMAN"; STUB.talents = { {name="Elemental", talents={}}, {name="Enhancement", talents={}}, {name="Restoration", talents={ {name="Tidal Mastery", rank=5, max=5}, {name="Healing Focus", rank=3, max=3} }} }'
 ITEMS = 'function GetItemInfo(item) if item == 2 then return "Second", item, 3, 60, 55, "Armor", "Totem", 1, "INVTYPE_RELIC", "icon_second" end end'
@@ -66,6 +67,92 @@ class Pricing(unittest.TestCase):
         self.assertAlmostEqual(addon.TalentValues.Trinket(stats, h), 20 + 12 + 2.5 + 1 + 6)   # 14 crit rating is 1%; stamina is worth nothing
         self.assertIsNone(addon.TalentValues.Trinket(lua.eval('{ ITEM_MOD_STAMINA_SHORT = 9 }'), h))
         self.assertIsNone(addon.TalentValues.Trinket(lua.eval('{}'), h))
+
+
+SHAMAN_FILES = ["Parsers/RestoShaman.lua", "Parsers/RestoShamanValues.lua"]
+SHAMAN_TALENTS = [("Elemental", []),
+                  ("Enhancement", [("Thundering Strikes", 5), ("Ancestral Knowledge", 5), ("Mental Quickness", 2)]),
+                  ("Restoration", [("Improved Healing Wave", 5), ("Tidal Focus", 5), ("Mindfulness", 3), ("Healing Focus", 3), ("Water Shield", 1),
+                                   ("Tidal Mastery", 5), ("Restorative Totems", 5), ("Mana Tide Totem", 1), ("Healing Way", 3), ("Purification", 5),
+                                   ("Riptide", 1), ("Totemic Focus", 5)])]
+FIGHT = """
+    local a = HSW_TEST_ADDON
+    local s = a.SegmentManager:Get(0)
+    s.t.heal = 2; s.t.crit = 30; s.t.int = 4; s.t.haste_hpct = 100
+    s.totalHealing = 11000; s.fillerHealing = 12000; s.fillerCasts = 20; s.chainCasts = 10
+    s.fillerManaSpent = 6120; s.manaRestore = 120
+    s.timeInFSR = 60; s.totemMana = 150; s.manaTideMana = 352; s.shieldsEmptied = 2
+    local hw = s:Spell("Healing Wave"); hw.healing, hw.casts, hw.castTime, hw.baseMana = 5000, 10, 30, 4000
+    local lhw = s:Spell("Lesser Healing Wave"); lhw.baseMana, lhw.crit = 1000, 10
+    local rt = s:Spell("Riptide"); rt.healing, rt.mana, rt.baseMana = 900, 150, 600
+    local hst = s:Spell("Healing Stream Totem"); hst.healing, hst.baseMana = 300, 80
+    local talents = a.Util.GetTalentSnapshot()
+    a.TalentValues:PriceTalents(s, 264, talents)
+    ROWS = {}
+    for _, t in ipairs(talents) do ROWS[t.name] = t end
+    RELICS = {}
+    for _, r in ipairs(a.TalentValues:PriceRelics(s, 264, nil)) do RELICS[r.name] = r end
+"""
+
+
+class RestoShamanValues(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        lua, _, _ = start_parser("SHAMAN", SHAMAN_TALENTS, SHAMAN_FILES)
+        lua.execute(FIGHT)
+        cls.rows, cls.relics = lua.globals().ROWS, lua.globals().RELICS
+
+    def check(self, row, value, rough=None):
+        self.assertAlmostEqual(row.value, value)
+        self.assertEqual(row.rough, rough)
+
+    def test_crit_talents_are_worth_the_fights_crit(self):
+        self.check(self.rows["Tidal Mastery"], 5 * 30 / 2)
+        self.check(self.rows["Thundering Strikes"], 5 * 30 / 2)
+
+    def test_intellect_talents(self):
+        self.check(self.rows["Mental Quickness"], 0.15 * 2 * 110)                    # the Healing it gives
+        self.check(self.rows["Ancestral Knowledge"], 0.02 * 5 * (110 / 1.1) * (4 / 1.1) / 2)   # 10 sheet Int, each a gear Int's worth over 1.1
+
+    def test_percent_healing_talents(self):
+        self.check(self.rows["Purification"], 11000 * 0.10 / 1.10 / 2)
+        self.check(self.rows["Healing Way"], 5000 * 0.25 / 1.25 / 2)
+        self.check(self.rows["Restorative Totems"], 300 * 0.5 / 1.5 / 2)
+
+    def test_mana_talents(self):
+        self.check(self.rows["Tidal Focus"], 0.05 * (4000 + 1000 + 600) * 2 / 2)     # the totem's 80 is not a healing spell's
+        self.check(self.rows["Mindfulness"], 0.5 * 10 * 60 * 2 / 2)
+        self.check(self.rows["Water Shield"], 120 * 2 / 2)
+
+    def test_rough_talents(self):
+        self.check(self.rows["Improved Healing Wave"], 20 * 60 * 5000 / 12000 / 2, True)   # 3.0 s to 2.5 s is 20% haste; haste is worth 60 per 1%
+        self.check(self.rows["Riptide"], (900 - 150 * 2) / 2, True)
+        self.check(self.rows["Mana Tide Totem"], 352 * 2 / 2, True)
+        self.check(self.rows["Totemic Focus"], 0.25 * 150 / 0.75 * 2 / 2, True)
+
+    def test_a_talent_that_heals_nothing_has_no_value(self):
+        self.assertIsNone(self.rows["Healing Focus"].value)
+
+    def test_relics(self):
+        self.check(self.relics["Tidal Totem"], 0.05 * 4000 * 2 / 2)
+        self.check(self.relics["Totem of Sustaining"], 2 * 0.02 * 3000 * 2 / 2, True)
+        self.check(self.relics["Totem of Urgency"], 4 * 10 / 2)
+        self.check(self.relics["Totem of Tides"], 0.05 * 600 * 2 / 2)
+        self.check(self.relics["Polished Driftwood Icon"], 0.08 * 10 * 60 * 2 / 2)
+
+    def test_a_fight_without_the_spells_prices_at_zero(self):
+        lua, addon, seg = start_parser("SHAMAN", SHAMAN_TALENTS, SHAMAN_FILES)
+        lua.execute("""
+            local a = HSW_TEST_ADDON
+            local s = a.SegmentManager:Get(0)
+            s.t.heal = 2; s.totalHealing = 100
+            TALENTS = a.Util.GetTalentSnapshot()
+            a.TalentValues:PriceTalents(s, 264, TALENTS)
+        """)
+        t = lua.globals().TALENTS
+        for i in range(1, len(list(t.keys())) + 1):
+            if t[i].name in ("Improved Healing Wave", "Riptide", "Tidal Focus", "Healing Way", "Totemic Focus"):
+                self.assertEqual(t[i].value, 0, t[i].name)                           # no casts, no mana spent: nothing, and no division by zero
 
 
 if __name__ == "__main__":
