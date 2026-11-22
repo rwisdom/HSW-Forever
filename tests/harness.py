@@ -22,6 +22,7 @@ CORE_FILES = [
     "Classes/HealMatcher.lua",
     "Classes/Queues.lua",
     "Classes/OptionsBuilder.lua",
+    "Classes/TalentValues.lua",
     "Parsers/Spells.lua",
     "Parsers/Spells_Generated.lua",
     "Parsers/Spells_Manual.lua",
