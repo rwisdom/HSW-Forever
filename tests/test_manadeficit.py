@@ -288,51 +288,56 @@ class ManaDeficitTests(unittest.TestCase):
         self.assertIsNone(md.tide)
         self.assertAlmostEqual(md.Advance(md, 30), 1000 - 5 * 8.375 - 5 * 16.75 - 20 * 16.75 - 88)
 
-    TIDE_BUFF = 'STUB.spellDesc[16191] = "Restores 88 mana every 3 seconds to group members within 30 yards."'
+    # In game 2026-11-22: the buff is `16191 Mana Tide`, duration 0 (no timer of its own)
+    TIDE_BUFF = ('STUB.spellDesc[16191] = "Restores 88 mana every 3 seconds to group members within 30 yards."'
+                 '; local info = GetSpellInfo; function GetSpellInfo(id) if id == 16191 then return "Mana Tide" end return info(id) end')
 
     def test_the_mana_tide_buff_is_not_counted_on_top_of_the_players_own_cast(self):
         # In game 2026-11-22, out of combat: `/hsw stats` read buffs=58.7/s four seconds after the cast. The totem's
         # buff on the player reads "N mana every M seconds", so the buff scan counted it beside the cast.
         lua, _, md = self.md(self.TIDE_BUFF)
+        md.Spend(md, 1000, 0)
         md.OnManaTide(md, 352, 12, 0)
         lua.execute("STUB.auras = { { id = 16191 } }")
         md.ScanBuffs(md, 1)
         self.assertEqual(md.UnseenBuffRate(md), 0)                  # the cast has it
         self.assertAlmostEqual(md.tide.rate, 352 / 12)
-        md.Advance(md, 13)                                          # run out
-        md.ScanBuffs(md, 13)                                        # another shaman's Mana Tide, no cast of the player's
-        self.assertAlmostEqual(md.UnseenBuffRate(md), 88 / 3)
+        md.Advance(md, 12.5)                                        # run out
+        md.ScanBuffs(md, 12.6)                                      # the buff lingers a moment past the cast's 12 s
+        self.assertEqual(md.UnseenBuffRate(md), 0)                  # no second helping
+        self.assertAlmostEqual(md.Advance(md, 30), 1000 - 5 * 8.375 - 25 * 16.75 - 352)
 
-    def test_a_mana_buff_with_a_timer_stops_at_its_end_in_a_fight_too(self):
-        # Another shaman's Mana Tide seen before the pull: buffs cannot be read again until the fight ends, and
-        # its 29.3/s used to run for the whole fight.
-        lua, _, md = self.md(self.TIDE_BUFF)
-        lua.execute("STUB.auras = { { id = 16191, expiration = 10 } }; READ_AURA = C_UnitAuras.GetAuraDataByIndex")
+    def test_a_mana_tide_buff_with_no_cast_behind_it_runs_twelve_seconds_from_when_it_is_first_seen(self):
+        # Another shaman's totem (or the player's own after a /reload). Its buff has no timer, and buffs cannot
+        # be read in a fight: without an end of its own it ran for the whole fight.
+        lua, addon, md = self.md(self.TIDE_BUFF)
+        addon.ply_regen_base = 0                                    # the buff's mana alone
+        lua.execute("STUB.auras = { { id = 16191 } }; READ_AURA = C_UnitAuras.GetAuraDataByIndex")
         md.Spend(md, 1000, 0)
         md.ScanBuffs(md, 0)
         self.assertAlmostEqual(md.UnseenBuffRate(md), 88 / 3)
+        md.ScanBuffs(md, 5)                                         # still up: the same twelve seconds, not twelve more
+        lua.execute('C_UnitAuras.GetAuraDataByIndex = function() error("Auras cannot be accessed when secret") end')
+        md.ScanBuffs(md, 6)                                         # the pull
+        self.assertAlmostEqual(md.Advance(md, 40), 1000 - 352)      # twelve seconds of it, not forty
+        lua.execute("C_UnitAuras.GetAuraDataByIndex = READ_AURA; STUB.auras = {}")
+        md.ScanBuffs(md, 50)                                        # gone
+        lua.execute("STUB.auras = { { id = 16191 } }")
+        md.ScanBuffs(md, 60)                                        # a new one: its own twelve seconds
+        self.assertAlmostEqual(md.Advance(md, 80), 1000 - 352 - 352)
+
+    def test_a_mana_buff_with_a_timer_stops_at_its_end_in_a_fight_too(self):
+        # A Blessing of Wisdom with 10 s left at the pull: buffs cannot be read again until the fight ends, and
+        # its 3.6/s used to run for the whole fight.
+        lua, _, md = self.md('STUB.spellDesc[19850] = "Places a Blessing on the friendly target, restoring 18 mana every 5 seconds."')
+        lua.execute("STUB.auras = { { id = 19850, expiration = 10 } }; READ_AURA = C_UnitAuras.GetAuraDataByIndex")
+        md.Spend(md, 1000, 0)
+        md.ScanBuffs(md, 0)
+        self.assertAlmostEqual(md.UnseenBuffRate(md), 3.6)
         lua.execute('C_UnitAuras.GetAuraDataByIndex = function() error("Auras cannot be accessed when secret") end')
         md.ScanBuffs(md, 5)                                         # the pull: nothing readable
-        self.assertAlmostEqual(md.Advance(md, 30), 1000 - 5 * 8.375 - 25 * 16.75 - 10 * 88 / 3)   # ten seconds of it, not thirty
+        self.assertAlmostEqual(md.Advance(md, 30), 1000 - 5 * 8.375 - 25 * 16.75 - 10 * 3.6)   # ten seconds of it, not thirty
         self.assertEqual(md.UnseenBuffRate(md), 0)
-
-    def test_out_of_combat_the_mana_tide_buffs_own_timer_takes_over_from_the_cast(self):
-        # The buff goes when the player leaves the totem's reach; the cast's twelve seconds do not know that
-        lua, _, md = self.md(self.TIDE_BUFF)
-        md.Spend(md, 1000, 0)
-        md.OnManaTide(md, 352, 12, 0)
-        lua.execute("STUB.auras = { { id = 16191, expiration = 11 } }")
-        md.ScanBuffs(md, 1)                                         # the buff is on the player, with its own end
-        self.assertIsNone(md.tide)
-        self.assertAlmostEqual(md.UnseenBuffRate(md), 88 / 3)       # counted once, from the buff now
-        self.assertAlmostEqual(md.Advance(md, 20), 1000 - 5 * 8.375 - 15 * 16.75 - 11 * 88 / 3)
-        lua.execute("STUB.auras = {}")
-        md.OnManaTide(md, 352, 12, 30)
-        lua.execute("STUB.auras = { { id = 16191, expiration = 42 } }")
-        md.ScanBuffs(md, 31)
-        lua.execute("STUB.auras = {}")
-        md.ScanBuffs(md, 33)                                        # walked out of reach: the buff is gone, and so is its mana
-        self.assertEqual((md.UnseenBuffRate(md), md.tide), (0, None))
 
     def test_a_mana_tide_buff_without_a_timer_leaves_the_count_to_the_cast_until_it_is_gone(self):
         lua, _, md = self.md(self.TIDE_BUFF)

@@ -257,13 +257,14 @@ end
 	is not known.
 ------------------------------------------------------------------------------]]
 local SpringRanks = { 10497, 10496, 10495, 5675 }; -- Mana Spring Totem, highest rank first
-local springAura = {}; -- aura spell id -> whether it is the Mana Spring buff
+local TIDE_SECONDS = 12; -- how long a Mana Tide Totem stands (tooltip seen 2026-11-21)
+local auraNames = {}; -- aura spell id -> its name ("" when it cannot be read)
 
-local function isSpringAura(id)
-	if springAura[id] == nil then
-		springAura[id] = addon.Compat.PlainString((addon.Compat.GetSpellInfo(id))) == "Mana Spring";
+local function auraName(id)
+	if auraNames[id] == nil then
+		auraNames[id] = addon.Compat.PlainString((addon.Compat.GetSpellInfo(id))) or "";
 	end
-	return springAura[id];
+	return auraNames[id];
 end
 
 -- Mana per second of the Mana Spring Totem rank the player last cast; with no cast seen (a
@@ -296,12 +297,14 @@ end
 -- The player dropped a Mana Tide Totem: `mana` to the player in all, counted evenly over its
 -- `seconds` (it ticks every 3 s; the count is brought up to date at every cast and mana event, so
 -- the steps would not show). The client sends no event for the mana a totem gives (seen in game
--- 2026-11-22, in and out of combat), so the cast is all there is to go on: another shaman's Mana
--- Tide is not seen, nor the player walking out of the totem's reach.
+-- 2026-11-22, in and out of combat), so in a fight the cast is all there is to go on. Out of
+-- combat its buff is read as well (ScanBuffs): once seen and then gone, the player has left the
+-- totem's reach and the count stops.
 function ManaDeficit:OnManaTide(mana, seconds, now)
 	now = now or GetTime();
 	self:Advance(now);
 	self.tide = { rate = mana / seconds, expires = now + seconds };
+	self.tideEnds = nil; -- its buff, when read, ends with it
 	note(self, string.format("mana tide %.0f over %d s", mana, seconds), self.deficit, now);
 end
 
@@ -310,7 +313,8 @@ end
 -- aura reads and all stay what they were: the drink 0 since the pull, a blessing as last seen (one
 -- cast or run out mid-fight is missed).
 function ManaDeficit:ScanBuffs(now)
-	local drink, lasting, spring, tideSeen, tideTaken = 0, {}, false, false, false;
+	now = now or GetTime();
+	local drink, lasting, spring, tideUp = 0, {}, false, false;
 	for i = 1, 40 do
 		local _, expiration, _, id, blocked = addon.Compat.UnitAura("player", i);
 		if blocked then return end
@@ -319,23 +323,33 @@ function ManaDeficit:ScanBuffs(now)
 		local rate = ManaDeficit.BuffRateOf(id);
 		if rate and rate > 0 then
 			local expires = expiration and expiration > 0 and expiration or nil; -- 0: a buff with no timer
-			-- The buff of the player's own Mana Tide Totem reads "N mana every M seconds" too. Its
-			-- mana is counted once: from the buff when it has a timer of its own, which then takes
-			-- over from the cast's count (OnManaTide); from the cast when it has none.
-			local mine = self.tide and math.abs(rate - self.tide.rate) < 0.05;
-			tideSeen = tideSeen or mine;
-			if not mine or expires then
+			local mine = false;
+			if auraName(id) == "Mana Tide" then
+				-- Mana Tide's buff reads "N mana every M seconds" and has no timer (16191, duration 0,
+				-- seen in game 2026-11-22). Buffs cannot be read in a fight, so left as it is the
+				-- buff would count until the fight's end. The player's own is counted from its cast
+				-- (OnManaTide), not here as well. One with no cast behind it (another shaman's, the
+				-- player's after a /reload) has the totem's 12 s from the scan that first saw it.
+				tideUp = true;
+				mine = self.tide ~= nil;
+				self.tideEnds = self.tideEnds or (self.tide and self.tide.expires) or now + TIDE_SECONDS;
+				expires = expires or self.tideEnds;
+			end
+			if not mine and not (expires and expires <= now) then
 				lasting[#lasting + 1] = { rate = rate, expires = expires };
-				tideTaken = tideTaken or mine;
 			end
 		end
-		spring = spring or isSpringAura(id);
+		spring = spring or auraName(id) == "Mana Spring";
 	end
 	self:SetDrinkRate(drink, now); -- the time so far ran at the old rates
-	-- the buffs were readable: a Mana Tide taken over from the cast, or one whose buff is gone again
-	-- (the player left the totem's reach), is no longer the cast's to count
-	if tideTaken or (self.tide and self.tide.seen and not tideSeen) then self.tide = nil end
-	if self.tide and tideSeen then self.tide.seen = true end
+	if not tideUp then
+		-- readable, and no Mana Tide buff: one seen before is gone (the totem ran out, or the player
+		-- left its reach), and the cast's count ends with it
+		if self.tide and self.tide.seen then self.tide = nil end
+		self.tideEnds = nil;
+	elseif self.tide then
+		self.tide.seen = true;
+	end
 	self.buffs = lasting;
 	setSpring(self, spring and self:SpringRate() or 0, now);
 end
