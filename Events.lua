@@ -188,8 +188,9 @@ function addon:OnPlayerSpellcast(spellID)
 	local back = s and self:CastManaReturn(s) or 0; -- every heal cast, in or out of combat: Litany of Light tracks the previous one
 	-- the cast's name: the per-spell tallies are kept by it, and a totem is known by it (TalentValues)
 	local spellName = s and s.name or self.Compat.PlainString((self.Compat.GetSpellInfo(spellID)));
-	if spellName and WaterTotems[spellName] then -- in or out of combat: Mana Spring's mana starts or stops here
+	if spellName and WaterTotems[spellName] then -- in or out of combat: Mana Spring's mana and Healing Stream's ticks start or stop here
 		self.ManaDeficit:OnWaterTotem(spellName == "Mana Spring Totem" and spellID or nil);
+		self.HealMatcher:OnWaterTotem(spellID);
 	end
 	if not self.inCombat then
 		-- between pulls the bar still moves, and the next fight starts where it stands

@@ -438,6 +438,23 @@ class Finaliser(unittest.TestCase):
         self.assertEqual(self.tickers(lua), 0)
         self.assertTrue(any("dropped" in m for m in lua.globals().MSGS.values()))
 
+    def test_healing_without_a_coefficient_says_why_the_fight_is_not_logged(self):
+        # 2026-11-21: a fight healed by Healing Stream Totem alone. The meter has its healing (under the tick's id),
+        # but the totem has no +Healing coefficient yet, so there is nothing to weigh the other stats against.
+        shaman = ALWAYS + ('; STUB.class = "SHAMAN"; STUB.talents = { {name="Elemental", talents={}}, {name="Enhancement", talents={}},'
+                           ' {name="Restoration", talents={ {name="Tidal Mastery", rank=1, max=5} }} }')
+        lua, addon = start(extra=shaman, files=CORE_FILES + ["Parsers/RestoShaman.lua", "DisplayPanel.lua", "Core.lua"])
+        lua.execute('MSGS = {}; function HSW_TEST_ADDON:Msg(s) table.insert(MSGS, tostring(s)) end; HSW_TEST_ADDON.discoverSpells = true')
+        addon.StartFight(addon, "Boss", True)
+        lua.execute('STUB.sessions[1] = { sessionID = 1, name = "A", heals = { ["Player-1"] = { [6371] = 18 } } }'
+                    '; HSW_TEST_ADDON.SegmentManager:Get(0):CountHeal(6375, "SPELL_PERIODIC_HEAL", "Me", false); STUB.time = 20')
+        addon.EndFight(addon)
+        msgs = list(lua.globals().MSGS.values())
+        self.assertTrue(any("healing 18" in m for m in msgs), msgs)
+        self.assertTrue(any("no +Healing coefficient" in m for m in msgs), msgs)
+        self.assertFalse(any("meter recorded no healing" in m for m in msgs), msgs)
+        self.assertEqual(addon.History.Size(addon.History), 0)
+
     def test_hits_counted_but_no_meter_healing_is_reported(self):
         # Westfall 2026-11-08: a fight the meter opened no session for finalised to nothing with no word
         # about it. Discover mode now says the meter had no healing when the matcher counted hits.

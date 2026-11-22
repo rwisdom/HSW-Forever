@@ -88,6 +88,18 @@ class RestoShamanTests(unittest.TestCase):
         self.assertEqual(seg.shieldsEmptied, 2)
         self.assertEqual(addon.SegmentManager.Get(addon.SegmentManager, "Total").shieldsEmptied, 2)
 
+    def test_healing_stream_healing_arrives_under_the_ticks_own_id(self):
+        # In game 2026-11-21: the meter lists the rank 2 totem's healing as spell 6371 "Healing Stream", not the cast's 6375
+        lua, addon, seg = start("SHAMAN", RESTO, FILES)
+        for _ in range(3):
+            count(addon, "SPELL_PERIODIC_HEAL", 6375)           # ticks the matcher counted under the cast id
+        lua.execute("local a = HSW_TEST_ADDON; a.StatParser:ApplyTotals(a.SegmentManager:Get(0), { [6371] = 18 })")
+        self.assertEqual((seg.totalHealing, seg.spells["Healing Stream Totem"].healing), (18, 18))
+        ids = {5672: 5394, 6371: 6375, 6372: 6377, 10460: 10462, 10461: 10463}   # tick id -> totem cast id, rank 1 to 5
+        for tick, totem in ids.items():
+            s = addon.Spells.Get(addon.Spells, tick)
+            self.assertEqual((s.name, s.spellID), ("Healing Stream Totem", totem))
+
     def test_crit_is_worth_water_shield_mana_only_while_a_globe_remains(self):
         lua, addon, seg = start("SHAMAN", RESTO, FILES)
         bt = addon.BuffTracker

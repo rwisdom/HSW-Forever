@@ -290,6 +290,20 @@ class UnitEvents(unittest.TestCase):
         fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", MANA_SPRING)  # between pulls too
         self.assertEqual(md.spring, 2)
 
+    def test_a_healing_stream_totem_dropped_before_the_pull_heals_through_it(self):
+        # In game 2026-11-21: with the totem down before combat every tick of the fight read "unattributed heal"
+        lua, addon, seg = start(SHAMAN, 264, extra=TOTEMS)
+        addon.inCombat = False
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", HST1)
+        addon.HealMatcher.Reset(addon.HealMatcher)                           # the pull: StartFight resets the matcher
+        addon.inCombat = True
+        fire(addon, "UNIT_COMBAT", "player", "HEAL", "", 6, 2)
+        self.assertEqual(seg.hits[HST1].tick.n, 1)
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", MANA_SPRING)  # another water totem takes its place
+        lua.execute("STUB.time = 2")
+        fire(addon, "UNIT_COMBAT", "player", "HEAL", "", 6, 2)               # not ours any more
+        self.assertEqual(seg.hits[HST1].tick.n, 1)
+
     def test_mana_potion_adds_its_tooltip_average_to_mana_gained(self):
         # Seen in game 2026-11-11: a Minor Mana Potion is the player's cast 437, "Restores 140 to 180 mana."
         lua, addon, seg = start(SHAMAN, 264, extra=DESCS)

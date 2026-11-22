@@ -320,7 +320,11 @@ function addon:FinalizePending()
 				self.SegmentManager:Name(seg, self.SessionTotals.Name(seg.sessionFrom - (chained and 1 or 0), seg.sessionTo));
 			end
 			self:AddHistoricalSegment(seg);
-			if seg.t.heal == 0 and next(seg.hits) then
+			if seg.t.heal == 0 and seg.totalHealing > 0 then
+				-- healed by spells with no +Healing coefficient (Healing Stream Totem alone, 2026-11-21): a
+				-- weight is healing per point of a stat over healing per point of +Healing, which is 0 here
+				addon:Discover("segment " .. tostring(seg.id) .. " finalised: its healing has no +Healing coefficient, so it has no weights and is not logged.");
+			elseif seg.t.heal == 0 and next(seg.hits) then
 				-- the matcher saw heals land but the meter has nothing for them: a session it never
 				-- opened (Westfall 2026-11-08), or all overheal. Nothing to price either way.
 				addon:Discover("segment " .. tostring(seg.id) .. " finalised: meter recorded no healing (" .. hitsCounted(seg) .. " hits counted).");

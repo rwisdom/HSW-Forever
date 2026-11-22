@@ -41,9 +41,17 @@ local function bareName(n)
 	return n ~= "" and n or nil;
 end
 
+-- A fight starts. The totem stays: one dropped before the pull heals through it (seen in game
+-- 2026-11-21: every tick of such a fight read "unattributed heal").
 function HealMatcher:Reset()
 	wipe(expectations); wipe(sentTarget); wipe(hots); wipe(seen); wipe(held);
-	totem = nil;
+end
+
+-- A water totem of the player's went down, in or out of combat (Events.lua): Healing Stream Totem
+-- heals from now on; any other takes its place, since one water totem stands at a time.
+function HealMatcher:OnWaterTotem(spellID, now)
+	local s = addon.Spells:Get(spellID);
+	totem = s and s.name == TOTEM and { spellID = spellID, expires = (now or GetTime()) + s.duration } or nil;
 end
 
 local function unattributed(unitName)
@@ -151,7 +159,7 @@ function HealMatcher:OnCastSucceeded(spellID, now)
 		end
 	end
 	if s.name == TOTEM then
-		totem = { spellID = spellID, expires = now + s.duration };
+		self:OnWaterTotem(spellID, now);
 	elseif s.tick > 0 and s.duration > 0 then
 		registerHot(s, sentTarget[spellID] or playerName(), now);
 	end

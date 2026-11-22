@@ -23,11 +23,20 @@ S[18562].base = 776;
 	Combat-log ids that differ from the spellbook id.
 	Pre-filled from Classic; confirm and extend with "/hsw discover on" (Task 17).
 	Still unknown: Holy Shock R1 (book 1311606), Penance bolts, Prayer of Mending heal,
-	Wild Growth tick, Light's Vigil party heal, Tranquility tick, Healing Stream Totem tick.
+	Wild Growth tick, Light's Vigil party heal, Tranquility tick.
 ------------------------------------------------------------------------------]]
 S:Alias(25914, 20473); -- Holy Shock heal, Rank 2
 S:Alias(25913, 20929); -- Holy Shock heal, Rank 3
 S:Alias(25903, 20930); -- Holy Shock heal, Rank 4
+-- Healing Stream Totem: the damage meter credits the totem's healing to the shaman under the id of
+-- the tick, "Healing Stream" (seen in game 2026-11-21 for rank 2: `healing spell 6371 (Healing
+-- Stream) is not in the database`, and the fight priced at no healing). The other ranks are
+-- Classic's ids, not yet seen.
+S:Alias(5672, 5394);   -- Rank 1
+S:Alias(6371, 6375);   -- Rank 2 (seen)
+S:Alias(6372, 6377);   -- Rank 3
+S:Alias(10460, 10462); -- Rank 4
+S:Alias(10461, 10463); -- Rank 5
 
 --[[----------------------------------------------------------------------------
 	Spec constants, lookup sets, tracked buffs
