@@ -81,7 +81,8 @@ function ManaDeficit:OnRates()
 end
 
 -- Mana per second from lasting buffs that the client's regen rates do not hold. `buffs` lists what
--- each buff's text says, { rate =, expires = } (expires: the buff's own end, nil for none). Some
+-- each buff's text says, { rate =, expires =, tide = } (expires: the buff's own end, nil for none;
+-- tide: a Mana Tide buff). Some
 -- of them are in the rates already (Might of Stormwind); others are not (Blessing of Wisdom,
 -- 2026-11-12). A buff counts as held by the rates when their buff part equals its rate, or equals
 -- all of them together; a buff part that fits neither belongs to a buff whose text was not
@@ -305,6 +306,11 @@ function ManaDeficit:OnManaTide(mana, seconds, now)
 	self:Advance(now);
 	self.tide = { rate = mana / seconds, expires = now + seconds };
 	self.tideEnds = nil; -- its buff, when read, ends with it
+	local others = {}; -- its buff read ahead of the cast (the aura event came first) is the cast's from here
+	for _, buff in ipairs(self.buffs) do
+		if not buff.tide then others[#others + 1] = buff end
+	end
+	self.buffs = others;
 	note(self, string.format("mana tide %.0f over %d s", mana, seconds), self.deficit, now);
 end
 
@@ -324,19 +330,23 @@ function ManaDeficit:ScanBuffs(now)
 		if rate and rate > 0 then
 			local expires = expiration and expiration > 0 and expiration or nil; -- 0: a buff with no timer
 			local mine = false;
-			if auraName(id) == "Mana Tide" then
+			local isTide = auraName(id) == "Mana Tide";
+			if isTide then
 				-- Mana Tide's buff reads "N mana every M seconds" and has no timer (16191, duration 0,
 				-- seen in game 2026-11-22). Buffs cannot be read in a fight, so left as it is the
 				-- buff would count until the fight's end. The player's own is counted from its cast
 				-- (OnManaTide), not here as well. One with no cast behind it (another shaman's, the
 				-- player's after a /reload) has the totem's 12 s from the scan that first saw it.
+				-- A buff up a whole totem's time past the last one's end is another totem, not that
+				-- one lingering (the last ran out in a fight, where no scan could see it go).
+				if self.tideEnds and now >= self.tideEnds + TIDE_SECONDS then self.tideEnds = nil end
 				tideUp = true;
 				mine = self.tide ~= nil;
 				self.tideEnds = self.tideEnds or (self.tide and self.tide.expires) or now + TIDE_SECONDS;
 				expires = expires or self.tideEnds;
 			end
 			if not mine and not (expires and expires <= now) then
-				lasting[#lasting + 1] = { rate = rate, expires = expires };
+				lasting[#lasting + 1] = { rate = rate, expires = expires, tide = isTide };
 			end
 		end
 		spring = spring or auraName(id) == "Mana Spring";

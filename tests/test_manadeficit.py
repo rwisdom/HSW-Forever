@@ -307,6 +307,17 @@ class ManaDeficitTests(unittest.TestCase):
         self.assertEqual(md.UnseenBuffRate(md), 0)                  # no second helping
         self.assertAlmostEqual(md.Advance(md, 30), 1000 - 5 * 8.375 - 25 * 16.75 - 352)
 
+    def test_a_mana_tide_buff_read_ahead_of_its_cast_is_not_counted_beside_it(self):
+        # The buff's aura event may come before the cast's: the scan then finds a buff with no cast behind it
+        lua, addon, md = self.md(self.TIDE_BUFF)
+        addon.ply_regen_base = 0                                    # the totem's mana alone
+        lua.execute("STUB.auras = { { id = 16191 } }")
+        md.Spend(md, 1000, 0)
+        md.ScanBuffs(md, 10)
+        md.OnManaTide(md, 352, 12, 10)
+        self.assertEqual(md.UnseenBuffRate(md), 0)                  # the cast has it
+        self.assertAlmostEqual(md.Advance(md, 40), 1000 - 352)      # once, not twice
+
     def test_a_mana_tide_buff_with_no_cast_behind_it_runs_twelve_seconds_from_when_it_is_first_seen(self):
         # Another shaman's totem (or the player's own after a /reload). Its buff has no timer, and buffs cannot
         # be read in a fight: without an end of its own it ran for the whole fight.
@@ -325,6 +336,21 @@ class ManaDeficitTests(unittest.TestCase):
         lua.execute("STUB.auras = { { id = 16191 } }")
         md.ScanBuffs(md, 60)                                        # a new one: its own twelve seconds
         self.assertAlmostEqual(md.Advance(md, 80), 1000 - 352 - 352)
+
+    def test_a_mana_tide_buff_up_long_after_the_last_one_ended_is_another_totem(self):
+        # The first ran out in a fight, where buffs cannot be read, so no scan saw it gone. A buff up a whole
+        # totem's time past its end is not that one lingering.
+        lua, addon, md = self.md(self.TIDE_BUFF)
+        addon.ply_regen_base = 0                                    # the buff's mana alone
+        lua.execute("STUB.auras = { { id = 16191 } }; READ_AURA = C_UnitAuras.GetAuraDataByIndex")
+        md.Spend(md, 1000, 0)
+        md.ScanBuffs(md, 0)
+        lua.execute('C_UnitAuras.GetAuraDataByIndex = function() error("Auras cannot be accessed when secret") end')
+        md.ScanBuffs(md, 6)                                         # the pull
+        lua.execute("C_UnitAuras.GetAuraDataByIndex = READ_AURA")
+        md.ScanBuffs(md, 305)                                       # the fight is over, and a Mana Tide buff is up
+        self.assertAlmostEqual(md.UnseenBuffRate(md), 88 / 3)
+        self.assertAlmostEqual(md.Advance(md, 400), 1000 - 352 - 352)   # its own twelve seconds
 
     def test_a_mana_buff_with_a_timer_stops_at_its_end_in_a_fight_too(self):
         # A Blessing of Wisdom with 10 s left at the pull: buffs cannot be read again until the fight ends, and
