@@ -161,7 +161,7 @@ function OptionsBuilder:AddRow(cells)
         self:AddCtrl({
             name = cell[1],
             type = "description",
-            fontSize = "medium",
+            fontSize = "small",
             width = cell[2]
         });
     end
