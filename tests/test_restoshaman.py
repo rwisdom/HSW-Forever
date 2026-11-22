@@ -109,6 +109,16 @@ class RestoShamanTests(unittest.TestCase):
         self.assertEqual(seg.t.crit, 0)
         self.assertAlmostEqual(seg.t.int, 0.30 * seg.t.heal)    # Mental Quickness only: no crit for Intellect to buy
 
+    def test_a_crit_counted_under_the_totem_does_not_shrink_its_healing(self):
+        # The totem takes any heal nothing else explains (HealMatcher), so another healer's crit can be counted
+        # under it. The totem cannot crit: the meter's total is all non-crit healing as it stands.
+        lua, addon, seg = start("SHAMAN", RESTO, FILES)         # +Healing 200
+        count(addon, "SPELL_PERIODIC_HEAL", 6375)
+        count(addon, "SPELL_PERIODIC_HEAL", 6375, crit=True)
+        count(addon, "SPELL_PERIODIC_HEAL", 6375)
+        lua.execute("local a = HSW_TEST_ADDON; a.StatParser:ApplyTotals(a.SegmentManager:Get(0), { [6371] = 18 })")
+        self.assertAlmostEqual(seg.t.heal, 0.016 * 18 / (6 + 0.016 * 200))   # 0.0313; with one of the three taken as a crit it was 0.0268
+
     def test_crit_is_worth_water_shield_mana_only_while_a_globe_remains(self):
         lua, addon, seg = start("SHAMAN", RESTO, FILES)
         bt = addon.BuffTracker

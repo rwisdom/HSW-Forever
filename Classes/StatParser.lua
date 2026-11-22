@@ -375,7 +375,9 @@ function StatParser:ApplyTotals(seg, totals)
 			local h = seg.hits[s.spellID];
 			local top = seg:TopTarget(s.spellID);
 			local destUnit = top and addon.UnitManager:FindByName(top) or "player";
-			local CB = critBonus(f, "SPELL_HEAL", s, destUnit);
+			-- a spell that cannot crit: a crit counted under it was another's heal (Healing Stream Totem
+			-- takes what nothing else explains), and its total holds no crit healing to take out
+			local CB = s.canCrit and critBonus(f, "SPELL_HEAL", s, destUnit) or 0;
 			local d = h and h.direct or { n = 0, crit = 0 };
 			local t = h and h.tick or { n = 0, crit = 0 };
 			local wd = (d.n + d.crit * CB) * (s.base + s.coeff * sp);
