@@ -6,6 +6,10 @@ addon.SpecInfo[addon.SpellType.SHAMAN] = {
 		key = "Resto Shaman",
 		value = "Crit includes the mana Water Shield returns on heal crits (2% of max mana, valued at filler healing-per-mana) while the shield is up; the returned mana also comes off the filler mana spent. Intellect includes Mental Quickness (Healing from Int). Riptide's Chain Heal bonus and Healing Way are captured automatically from the heal amounts. Healing Stream Totem ticks have no coefficient until measured. Earthfury: with 5 pieces the average mana returned comes off the Healing Wave and Lesser Healing Wave cost; with 8 pieces Healing Wave jumps are credited to Healing Wave.",
 	},
+	{
+		key = "Values",
+		value = "Talent, relic and trinket values are in points of Healing: the healing each one produced in this fight over the healing one point of Healing produced. Per point is the average over the points taken. ~ marks an estimate; a dash means no healing value. Each relic is priced as if it had been worn. Restorative Totems counts Healing Stream Totem only, Riptide its own healing less its mana, Mana Tide Totem your own share of the mana. Trinkets count their stats, not their use or proc effects.",
+	},
 };
 
 --[[----------------------------------------------------------------------------

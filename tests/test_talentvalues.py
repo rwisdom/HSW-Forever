@@ -214,5 +214,74 @@ class HistoryEntry(unittest.TestCase):
         self.assertIsNone(h.Slot14)
 
 
+def cells(addon):
+    """The control names of history page 0 in display order."""
+    t = addon.BuildOptionsTableForHistorySegment(addon, 0)
+    return [name for _, name in sorted((v.order, v.name) for _, v in t.items())]
+
+
+def after(c, text):
+    """The first cell containing `text`, and the cells that follow it."""
+    i = next(k for k, n in enumerate(c) if text in n)
+    return c[i], c[i + 1:]
+
+
+class HistoryPage(unittest.TestCase):
+    def test_talent_rows(self):
+        _, addon, h = shaman_entry()
+        c = cells(addon)
+        self.assertEqual(after(c, "Talent|r")[1][:3], ["|cFFFFF569Pts|r", "|cFFFFF569Per point|r", "|cFFFFF569Total|r"])
+        name, rest = after(c, "Tidal Mastery")
+        self.assertIn("|Ticon_Tidal Mastery:16|t", name)
+        self.assertEqual(rest[:3], ["5/5", "%.2f" % h.Crt, "%.2f" % (5 * h.Crt)])
+        self.assertEqual(after(c, "Healing Focus")[1][:3], ["3/5", "-", "-"])           # the stub gives every talent five ranks
+        rough = after(c, "Riptide")[1]
+        self.assertTrue(rough[1].startswith("~") and rough[2].startswith("~"), rough[:3])
+        self.assertFalse(any("icon_Tidal Mastery:24" in n for n in c))                  # the icon strip is gone
+
+    def test_totals_row(self):
+        _, addon, h = shaman_entry()
+        c = cells(addon)
+        i = c.index("Total")
+        points = sum(rank for _, talents in SHAMAN_TALENTS for _, rank in talents)
+        total = sum(t.value or 0 for t in by_name(h.Talents).values())
+        self.assertEqual(c[i + 1 : i + 4], [str(points), "", "~%.2f" % total])          # rough: a rough talent is in the sum
+
+    def test_relic_and_trinket_rows(self):
+        _, addon, h = shaman_entry()
+        c = cells(addon)
+        self.assertTrue(any("Relic (each as if worn)" in n for n in c))
+        name, rest = after(c, "Totem of Tides")
+        self.assertIn("icon_tides", name)
+        self.assertIn("(worn)", name)
+        self.assertEqual(rest[0], "0.00")
+        self.assertNotIn("|T", after(c, "Tidal Totem")[0])                              # the client had no icon for it
+        self.assertTrue(after(c, "Totem of Sustaining")[1][0].startswith("~"))
+        self.assertTrue(any("Trinkets (stats only)" in n for n in c))
+        name, rest = after(c, "Lucky Charm")
+        self.assertIn("icon_charm", name)
+        self.assertEqual(rest[0], "~20.00")
+
+    def test_a_trinket_without_priced_stats_shows_a_dash(self):
+        gear = GEAR.replace("{ ITEM_MOD_SPELL_HEALING_DONE_SHORT = 20, ITEM_MOD_STAMINA_SHORT = 5 }", "{}")
+        _, addon, _ = shaman_entry(extra=gear)
+        self.assertEqual(after(cells(addon), "Lucky Charm")[1][0], "-")
+
+    def test_an_entry_from_before_the_values_draws_as_it_did(self):
+        lua, addon, h = shaman_entry()
+        lua.execute("local h = HSW_TEST_ADDON.History:Get(0); h.TalentsPriced = nil; h.Relics = nil; h.Slot13.stats = nil; h.Slot13.value = nil")
+        c = cells(addon)
+        self.assertTrue(any("icon_Tidal Mastery:24|t5 " in n for n in c))               # the icon strip
+        self.assertTrue(any("icon_charm" in n and "45" in n and "Lucky Charm" in n for n in c))
+        for gone in ("Per point|r", "Relic (each as if worn)", "Trinkets (stats only)", "~20.00"):   # "|r": the column heading, not the note
+            self.assertFalse(any(gone in n for n in c), gone)
+
+    def test_the_notes_explain_the_values(self):
+        _, addon, _ = shaman_entry()
+        c = cells(addon)
+        self.assertTrue(any("~ marks an estimate" in n for n in c))
+        self.assertFalse(any("+Healing" in n for n in c))                                # the page calls the stat Healing
+
+
 if __name__ == "__main__":
     unittest.main()

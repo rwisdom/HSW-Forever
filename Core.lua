@@ -316,27 +316,71 @@ function addon:BuildOptionsTableForHistorySegment(i)
 	OptionsBuilder:AddHeaderRow(segmentName);
 	OptionsBuilder:AddNewLine();
 
-	-- Talents: { {name=, icon=, rank=}, ... } from Segment:SnapshotTalentsAndEquipment
-	local str = "";
-	for _, talent in ipairs(h.Talents or {}) do
-		if type(talent) == "table" and talent.icon then
-			str = str .. "|T" .. tostring(talent.icon) .. ":24|t" .. tostring(talent.rank or "") .. " ";
-		end
-	end
-
 	local function gearStr(gearTbl)
 		if not gearTbl then return nil end
 		local s = gearTbl.icon and ("|T" .. tostring(gearTbl.icon) .. ":16|t ") or "";
 		return s .. (gearTbl.ilvl or "") .. " " .. (gearTbl.link or "");
 	end
 
+	-- a value in points of Healing (Classes/TalentValues.lua): "~" marks an estimate, a dash no value
+	local function valueStr(value, rough)
+		if not value then return "-" end
+		return (rough and "~" or "") .. string.format("%.2f", value);
+	end
+	local function head(text) return "|cFFFFF569" .. text .. "|r" end
+	local W_NAME, W_PTS, W_EACH, W_TOTAL = 1.6, 0.4, 0.5, 0.5; -- 3.0 in all, the width of the page's other rows
+	local W_ITEM = W_NAME + W_PTS + W_EACH;
+
 	OptionsBuilder:AddDivider("Gear & Talents");
 	OptionsBuilder:AddNewLine();
-	OptionsBuilder:AddHeaderRow(str);
+	if h.TalentsPriced then
+		-- one row per talent taken: what a point and what the talent was worth in this fight
+		OptionsBuilder:AddRow({ { head("Talent"), W_NAME }, { head("Pts"), W_PTS }, { head("Per point"), W_EACH }, { head("Total"), W_TOTAL } });
+		local points, total, rough = 0, 0, false;
+		for _, talent in ipairs(h.Talents) do
+			local label = (talent.icon and ("|T" .. tostring(talent.icon) .. ":16|t ") or "") .. talent.name;
+			local pts = talent.max and (talent.rank .. "/" .. talent.max) or tostring(talent.rank);
+			OptionsBuilder:AddRow({ { label, W_NAME }, { pts, W_PTS },
+				{ valueStr(talent.value and talent.value / talent.rank, talent.rough), W_EACH },
+				{ valueStr(talent.value, talent.rough), W_TOTAL } });
+			points = points + talent.rank;
+			total = total + (talent.value or 0);
+			rough = rough or (talent.value ~= nil and talent.rough == true);
+		end
+		OptionsBuilder:AddRow({ { "Total", W_NAME }, { tostring(points), W_PTS }, { "", W_EACH }, { valueStr(total, rough), W_TOTAL } });
+	else
+		-- Talents: { {name=, icon=, rank=}, ... } from Segment:SnapshotTalentsAndEquipment, as a strip of icons
+		local str = "";
+		for _, talent in ipairs(h.Talents or {}) do
+			if type(talent) == "table" and talent.icon then
+				str = str .. "|T" .. tostring(talent.icon) .. ":24|t" .. tostring(talent.rank or "") .. " ";
+			end
+		end
+		OptionsBuilder:AddHeaderRow(str);
+	end
 
+	if h.Relics then
+		OptionsBuilder:AddNewLine();
+		OptionsBuilder:AddRow({ { head("Relic (each as if worn)"), W_ITEM }, { "", W_TOTAL } });
+		for _, relic in ipairs(h.Relics) do
+			local label = (relic.icon and ("|T" .. tostring(relic.icon) .. ":16|t ") or "") .. relic.name;
+			if relic.worn then label = "|cFF40FF40" .. label .. " (worn)|r" end
+			OptionsBuilder:AddRow({ { label, W_ITEM }, { valueStr(relic.value, relic.rough), W_TOTAL } });
+		end
+	end
+
+	local trinketHead = false;
 	for _, slot in ipairs({ "Slot13", "Slot14" }) do
-		local s = gearStr(h[slot]);
-		if s then
+		local item = h[slot];
+		local s = gearStr(item);
+		if s and item.stats then
+			if not trinketHead then
+				trinketHead = true;
+				OptionsBuilder:AddNewLine();
+				OptionsBuilder:AddRow({ { head("Trinkets (stats only)"), W_ITEM }, { "", W_TOTAL } });
+			end
+			OptionsBuilder:AddRow({ { s, W_ITEM }, { valueStr(item.value, item.rough), W_TOTAL } });
+		elseif s then -- an entry from before trinkets were priced
 			OptionsBuilder:AddNewLine();
 			OptionsBuilder:AddHeaderRow(s);
 			OptionsBuilder:AddNewLine();

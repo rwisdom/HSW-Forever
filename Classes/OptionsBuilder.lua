@@ -154,6 +154,22 @@ end
 
 
 --[[----------------------------------------------------------------------------
+    AddRow - one table row: cells = { { text, width }, ... } left to right, then a line break
+------------------------------------------------------------------------------]]
+function OptionsBuilder:AddRow(cells)
+    for _, cell in ipairs(cells) do
+        self:AddCtrl({
+            name = cell[1],
+            type = "description",
+            fontSize = "medium",
+            width = cell[2]
+        });
+    end
+    self:AddNewLine();
+end
+
+
+--[[----------------------------------------------------------------------------
     AddHeaderButton - Add a button at the end of a header row
 ------------------------------------------------------------------------------]]
 function OptionsBuilder:AddHeaderButton(name, desc, func)
