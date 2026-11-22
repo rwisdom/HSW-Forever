@@ -287,6 +287,32 @@ class ManaDeficitTests(unittest.TestCase):
         self.assertIsNone(md.tide)
         self.assertAlmostEqual(md.Advance(md, 30), 1000 - 5 * 8.375 - 5 * 16.75 - 20 * 16.75 - 88)
 
+    TIDE_BUFF = 'STUB.spellDesc[16191] = "Restores 88 mana every 3 seconds to group members within 30 yards."'
+
+    def test_the_mana_tide_buff_is_not_counted_on_top_of_the_players_own_cast(self):
+        # In game 2026-11-22, out of combat: `/hsw stats` read buffs=58.7/s four seconds after the cast. The totem's
+        # buff on the player reads "N mana every M seconds", so the buff scan counted it beside the cast.
+        lua, _, md = self.md(self.TIDE_BUFF)
+        md.OnManaTide(md, 352, 12, 0)
+        lua.execute("STUB.auras = { { id = 16191 } }")
+        md.ScanBuffs(md, 1)
+        self.assertEqual(md.UnseenBuffRate(md), 0)                  # the cast has it
+        self.assertAlmostEqual(md.tide.rate, 352 / 12)
+        md.Advance(md, 13)                                          # run out
+        md.ScanBuffs(md, 13)                                        # another shaman's Mana Tide, no cast of the player's
+        self.assertAlmostEqual(md.UnseenBuffRate(md), 88 / 3)
+
+    def test_a_mana_tide_that_has_run_out_is_dropped_at_a_full_bar_too(self):
+        # Same run: buffs=29.3/s 21 s after the cast, the bar full throughout
+        _, _, md = self.md()
+        md.Spend(md, 10, 0)
+        md.OnPower(md, 0)                                           # its mana event: the bar is trusted full 6 s after the rule ends
+        md.OnManaTide(md, 352, 12, 0)
+        self.assertEqual(md.Advance(md, 11.5), 0)                   # full, and the totem still stands
+        self.assertIsNotNone(md.tide)
+        self.assertEqual(md.Advance(md, 21), 0)
+        self.assertIsNone(md.tide)
+
 
 if __name__ == "__main__":
     unittest.main()

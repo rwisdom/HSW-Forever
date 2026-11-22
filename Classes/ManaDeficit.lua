@@ -134,6 +134,7 @@ function ManaDeficit:Advance(now)
 	if dt < 0 then return self.deficit end
 	if self:IsFull(now) then
 		local before = self.deficit;
+		if self.tide and now >= self.tide.expires then self.tide = nil end -- run out while the bar was full
 		self.deficit, self.last = 0, now;
 		if before > 0 then note(self, "full bar", before, now) end
 		return 0;
@@ -297,7 +298,10 @@ function ManaDeficit:ScanBuffs(now)
 		if not id then break end
 		drink = drink + (ManaDeficit.DrinkRateOf(id) or 0);
 		local rate = ManaDeficit.BuffRateOf(id);
-		if rate and rate > 0 then lasting[#lasting + 1] = rate end
+		-- the buff of the player's own Mana Tide Totem reads "N mana every M seconds" too: that
+		-- mana is counted from the cast (OnManaTide), not again here
+		local tide = self.tide and rate and math.abs(rate - self.tide.rate) < 0.05;
+		if rate and rate > 0 and not tide then lasting[#lasting + 1] = rate end
 		spring = spring or isSpringAura(id);
 	end
 	self:SetDrinkRate(drink, now); -- the time so far ran at the old rates
