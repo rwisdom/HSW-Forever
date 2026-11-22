@@ -305,6 +305,22 @@ class UnitEvents(unittest.TestCase):
         fire(addon, "UNIT_COMBAT", "player", "HEAL", "", 6, 2)               # not ours any more
         self.assertEqual(seg.hits[HST1].tick.n, 1)
 
+    def test_a_mana_tide_totem_cast_feeds_the_mana_count(self):
+        lua, addon, seg = start(SHAMAN, 264, extra=TOTEMS)
+        md = addon.ManaDeficit
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", MANA_TIDE)    # no readable tooltip: 352 over 12 s
+        self.assertAlmostEqual(md.tide.rate, 352 / 12)
+        self.assertEqual((md.tide.expires, seg.manaTideMana), (12, 352))
+        lua.execute('STUB.spellDesc[16190] = "Summons a Mana Tide Totem with 5 health at the feet of the caster for 12 sec that restores 40 mana every 3 seconds to group members within 30 yards."')
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", MANA_TIDE)
+        self.assertAlmostEqual(md.tide.rate, 160 / 12)
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", HST1)         # another water totem takes its place
+        self.assertIsNone(md.tide)
+        addon.inCombat = False
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", MANA_TIDE)    # between pulls too
+        self.assertAlmostEqual(md.tide.rate, 160 / 12)
+        self.assertEqual(seg.manaTideMana, 352 + 160)                        # the fight's tally: casts in the fight only
+
     def test_mana_potion_adds_its_tooltip_average_to_mana_gained(self):
         # Seen in game 2026-11-11: a Minor Mana Potion is the player's cast 437, "Restores 140 to 180 mana."
         lua, addon, seg = start(SHAMAN, 264, extra=DESCS)

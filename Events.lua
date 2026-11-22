@@ -28,15 +28,16 @@ local function ManaRestoredBy(spellID)
 	return restoreAmount[spellID];
 end
 
--- Mana one cast of Mana Tide Totem restores to the shaman. Tooltip seen in game 2026-11-21: "...for
--- 12 sec that restores 88 mana every 3 seconds to group members within 30 yards": four ticks of 88.
--- The amount is read from the text of the spell cast; that figure stands in when it cannot be read.
+-- Mana one cast of Mana Tide Totem restores to the shaman, and the seconds it takes. Tooltip seen
+-- in game 2026-11-21: "...for 12 sec that restores 88 mana every 3 seconds to group members within
+-- 30 yards": four ticks of 88. Both are read from the text of the spell cast; those figures stand
+-- in when it cannot be read.
 local function ManaTideMana(spellID)
 	local text = addon.Compat.GetSpellDescription(spellID) or "";
 	local duration = tonumber(text:match("for (%d+) sec"));
 	local amount, every = text:match("restores (%d+) mana every (%d+) sec");
-	if not (duration and amount) then return 352 end
-	return tonumber(amount) * math.floor(duration / tonumber(every));
+	if not (duration and amount) then return 352, 12 end
+	return tonumber(amount) * math.floor(duration / tonumber(every)), duration;
 end
 
 -- The water totems (data export: "Tools: Water Totem"). One stands at a time, so dropping any of
@@ -191,6 +192,7 @@ function addon:OnPlayerSpellcast(spellID)
 	if spellName and WaterTotems[spellName] then -- in or out of combat: Mana Spring's mana and Healing Stream's ticks start or stop here
 		self.ManaDeficit:OnWaterTotem(spellName == "Mana Spring Totem" and spellID or nil);
 		self.HealMatcher:OnWaterTotem(spellID);
+		if spellName == "Mana Tide Totem" then self.ManaDeficit:OnManaTide(ManaTideMana(spellID)) end
 	end
 	if not self.inCombat then
 		-- between pulls the bar still moves, and the next fight starts where it stands
@@ -225,7 +227,7 @@ function addon:OnPlayerSpellcast(spellID)
 	self.HealMatcher:OnCastSucceeded(spellID, now);
 
 	if spellName == "Mana Tide Totem" then
-		local mana = ManaTideMana(spellID);
+		local mana = ManaTideMana(spellID); -- the fight's tally, for the talent's row (TalentValues)
 		self.SegmentManager:ForEachLive(function(seg) seg.manaTideMana = seg.manaTideMana + mana end);
 	end
 

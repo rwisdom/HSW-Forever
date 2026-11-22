@@ -153,6 +153,8 @@ Consequences and known limits:
   and its text reads "N mana every M sec" (Blessing of Wisdom); one cast on you mid-fight is seen
   only after the fight. Mana Spring Totem counts at its tooltip rate while its buff is on you: read
   out of combat, and in a fight from your own water totem casts, so a totem killed or left behind
-  mid-fight is seen only after it. It does not see Mana Tide, another player's Innervate, dying
-  or levelling up: with those Intellect reads high, by at most one full pool a fight. After a `/reload` the bar is taken as full. Mana
+  mid-fight is seen only after it. Your own Mana Tide Totem counts from the cast, at its tooltip
+  figure spread over its 12 seconds. The client reports no mana gained, so the count does not see
+  another shaman's Mana Tide, another player's Innervate, dying or levelling up: with those
+  Intellect reads high, by at most one full pool a fight. After a `/reload` the bar is taken as full. Mana
   potions, runes and drinks count at their tooltip figures, not at what they actually restored.

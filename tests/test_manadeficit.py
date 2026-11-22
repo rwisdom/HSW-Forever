@@ -268,6 +268,25 @@ class ManaDeficitTests(unittest.TestCase):
         self.assertEqual(md.spring, 2)                              # the rank last cast, not the highest known
         self.assertTrue(any("mana spring 2.0/s" in line for line in md.Lines(md).values()))
 
+    def test_the_players_mana_tide_gives_its_mana_over_its_twelve_seconds(self):
+        # In game 2026-11-22: the client sends no event for the mana a totem gives. The player's own cast is all there is.
+        _, _, md = self.md()
+        md.Spend(md, 1000, 0)
+        md.OnManaTide(md, 352, 12, 10)                              # dropped 10 s on, outside the five-second rule
+        at_cast = 1000 - 5 * 8.375 - 5 * 16.75
+        self.assertAlmostEqual(md.Advance(md, 16), at_cast - 6 * 16.75 - 176)     # half of it after 6 s
+        self.assertAlmostEqual(md.Advance(md, 30), at_cast - 20 * 16.75 - 352)    # all of it by 22 s, no more after
+        self.assertIsNone(md.tide)
+        self.assertTrue(any("mana tide 352 over 12 s" in line for line in md.Lines(md).values()))
+
+    def test_another_water_totem_ends_a_running_mana_tide(self):
+        _, _, md = self.md()
+        md.Spend(md, 1000, 0)
+        md.OnManaTide(md, 352, 12, 10)
+        md.OnWaterTotem(md, None, 13)                               # Healing Stream dropped 3 s into it: one tick's worth came
+        self.assertIsNone(md.tide)
+        self.assertAlmostEqual(md.Advance(md, 30), 1000 - 5 * 8.375 - 5 * 16.75 - 20 * 16.75 - 88)
+
 
 if __name__ == "__main__":
     unittest.main()

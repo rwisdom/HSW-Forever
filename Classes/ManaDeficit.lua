@@ -7,8 +7,9 @@ local name, addon = ...;
 	full bar (0) and at an empty one (max mana). It runs in and out of combat, so a
 	pull that starts below full starts with what the last one left. A fight's share
 	of the mana pool is how far the deficit rose over the fight (addon:EndFight).
-	Nothing ever corrects it against the real bar: Mana Tide and the like are not
-	seen, and the error lasts until the estimated bar is full again.
+	Nothing ever corrects it against the real bar: another shaman's Mana Tide, an
+	Innervate and the like are not seen, and the error lasts until the estimated bar
+	is full again.
 ------------------------------------------------------------------------------]]
 local ManaDeficit = { deficit = 0, drinkRate = 0, endedDrink = 0, buffs = {}, spring = 0, log = {}, events = 0 };
 
@@ -124,9 +125,9 @@ end
 
 -- Brings the deficit up to `now` and returns it: Spirit regen at the base rate outside the
 -- five-second rule and at the casting share inside it; gear MP5, a drink, mana buffs and Mana
--- Spring throughout. A bar known to be full sets it to 0, whatever the count says: that clears
--- what the count could not see (a Mana Tide, an Innervate, a level). The first call starts the clock
--- from a full bar (login, /reload).
+-- Spring throughout; the player's Mana Tide while it runs. A bar known to be full sets it to 0,
+-- whatever the count says: that clears what the count could not see (another shaman's Mana Tide,
+-- an Innervate, a level). The first call starts the clock from a full bar (login, /reload).
 function ManaDeficit:Advance(now)
 	now = now or GetTime();
 	local dt = now - (self.last or now);
@@ -141,6 +142,11 @@ function ManaDeficit:Advance(now)
 	local inFSR = math.max(0, math.min(dt, addon.FSR_SECONDS - sinceSpend));
 	local regen = (addon.ply_regen_base or 0) * (dt - inFSR + (addon.ply_castpct or 0) * inFSR)
 		+ ((addon.ply_mp5 or 0) / 5 + self.drinkRate + self:HeldBuffRate() + self:UnseenBuffRate() + self.spring) * dt;
+	local tide = self.tide; -- a Mana Tide Totem of the player's: its rate until it runs out (OnManaTide)
+	if tide then
+		regen = regen + tide.rate * math.max(0, math.min(now, tide.expires) - (now - dt));
+		if now >= tide.expires then self.tide = nil end
+	end
 	self.deficit = math.max(0, self.deficit - regen);
 	self.last = now;
 	return self.deficit;
@@ -261,8 +267,22 @@ end
 -- The player dropped a water totem: Mana Spring Totem (springID is its spell id) or another one
 -- (nil), which takes its place, since only one water totem stands at a time.
 function ManaDeficit:OnWaterTotem(springID, now)
+	self:Advance(now); -- a Mana Tide still running gave its mana up to here
+	self.tide = nil;
 	if springID then self.springCast = springID end
 	setSpring(self, springID and self:SpringRate() or 0, now);
+end
+
+-- The player dropped a Mana Tide Totem: `mana` to the player in all, counted evenly over its
+-- `seconds` (it ticks every 3 s; the count is brought up to date at every cast and mana event, so
+-- the steps would not show). The client sends no event for the mana a totem gives (seen in game
+-- 2026-11-22, in and out of combat), so the cast is all there is to go on: another shaman's Mana
+-- Tide is not seen, nor the player walking out of the totem's reach.
+function ManaDeficit:OnManaTide(mana, seconds, now)
+	now = now or GetTime();
+	self:Advance(now);
+	self.tide = { rate = mana / seconds, expires = now + seconds };
+	note(self, string.format("mana tide %.0f over %d s", mana, seconds), self.deficit, now);
 end
 
 -- The player's buffs (UNIT_AURA, PLAYER_ENTERING_WORLD): the drink rate is the sum over the buffs

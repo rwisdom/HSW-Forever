@@ -279,6 +279,9 @@ class Chat(unittest.TestCase):
         self.lua.execute("HSW_TEST_ADDON.ManaDeficit.spring = 3")
         self.chat("stats")
         self.assertTrue(any("buffs=3.0/s" in m for m in self.msgs()), self.msgs())
+        self.lua.execute("HSW_TEST_ADDON.ManaDeficit.tide = { rate = 29.3, expires = 12 }")   # a Mana Tide Totem still running
+        self.chat("stats")
+        self.assertTrue(any("buffs=32.3/s" in m for m in self.msgs()), self.msgs())
 
     def test_spec_on_a_class_without_a_healing_spec(self):
         self.lua.execute('STUB.class = "WARRIOR"; STUB.talents = {}; HSW_TEST_ADDON.Util.RebuildTalentCache()')
