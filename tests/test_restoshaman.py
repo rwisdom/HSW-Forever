@@ -71,6 +71,23 @@ class RestoShamanTests(unittest.TestCase):
         heal(addon, "SPELL_HEAL", HW, 1500, crit=True)          # no globe left: nothing more, though the 10 min have not run out
         self.assertEqual(seg.manaRestore, 180)
 
+    def test_a_crit_that_takes_the_last_globe_counts_an_emptied_shield(self):
+        lua, addon, seg = start("SHAMAN", RESTO, FILES)
+        bt = addon.BuffTracker
+        bt.MarkCast(bt, WATER_SHIELD, 600, 3)
+        for _ in range(2):
+            heal(addon, "SPELL_HEAL", HW, 1500, crit=True)
+        self.assertEqual(seg.shieldsEmptied, 0)                 # a globe is left
+        heal(addon, "SPELL_HEAL", HW, 1500, crit=True)
+        self.assertEqual(seg.shieldsEmptied, 1)
+        heal(addon, "SPELL_HEAL", HW, 1500, crit=True)          # no shield: nothing to empty
+        self.assertEqual(seg.shieldsEmptied, 1)
+        bt.MarkCast(bt, WATER_SHIELD, 600, 4)                   # recast, with the item that adds a globe
+        for _ in range(4):
+            heal(addon, "SPELL_HEAL", HW, 1500, crit=True)
+        self.assertEqual(seg.shieldsEmptied, 2)
+        self.assertEqual(addon.SegmentManager.Get(addon.SegmentManager, "Total").shieldsEmptied, 2)
+
     def test_crit_is_worth_water_shield_mana_only_while_a_globe_remains(self):
         lua, addon, seg = start("SHAMAN", RESTO, FILES)
         bt = addon.BuffTracker

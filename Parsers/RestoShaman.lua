@@ -29,8 +29,12 @@ end
 
 -- The mana Water Shield actually returns on this crit while a globe remains (2% of max mana).
 local function ManaReturn(ev, s, heal, destUnit)
-	if not s.canCrit or addon.BuffTracker:Get(addon.Shaman.WaterShield) == 0 then return 0 end
-	addon.BuffTracker:UseCharge(addon.Shaman.WaterShield);
+	local shield = addon.Shaman.WaterShield;
+	if not s.canCrit or addon.BuffTracker:Get(shield) == 0 then return 0 end
+	addon.BuffTracker:UseCharge(shield);
+	if addon.BuffTracker:Get(shield) == 0 then -- the last globe: one more would have been spent too (Totem of Sustaining)
+		addon.SegmentManager:ForEachLive(function(seg) seg.shieldsEmptied = seg.shieldsEmptied + 1 end);
+	end
 	return 0.02 * (addon.ply_maxmana or 0);
 end
 
