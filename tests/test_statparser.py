@@ -295,6 +295,17 @@ class ApplyTotals(unittest.TestCase):
     def apply(self, lua, spell, amount):
         lua.execute(f"local a = HSW_TEST_ADDON; a.StatParser:ApplyTotals(a.SegmentManager:Get(0), {{ [{spell}] = {amount} }})")
 
+    def test_healing_and_crit_value_are_tallied_by_spell_name(self):
+        _, addon, seg = start("PALADIN")
+        heal(addon, "SPELL_HEAL", HL, 1000)
+        heal(addon, "SPELL_HEAL", HL, 500)
+        r = seg.spells["Holy Light"]
+        self.assertEqual(r.healing, 1500)
+        self.assertAlmostEqual(r.crit, seg.t.crit)                 # the only spell: all of the segment's crit value
+        ttl = addon.SegmentManager.Get(addon.SegmentManager, "Total")
+        self.assertEqual(ttl.spells["Holy Light"].healing, 1500)
+        self.assertAlmostEqual(ttl.spells["Holy Light"].crit, ttl.t.crit)
+
     def test_total_without_hits_is_priced_as_one_non_crit_heal(self):
         lua, addon, seg = start("PALADIN")
         lua.execute('MSGS = {}; function HSW_TEST_ADDON:Msg(s) table.insert(MSGS, tostring(s)) end; HSW_TEST_ADDON.discoverSpells = true')

@@ -280,6 +280,8 @@ function StatParser:Allocate(ev, s, heal, n, destUnit, f, SP, C, CB, H, segments
 		local i  = f.Intellect and f.Intellect(ev, s, heal, destUnit, _SP, seg) or 0;
 		local sp = f.Spirit and f.Spirit(ev, s, heal, destUnit, _SP, seg) or 0;
 		seg:AllocateHeal(_SP, _C + c, _H, ((_C + c) / addon.IntPerCrit + i) * intmult, sp, s.spellID);
+		local r = seg:Spell(s.name);
+		r.crit = r.crit + _C + c;
 	end
 
 	addon:UpdateDisplayStats();
@@ -298,6 +300,8 @@ function StatParser:CreditHealing(s, total, segments)
 	for _, seg in ipairs(segments) do
 		if filler then seg:IncFillerHealing(total) end
 		seg:IncTotalHealing(total);
+		local r = seg:Spell(s.name);
+		r.healing = r.healing + total;
 	end
 end
 
