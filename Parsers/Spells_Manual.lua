@@ -17,7 +17,13 @@ eachRank("Power Word: Shield", function(s) s.coeff = 0.10 end);     -- Classic v
 -- Swiftmend heals "the full duration" of the HoT; approximated as Rejuvenation R11 (4 ticks: coeff 4*0.20, base 776).
 S[18562].coeff = 0.80;
 S[18562].base = 776;
--- Healing Stream Totem ticks and Prayer of Mending keep coeff 0 (_SP = 0) until measured in game.
+-- Healing Stream Totem, measured in game 2026-11-22 (level 36 shaman, rank 2, tooltip 6 a tick,
+-- Purification 3/5; checklist B4): 194 over 31 ticks at 0 +Healing (6.26 a tick: Purification's 6%
+-- is on the totem) and 223 over 30 ticks at 67 (7.43). The ratio gives 6 * (7.43 / 6.26 - 1) / 67 =
+-- 0.017, and 0.015 with the 6% taken as given: 0.016. Classic's 0.045 would make a tick 9.6 at 67.
+-- None of 103 ticks seen was a crit: the totem's healing cannot crit.
+eachRank("Healing Stream Totem", function(s) s.coeffTick = 0.016; s.canCrit = false end);
+-- Prayer of Mending keeps coeff 0 (_SP = 0) until measured in game.
 
 --[[----------------------------------------------------------------------------
 	Combat-log ids that differ from the spellbook id.

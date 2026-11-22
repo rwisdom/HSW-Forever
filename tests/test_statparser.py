@@ -225,10 +225,10 @@ class Derivatives(unittest.TestCase):
                                                      "0.00,total,25315,Renew,,200,,",
                                                      "0.00,heal,10901,Power Word: Shield,Me,948,0,"])
 
-    def test_tick_without_a_coefficient_counts_in_totals_only(self):
-        _, addon, seg = start("SHAMAN")
-        heal(addon, "SPELL_PERIODIC_HEAL", 5394, 6)                # Healing Stream Totem: no coefficient yet
-        self.assertEqual((seg.totalHealing, seg.fillerHealing, seg.t.heal), (6, 6, 0))
+    def test_a_heal_without_a_coefficient_counts_in_totals_only(self):
+        _, addon, seg = start("PRIEST")
+        heal(addon, "SPELL_HEAL", 401859, 172)                     # Prayer of Mending R1: no coefficient yet
+        self.assertEqual((seg.totalHealing, seg.fillerHealing, seg.t.heal), (172, 172, 0))
 
     def test_shield_cast_has_no_crit_value(self):
         _, addon, seg = start("PRIEST")

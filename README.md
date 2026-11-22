@@ -143,7 +143,7 @@ Consequences and known limits:
   `flat 0.00/s`; if it does not, the formula is off for that class and Spirit reads low.
 - In combat the client hides Healing, crit chance and buffs: the last out-of-combat reading is used,
   Inner Focus and Water Shield are tracked from your own casts, Clearcasting procs are not seen.
-- Not yet measured or attributed: Prayer of Mending and Healing Stream Totem coefficients, the
+- Not yet measured or attributed: the Prayer of Mending coefficient, the
   Holy Binding self-heal, Bloom heals on HoT expiry, Riptide tick timing, Holy Power's exact reading.
 - Rarely the meter opens no session for a fight; the addon then has nothing to price and says so under
   `/hsw discover on`.

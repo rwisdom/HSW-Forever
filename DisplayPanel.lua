@@ -321,7 +321,7 @@ function addon:FinalizePending()
 			end
 			self:AddHistoricalSegment(seg);
 			if seg.t.heal == 0 and seg.totalHealing > 0 then
-				-- healed by spells with no +Healing coefficient (Healing Stream Totem alone, 2026-11-21): a
+				-- healed by spells with no +Healing coefficient yet (Prayer of Mending alone): a
 				-- weight is healing per point of a stat over healing per point of +Healing, which is 0 here
 				addon:Discover("segment " .. tostring(seg.id) .. " finalised: its healing has no +Healing coefficient, so it has no weights and is not logged.");
 			elseif seg.t.heal == 0 and next(seg.hits) then

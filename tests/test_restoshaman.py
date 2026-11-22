@@ -100,6 +100,15 @@ class RestoShamanTests(unittest.TestCase):
             s = addon.Spells.Get(addon.Spells, tick)
             self.assertEqual((s.name, s.spellID), ("Healing Stream Totem", totem))
 
+    def test_healing_stream_ticks_carry_a_measured_coefficient_and_cannot_crit(self):
+        # Measured in game 2026-11-22 (rank 2, tooltip 6 a tick, Purification 3/5): 194 over 31 ticks at 0 +Healing,
+        # 223 over 30 at 67. None of 103 ticks seen was a crit.
+        _, addon, seg = start("SHAMAN", RESTO, FILES)           # +Healing 200, Mental Quickness 2/2
+        heal(addon, "SPELL_PERIODIC_HEAL", 6375, 92)
+        self.assertAlmostEqual(seg.t.heal, 0.016 * 92 / (6 + 0.016 * 200))   # no crits on top of it
+        self.assertEqual(seg.t.crit, 0)
+        self.assertAlmostEqual(seg.t.int, 0.30 * seg.t.heal)    # Mental Quickness only: no crit for Intellect to buy
+
     def test_crit_is_worth_water_shield_mana_only_while_a_globe_remains(self):
         lua, addon, seg = start("SHAMAN", RESTO, FILES)
         bt = addon.BuffTracker
