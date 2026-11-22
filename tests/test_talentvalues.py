@@ -230,7 +230,7 @@ class HistoryPage(unittest.TestCase):
     def test_talent_rows(self):
         _, addon, h = shaman_entry()
         c = cells(addon)
-        self.assertEqual(after(c, "Talent|r")[1][:3], ["|cFFFFF569Pts|r", "|cFFFFF569Per point|r", "|cFFFFF569Total|r"])
+        self.assertEqual(after(c, "Talent|r")[1][:3], ["|cFFFFF569Pts|r", "|cFFFFF569Healing per point|r", "|cFFFFF569Total|r"])
         name, rest = after(c, "Tidal Mastery")
         self.assertIn("|Ticon_Tidal Mastery:12|t", name)
         self.assertEqual(rest[:3], ["5/5", "%.2f" % h.Crt, "%.2f" % (5 * h.Crt)])
@@ -273,7 +273,7 @@ class HistoryPage(unittest.TestCase):
         c = cells(addon)
         self.assertTrue(any("icon_Tidal Mastery:24|t5 " in n for n in c))               # the icon strip
         self.assertTrue(any("icon_charm:16|t" in n and "45" in n and "Lucky Charm" in n for n in c))   # the old line keeps its icon size
-        for gone in ("Per point|r", "Relic (each as if worn)", "Trinkets (stats only)", "~20.00"):   # "|r": the column heading, not the note
+        for gone in ("Healing per point|r", "Relic (each as if worn)", "Trinkets (stats only)", "~20.00"):   # "|r": the column heading, not the note
             self.assertFalse(any(gone in n for n in c), gone)
 
     def test_stat_weights_come_before_gear_and_talents(self):

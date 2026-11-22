@@ -343,14 +343,14 @@ function addon:BuildOptionsTableForHistorySegment(i)
 		return (rough and "~" or "") .. string.format("%.2f", value);
 	end
 	local function head(text) return "|cFFFFF569" .. text .. "|r" end
-	local W_NAME, W_PTS, W_EACH, W_TOTAL = 1.6, 0.4, 0.5, 0.5; -- 3.0 in all, the width of the page's other rows
+	local W_NAME, W_PTS, W_EACH, W_TOTAL = 1.5, 0.4, 0.6, 0.5; -- 3.0 in all, the width of the page's other rows
 	local W_ITEM = W_NAME + W_PTS + W_EACH;
 
 	OptionsBuilder:AddDivider("Gear & Talents");
 	OptionsBuilder:AddNewLine();
 	if h.TalentsPriced then
 		-- one row per talent taken: what a point and what the talent was worth in this fight
-		OptionsBuilder:AddRow({ { head("Talent"), W_NAME }, { head("Pts"), W_PTS }, { head("Per point"), W_EACH }, { head("Total"), W_TOTAL } });
+		OptionsBuilder:AddRow({ { head("Talent"), W_NAME }, { head("Pts"), W_PTS }, { head("Healing per point"), W_EACH }, { head("Total"), W_TOTAL } });
 		local points, total, rough = 0, 0, false;
 		for _, talent in ipairs(h.Talents) do
 			local label = (talent.icon and ("|T" .. tostring(talent.icon) .. ":12|t ") or "") .. talent.name;

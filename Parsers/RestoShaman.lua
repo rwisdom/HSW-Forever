@@ -8,7 +8,7 @@ addon.SpecInfo[addon.SpellType.SHAMAN] = {
 	},
 	{
 		key = "Values",
-		value = "Talent, relic and trinket values are in points of Healing: the healing each one produced in this fight over the healing one point of Healing produced. Per point is the average over the points taken. ~ marks an estimate; a dash means no healing value. Each relic is priced as if it had been worn. Restorative Totems counts Healing Stream Totem only, Riptide its own healing less its mana, Mana Tide Totem your own share of the mana. Trinkets count their stats, not their use or proc effects.",
+		value = "Talent, relic and trinket values are in points of Healing: the healing each one produced in this fight over the healing one point of Healing produced. Healing per point is the average over the points taken. ~ marks an estimate; a dash means no healing value. Each relic is priced as if it had been worn. Restorative Totems counts Healing Stream Totem only, Riptide its own healing less its mana, Mana Tide Totem your own share of the mana. Trinkets count their stats, not their use or proc effects.",
 	},
 };
 
