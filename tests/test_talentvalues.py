@@ -232,7 +232,7 @@ class HistoryPage(unittest.TestCase):
         c = cells(addon)
         self.assertEqual(after(c, "Talent|r")[1][:3], ["|cFFFFF569Pts|r", "|cFFFFF569Per point|r", "|cFFFFF569Total|r"])
         name, rest = after(c, "Tidal Mastery")
-        self.assertIn("|Ticon_Tidal Mastery:16|t", name)
+        self.assertIn("|Ticon_Tidal Mastery:14|t", name)
         self.assertEqual(rest[:3], ["5/5", "%.2f" % h.Crt, "%.2f" % (5 * h.Crt)])
         self.assertEqual(after(c, "Healing Focus")[1][:3], ["3/5", "-", "-"])           # the stub gives every talent five ranks
         rough = after(c, "Riptide")[1]
@@ -252,14 +252,14 @@ class HistoryPage(unittest.TestCase):
         c = cells(addon)
         self.assertTrue(any("Relic (each as if worn)" in n for n in c))
         name, rest = after(c, "Totem of Tides")
-        self.assertIn("icon_tides", name)
+        self.assertIn("icon_tides:14|t", name)
         self.assertIn("(worn)", name)
         self.assertEqual(rest[0], "0.00")
         self.assertNotIn("|T", after(c, "Tidal Totem")[0])                              # the client had no icon for it
         self.assertTrue(after(c, "Totem of Sustaining")[1][0].startswith("~"))
         self.assertTrue(any("Trinkets (stats only)" in n for n in c))
         name, rest = after(c, "Lucky Charm")
-        self.assertIn("icon_charm", name)
+        self.assertIn("icon_charm:14|t", name)
         self.assertEqual(rest[0], "~20.00")
 
     def test_a_trinket_without_priced_stats_shows_a_dash(self):
@@ -272,7 +272,7 @@ class HistoryPage(unittest.TestCase):
         lua.execute("local h = HSW_TEST_ADDON.History:Get(0); h.TalentsPriced = nil; h.Relics = nil; h.Slot13.stats = nil; h.Slot13.value = nil")
         c = cells(addon)
         self.assertTrue(any("icon_Tidal Mastery:24|t5 " in n for n in c))               # the icon strip
-        self.assertTrue(any("icon_charm" in n and "45" in n and "Lucky Charm" in n for n in c))
+        self.assertTrue(any("icon_charm:16|t" in n and "45" in n and "Lucky Charm" in n for n in c))   # the old line keeps its icon size
         for gone in ("Per point|r", "Relic (each as if worn)", "Trinkets (stats only)", "~20.00"):   # "|r": the column heading, not the note
             self.assertFalse(any(gone in n for n in c), gone)
 

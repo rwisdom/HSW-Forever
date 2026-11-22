@@ -316,9 +316,9 @@ function addon:BuildOptionsTableForHistorySegment(i)
 	OptionsBuilder:AddHeaderRow(segmentName);
 	OptionsBuilder:AddNewLine();
 
-	local function gearStr(gearTbl)
+	local function gearStr(gearTbl, iconSize)
 		if not gearTbl then return nil end
-		local s = gearTbl.icon and ("|T" .. tostring(gearTbl.icon) .. ":16|t ") or "";
+		local s = gearTbl.icon and ("|T" .. tostring(gearTbl.icon) .. ":" .. (iconSize or 16) .. "|t ") or "";
 		return s .. (gearTbl.ilvl or "") .. " " .. (gearTbl.link or "");
 	end
 
@@ -338,7 +338,7 @@ function addon:BuildOptionsTableForHistorySegment(i)
 		OptionsBuilder:AddRow({ { head("Talent"), W_NAME }, { head("Pts"), W_PTS }, { head("Per point"), W_EACH }, { head("Total"), W_TOTAL } });
 		local points, total, rough = 0, 0, false;
 		for _, talent in ipairs(h.Talents) do
-			local label = (talent.icon and ("|T" .. tostring(talent.icon) .. ":16|t ") or "") .. talent.name;
+			local label = (talent.icon and ("|T" .. tostring(talent.icon) .. ":14|t ") or "") .. talent.name;
 			local pts = talent.max and (talent.rank .. "/" .. talent.max) or tostring(talent.rank);
 			OptionsBuilder:AddRow({ { label, W_NAME }, { pts, W_PTS },
 				{ valueStr(talent.value and talent.value / talent.rank, talent.rough), W_EACH },
@@ -363,7 +363,7 @@ function addon:BuildOptionsTableForHistorySegment(i)
 		OptionsBuilder:AddNewLine();
 		OptionsBuilder:AddRow({ { head("Relic (each as if worn)"), W_ITEM }, { "", W_TOTAL } });
 		for _, relic in ipairs(h.Relics) do
-			local label = (relic.icon and ("|T" .. tostring(relic.icon) .. ":16|t ") or "") .. relic.name;
+			local label = (relic.icon and ("|T" .. tostring(relic.icon) .. ":14|t ") or "") .. relic.name;
 			if relic.worn then label = "|cFF40FF40" .. label .. " (worn)|r" end
 			OptionsBuilder:AddRow({ { label, W_ITEM }, { valueStr(relic.value, relic.rough), W_TOTAL } });
 		end
@@ -372,7 +372,7 @@ function addon:BuildOptionsTableForHistorySegment(i)
 	local trinketHead = false;
 	for _, slot in ipairs({ "Slot13", "Slot14" }) do
 		local item = h[slot];
-		local s = gearStr(item);
+		local s = gearStr(item, item and item.stats and 14); -- a table row's icon is smaller than the old line's
 		if s and item.stats then
 			if not trinketHead then
 				trinketHead = true;
