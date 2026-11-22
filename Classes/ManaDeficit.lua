@@ -81,18 +81,35 @@ function ManaDeficit:OnRates()
 end
 
 -- Mana per second from lasting buffs that the client's regen rates do not hold. `buffs` lists what
--- each buff's text says. Some of them are in the rates already (Might of Stormwind); others are
--- not (Blessing of Wisdom, 2026-11-12). A buff counts as held by the rates when their buff part
--- equals its rate, or equals all of them together; a buff part that fits neither belongs to a
--- buff whose text was not understood.
+-- each buff's text says, { rate =, expires = } (expires: the buff's own end, nil for none). Some
+-- of them are in the rates already (Might of Stormwind); others are not (Blessing of Wisdom,
+-- 2026-11-12). A buff counts as held by the rates when their buff part equals its rate, or equals
+-- all of them together; a buff part that fits neither belongs to a buff whose text was not
+-- understood.
 function ManaDeficit:UnseenBuffRate()
 	local held, total = self:HeldBuffRate(), 0;
-	for _, rate in ipairs(self.buffs) do total = total + rate end
+	for _, buff in ipairs(self.buffs) do total = total + buff.rate end
 	if math.abs(total - held) < 0.05 then return 0 end
-	for _, rate in ipairs(self.buffs) do
-		if math.abs(rate - held) < 0.05 then return total - rate end
+	for _, buff in ipairs(self.buffs) do
+		if math.abs(buff.rate - held) < 0.05 then return total - buff.rate end
 	end
 	return total;
+end
+
+-- Buffs whose own timer ended by `now` come off the list. Returns the mana they gave from `from`
+-- to their end. Buffs cannot be read in a fight, so one seen before the pull is counted to its
+-- own end and no further (another shaman's Mana Tide: 12 s, not the whole fight).
+local function runOut(self, from, now)
+	local mana, keep = 0, {};
+	for _, buff in ipairs(self.buffs) do
+		if buff.expires and buff.expires <= now then
+			mana = mana + buff.rate * math.max(0, buff.expires - from);
+		else
+			keep[#keep + 1] = buff;
+		end
+	end
+	self.buffs = keep;
+	return mana;
 end
 
 -- A mana event of the player's (UNIT_POWER_UPDATE): only its time is kept. The client sends one
@@ -132,6 +149,7 @@ function ManaDeficit:Advance(now)
 	now = now or GetTime();
 	local dt = now - (self.last or now);
 	if dt < 0 then return self.deficit end
+	local ended = runOut(self, now - dt, now); -- before the rates below: what is left on the list ran the whole step
 	if self:IsFull(now) then
 		local before = self.deficit;
 		if self.tide and now >= self.tide.expires then self.tide = nil end -- run out while the bar was full
@@ -142,7 +160,8 @@ function ManaDeficit:Advance(now)
 	local sinceSpend = self.last and self.lastSpend and self.last - self.lastSpend or math.huge;
 	local inFSR = math.max(0, math.min(dt, addon.FSR_SECONDS - sinceSpend));
 	local regen = (addon.ply_regen_base or 0) * (dt - inFSR + (addon.ply_castpct or 0) * inFSR)
-		+ ((addon.ply_mp5 or 0) / 5 + self.drinkRate + self:HeldBuffRate() + self:UnseenBuffRate() + self.spring) * dt;
+		+ ((addon.ply_mp5 or 0) / 5 + self.drinkRate + self:HeldBuffRate() + self:UnseenBuffRate() + self.spring) * dt
+		+ ended;
 	local tide = self.tide; -- a Mana Tide Totem of the player's: its rate until it runs out (OnManaTide)
 	if tide then
 		regen = regen + tide.rate * math.max(0, math.min(now, tide.expires) - (now - dt));
@@ -291,20 +310,32 @@ end
 -- aura reads and all stay what they were: the drink 0 since the pull, a blessing as last seen (one
 -- cast or run out mid-fight is missed).
 function ManaDeficit:ScanBuffs(now)
-	local drink, lasting, spring = 0, {}, false;
+	local drink, lasting, spring, tideSeen, tideTaken = 0, {}, false, false, false;
 	for i = 1, 40 do
-		local _, _, _, id, blocked = addon.Compat.UnitAura("player", i);
+		local _, expiration, _, id, blocked = addon.Compat.UnitAura("player", i);
 		if blocked then return end
 		if not id then break end
 		drink = drink + (ManaDeficit.DrinkRateOf(id) or 0);
 		local rate = ManaDeficit.BuffRateOf(id);
-		-- the buff of the player's own Mana Tide Totem reads "N mana every M seconds" too: that
-		-- mana is counted from the cast (OnManaTide), not again here
-		local tide = self.tide and rate and math.abs(rate - self.tide.rate) < 0.05;
-		if rate and rate > 0 and not tide then lasting[#lasting + 1] = rate end
+		if rate and rate > 0 then
+			local expires = expiration and expiration > 0 and expiration or nil; -- 0: a buff with no timer
+			-- The buff of the player's own Mana Tide Totem reads "N mana every M seconds" too. Its
+			-- mana is counted once: from the buff when it has a timer of its own, which then takes
+			-- over from the cast's count (OnManaTide); from the cast when it has none.
+			local mine = self.tide and math.abs(rate - self.tide.rate) < 0.05;
+			tideSeen = tideSeen or mine;
+			if not mine or expires then
+				lasting[#lasting + 1] = { rate = rate, expires = expires };
+				tideTaken = tideTaken or mine;
+			end
+		end
 		spring = spring or isSpringAura(id);
 	end
 	self:SetDrinkRate(drink, now); -- the time so far ran at the old rates
+	-- the buffs were readable: a Mana Tide taken over from the cast, or one whose buff is gone again
+	-- (the player left the totem's reach), is no longer the cast's to count
+	if tideTaken or (self.tide and self.tide.seen and not tideSeen) then self.tide = nil end
+	if self.tide and tideSeen then self.tide.seen = true end
 	self.buffs = lasting;
 	setSpring(self, spring and self:SpringRate() or 0, now);
 end

@@ -192,7 +192,8 @@ class ManaDeficitTests(unittest.TestCase):
 
     def test_a_buff_restores_mana_unless_the_clients_rates_already_carry_it(self):
         lua, addon, md = self.md()
-        buffs = lambda rates: lua.execute("HSW_TEST_ADDON.ManaDeficit.buffs = { %s }" % rates)
+        buffs = lambda rates: lua.execute("HSW_TEST_ADDON.ManaDeficit.buffs = { %s }"
+                                          % ", ".join("{ rate = %s }" % r for r in rates.split(", ")))
         addon.ply_regen_base = 0
         buffs("3.6")                                                # Blessing of Wisdom: not in GetManaRegen()
         md.Spend(md, 1000, 0)
@@ -301,6 +302,52 @@ class ManaDeficitTests(unittest.TestCase):
         md.Advance(md, 13)                                          # run out
         md.ScanBuffs(md, 13)                                        # another shaman's Mana Tide, no cast of the player's
         self.assertAlmostEqual(md.UnseenBuffRate(md), 88 / 3)
+
+    def test_a_mana_buff_with_a_timer_stops_at_its_end_in_a_fight_too(self):
+        # Another shaman's Mana Tide seen before the pull: buffs cannot be read again until the fight ends, and
+        # its 29.3/s used to run for the whole fight.
+        lua, _, md = self.md(self.TIDE_BUFF)
+        lua.execute("STUB.auras = { { id = 16191, expiration = 10 } }; READ_AURA = C_UnitAuras.GetAuraDataByIndex")
+        md.Spend(md, 1000, 0)
+        md.ScanBuffs(md, 0)
+        self.assertAlmostEqual(md.UnseenBuffRate(md), 88 / 3)
+        lua.execute('C_UnitAuras.GetAuraDataByIndex = function() error("Auras cannot be accessed when secret") end')
+        md.ScanBuffs(md, 5)                                         # the pull: nothing readable
+        self.assertAlmostEqual(md.Advance(md, 30), 1000 - 5 * 8.375 - 25 * 16.75 - 10 * 88 / 3)   # ten seconds of it, not thirty
+        self.assertEqual(md.UnseenBuffRate(md), 0)
+
+    def test_out_of_combat_the_mana_tide_buffs_own_timer_takes_over_from_the_cast(self):
+        # The buff goes when the player leaves the totem's reach; the cast's twelve seconds do not know that
+        lua, _, md = self.md(self.TIDE_BUFF)
+        md.Spend(md, 1000, 0)
+        md.OnManaTide(md, 352, 12, 0)
+        lua.execute("STUB.auras = { { id = 16191, expiration = 11 } }")
+        md.ScanBuffs(md, 1)                                         # the buff is on the player, with its own end
+        self.assertIsNone(md.tide)
+        self.assertAlmostEqual(md.UnseenBuffRate(md), 88 / 3)       # counted once, from the buff now
+        self.assertAlmostEqual(md.Advance(md, 20), 1000 - 5 * 8.375 - 15 * 16.75 - 11 * 88 / 3)
+        lua.execute("STUB.auras = {}")
+        md.OnManaTide(md, 352, 12, 30)
+        lua.execute("STUB.auras = { { id = 16191, expiration = 42 } }")
+        md.ScanBuffs(md, 31)
+        lua.execute("STUB.auras = {}")
+        md.ScanBuffs(md, 33)                                        # walked out of reach: the buff is gone, and so is its mana
+        self.assertEqual((md.UnseenBuffRate(md), md.tide), (0, None))
+
+    def test_a_mana_tide_buff_without_a_timer_leaves_the_count_to_the_cast_until_it_is_gone(self):
+        lua, _, md = self.md(self.TIDE_BUFF)
+        md.Spend(md, 1000, 0)
+        md.OnManaTide(md, 352, 12, 0)
+        md.ScanBuffs(md, 0.5)                                       # the buff is not on the player yet: the cast's count stands
+        self.assertIsNotNone(md.tide)
+        lua.execute("STUB.auras = { { id = 16191 } }")              # no timer of its own
+        md.ScanBuffs(md, 1)
+        self.assertEqual(md.UnseenBuffRate(md), 0)
+        self.assertIsNotNone(md.tide)
+        lua.execute("STUB.auras = {}")
+        md.ScanBuffs(md, 4)                                         # out of the totem's reach after 4 s
+        self.assertIsNone(md.tide)
+        self.assertAlmostEqual(md.Advance(md, 20), 1000 - 5 * 8.375 - 15 * 16.75 - 4 * 352 / 12)
 
     def test_a_mana_tide_that_has_run_out_is_dropped_at_a_full_bar_too(self):
         # Same run: buffs=29.3/s 21 s after the cast, the bar full throughout
