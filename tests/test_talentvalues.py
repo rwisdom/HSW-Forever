@@ -1,6 +1,6 @@
 import unittest
 from harness import load, CORE_FILES
-from parsers import start as start_parser
+from parsers import start as start_parser, talents_lua
 
 SHAMAN = 'STUB.class = "SHAMAN"; STUB.talents = { {name="Elemental", talents={}}, {name="Enhancement", talents={}}, {name="Restoration", talents={ {name="Tidal Mastery", rank=5, max=5}, {name="Healing Focus", rank=3, max=3} }} }'
 ITEMS = 'function GetItemInfo(item) if item == 2 then return "Second", item, 3, 60, 55, "Armor", "Totem", 1, "INVTYPE_RELIC", "icon_second" end end'
@@ -153,6 +153,65 @@ class RestoShamanValues(unittest.TestCase):
         for i in range(1, len(list(t.keys())) + 1):
             if t[i].name in ("Improved Healing Wave", "Riptide", "Tidal Focus", "Healing Way", "Totemic Focus"):
                 self.assertEqual(t[i].value, 0, t[i].name)                           # no casts, no mana spent: nothing, and no division by zero
+
+
+HISTORY_FILES = CORE_FILES + SHAMAN_FILES + ["DisplayPanel.lua", "Core.lua"]
+CHARM, TIDES = "|Hitem:1|h[Lucky Charm]|h", "|Hitem:2|h[Totem of Tides]|h"   # item links: the page prints them
+GEAR = ('function GetInventoryItemLink(_, slot) return ({ [13] = "' + CHARM + '", [18] = "' + TIDES + '" })[slot] end'
+        '; function GetItemInfo(item)'
+        ' if item == "' + CHARM + '" then return "Lucky Charm", item, 3, 45, 40, "Armor", "Trinket", 1, "INVTYPE_TRINKET", "icon_charm" end'
+        ' if item == "' + TIDES + '" then return "Totem of Tides", item, 3, 60, 55, "Armor", "Totem", 1, "INVTYPE_RELIC", "icon_tides" end'
+        ' if item == 249398 then return "Polished Driftwood Icon", item, 3, 60, 55, "Armor", "Totem", 1, "INVTYPE_RELIC", "icon_driftwood" end end'
+        '; function GetItemStats(link) if link == "' + CHARM + '" then return { ITEM_MOD_SPELL_HEALING_DONE_SHORT = 20, ITEM_MOD_STAMINA_SHORT = 5 } end end'
+        '; function GetItemSpell(link) if link == "' + CHARM + '" then return "Lucky Strike" end end')
+
+
+def shaman_entry(extra=GEAR):
+    """A logged boss fight of a Resto Shaman: one Healing Wave R10 heal of 1000 after 620 mana of filler casts, 100 s long."""
+    lua, addon = load(HISTORY_FILES, setup=talents_lua("SHAMAN", SHAMAN_TALENTS) + "\n" + extra)
+    lua.execute("""
+        local a = HSW_TEST_ADDON
+        a.hsw:OnInitialize()
+        a.Util.RebuildTalentCache(); a:SetupConversionFactors(); a:UpdatePlayerStats()
+        a.UnitManager.units["Player-1"] = "player"
+        a.SegmentManager:Enqueue("Boss", true)
+        local s = a.SegmentManager:Get(0)
+        s:IncFillerCasts(620)
+        a.StatParser:DecompHealingForCurrentSpec("SPELL_HEAL", "Player-1", 25357, false)
+        STUB.time = 100
+        a.StatParser:ApplyTotals(s, { [25357] = 1000 })
+        s:End()
+        a:AddHistoricalSegment(s)
+    """)
+    return lua, addon, addon.History.Get(addon.History, 0)
+
+
+def by_name(rows):
+    return {rows[i].name: rows[i] for i in range(1, len(list(rows.keys())) + 1)}
+
+
+class HistoryEntry(unittest.TestCase):
+    def test_talents_are_priced_on_the_entry(self):
+        _, _, h = shaman_entry()
+        self.assertTrue(h.TalentsPriced)
+        t = by_name(h.Talents)
+        self.assertAlmostEqual(t["Tidal Mastery"].value, 5 * h.Crt)            # a point is 1% crit: the entry's Crit weight
+        self.assertAlmostEqual(t["Mental Quickness"].value, 0.15 * 2 * 110)
+        self.assertEqual((t["Tidal Mastery"].max, t["Riptide"].rough, t["Healing Focus"].value), (5, True, None))
+
+    def test_relics_are_priced_and_the_worn_one_marked(self):
+        _, _, h = shaman_entry()
+        self.assertEqual([h.Relics[i].name for i in range(1, 6)],
+                         ["Tidal Totem", "Totem of Sustaining", "Totem of Urgency", "Totem of Tides", "Polished Driftwood Icon"])
+        r = by_name(h.Relics)
+        self.assertEqual((h.Slot18.name, r["Totem of Tides"].worn, r["Totem of Tides"].icon), ("Totem of Tides", True, "icon_tides"))
+        self.assertEqual((r["Tidal Totem"].worn, r["Tidal Totem"].icon, r["Polished Driftwood Icon"].icon), (None, None, "icon_driftwood"))
+        self.assertEqual((r["Tidal Totem"].value, r["Totem of Sustaining"].rough), (0, True))   # no Healing Wave cast was seen
+
+    def test_a_trinkets_stats_are_priced(self):
+        _, _, h = shaman_entry()
+        self.assertEqual((h.Slot13.value, h.Slot13.rough), (20, True))        # 20 Healing at weight 1; it has a use effect
+        self.assertIsNone(h.Slot14)
 
 
 if __name__ == "__main__":

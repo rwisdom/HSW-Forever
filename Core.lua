@@ -547,6 +547,7 @@ function addon:AddHistoricalSegment(segment)
 	h.DateTime = segment.startTimeStamp;
 	h.Slot13 = segment.gear and segment.gear[13] or nil;
 	h.Slot14 = segment.gear and segment.gear[14] or nil;
+	h.Slot18 = segment.gear and segment.gear[18] or nil; -- the relic
 
 	-- stat points needed for +1% of this segment's healing
 	local onePercent = segment.totalHealing / 100.0;
@@ -561,6 +562,16 @@ function addon:AddHistoricalSegment(segment)
 	h.Mp5Pct  = perOnePercent(segment:GetMP5());
 
 	h.Talents = segment.talentsSnapshot and segment.selectedTalents or {};
+	-- what the talents, the spec's relics and the trinkets' stats were worth, in points of +Healing (Classes/TalentValues.lua)
+	h.TalentsPriced = self.TalentValues:PriceTalents(segment, specId, h.Talents) or nil;
+	h.Relics = self.TalentValues:PriceRelics(segment, specId, h.Slot18);
+	for _, slot in ipairs({ "Slot13", "Slot14" }) do
+		local item = h[slot];
+		if item and item.stats then
+			item.value = self.TalentValues.Trinket(item.stats, h);
+			item.rough = item.use; -- the use effect is not in the value
+		end
+	end
 	h.Events = segment.events;
 	h.IsTotal = segment.isTotal or nil; -- an archived Total (ClearAllSegments): its rows live in the fights' entries
 

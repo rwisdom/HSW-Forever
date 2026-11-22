@@ -163,6 +163,17 @@ class History(unittest.TestCase):
         names = [v.name for _, v in addon.BuildOptionsTableForHistorySegment(addon, 0).items() if v.name]
         self.assertTrue(any("icon_charm" in n and "45" in n and "Lucky Charm" in n for n in names), names)
 
+    def test_other_specs_get_no_talent_or_relic_values_but_priced_trinkets(self):
+        trinket = ('function GetInventoryItemLink(_, slot) return slot == 13 and "|Hitem:1|h[Lucky Charm]|h" or nil end'
+                   '; function GetItemInfo(link) return "Lucky Charm", link, 3, 45, 40, "Armor", "Trinket", 1, "INVTYPE_TRINKET", "icon_charm" end'
+                   '; function GetItemStats(link) return { ITEM_MOD_INTELLECT_SHORT = 10 } end')
+        lua, addon = start(extra=trinket)
+        addon.AddHistoricalSegment(addon, fought_segment(lua, addon))
+        h = addon.History.Get(addon.History, 0)
+        self.assertEqual((h.TalentsPriced, h.Relics, h.Talents[1].value), (None, None, None))
+        self.assertAlmostEqual(h.Slot13.value, 10 * h.Int)
+        self.assertIsNone(h.Slot13.rough)                                     # no use effect
+
     def test_secret_item_data_in_combat_is_not_snapshotted(self):
         trinket = ('issecretvalue = function(v) return v == "SECRET" end'
                    '; function GetInventoryItemLink(_, slot) return slot == 13 and "|Hitem:1|h[Lucky Charm]|h" or nil end'
