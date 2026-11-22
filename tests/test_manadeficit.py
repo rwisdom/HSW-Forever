@@ -245,7 +245,7 @@ class ManaDeficitTests(unittest.TestCase):
               '; local info = GetSpellInfo; function GetSpellInfo(id) if id == 10491 then return "Mana Spring" end return info(id) end')
 
     def test_mana_spring_is_counted_from_its_buff_at_the_totems_rate(self):
-        # In game 2026-11-22: the buff (10491 "Mana Spring") has no text and its mana is not in the client's regen rates
+        # In game 2026-11-21: the buff (10491 "Mana Spring") has no text and its mana is not in the client's regen rates
         lua, _, md = self.md(self.SPRING)
         lua.execute("STUB.auras = { { id = 10491 } }")
         md.Spend(md, 500, 0)
