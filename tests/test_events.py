@@ -21,6 +21,10 @@ DESCS = ('STUB.spellDesc[437] = "Restores 140 to 180 mana."'
          '; STUB.spellDesc[8045] = "Instantly shocks the target with concussive force, causing 17 to 19 Nature damage."')
 EARTHFURY5 = ('WORN = { "Earthfury Belt", "Earthfury Boots", "Earthfury Bracers", "Earthfury Epaulets", "Earthfury Gauntlets", "Earthfury Piece 6" }'
               '; function GetInventoryItemLink(_, slot) return WORN[slot] end; function GetItemInfo(link) return link end')
+MANA_SPRING, MANA_TIDE, HST1 = 5675, 16190, 5394   # the first two are not in the spell database; Healing Stream Totem R1 is (40 mana)
+TOTEMS = ('local info = GetSpellInfo'
+          '; function GetSpellInfo(id) if id == 5675 then return "Mana Spring Totem" elseif id == 16190 then return "Mana Tide Totem" end return info(id) end'
+          '; STUB.spellCost[5675] = 50; STUB.spellCost[16190] = 10; STUB.spellCost[8045] = 30')
 
 
 def start(setup=PALADIN, spec=65, extra=""):
@@ -241,6 +245,36 @@ class UnitEvents(unittest.TestCase):
         fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", FH)
         fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", RENEW)        # Litany 2/2: 10% of Renew's 410 comes back
         self.assertAlmostEqual(seg.manaSpent, 380 + 410 - 41)
+
+    def test_casts_are_tallied_by_spell_name(self):
+        lua, addon, seg = start(SHAMAN, 264)
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", HW3)          # Healing Wave R3: 80 mana, 2.5 s
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", 331)          # Healing Wave R1: 25 mana, 1.5 s
+        lua.execute(f"STUB.spellCost[{HW3}] = 72")                            # the client's cost, a reduction in it
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", HW3)
+        hw = seg.spells["Healing Wave"]
+        self.assertEqual((hw.casts, hw.mana, hw.baseMana, hw.castTime), (3, 80 + 25 + 72, 80 + 25 + 80, 2.5 + 1.5 + 2.5))
+        self.assertIsNone(seg.spells["Chain Heal"])
+        ttl = addon.SegmentManager.Get(addon.SegmentManager, "Total")
+        self.assertEqual(ttl.spells["Healing Wave"].casts, 3)
+        addon.inCombat = False
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", HW3)          # out of combat: not the fight's
+        self.assertEqual(hw.casts, 3)
+
+    def test_totem_mana_and_mana_tide_are_tallied(self):
+        lua, addon, seg = start(SHAMAN, 264, extra=TOTEMS)
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", MANA_SPRING)
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", EARTH_SHOCK)  # costs mana, not a totem
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", HST1)         # a totem that is in the database
+        self.assertEqual((seg.totemMana, seg.manaSpent, seg.manaTideMana), (50 + 40, 50 + 30 + 40, 0))
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", MANA_TIDE)    # no readable tooltip: the level-60 figure
+        self.assertEqual((seg.totemMana, seg.manaTideMana), (100, 352))
+        lua.execute('STUB.spellDesc[16190] = "Summons a Mana Tide Totem with 5 health at the feet of the caster for 12 sec that restores 40 mana every 3 seconds to group members within 30 yards."')
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", MANA_TIDE)
+        self.assertEqual(seg.manaTideMana, 352 + 4 * 40)
+        self.assertEqual(seg.manaGained, 0)                                   # not a potion
+        ttl = addon.SegmentManager.Get(addon.SegmentManager, "Total")
+        self.assertEqual((ttl.totemMana, ttl.manaTideMana), (110, 352 + 160))
 
     def test_mana_potion_adds_its_tooltip_average_to_mana_gained(self):
         # Seen in game 2026-11-11: a Minor Mana Potion is the player's cast 437, "Restores 140 to 180 mana."

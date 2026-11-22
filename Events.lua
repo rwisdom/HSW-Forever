@@ -28,6 +28,17 @@ local function ManaRestoredBy(spellID)
 	return restoreAmount[spellID];
 end
 
+-- Mana one cast of Mana Tide Totem restores to the shaman. Tooltip seen in game 2026-11-21: "...for
+-- 12 sec that restores 88 mana every 3 seconds to group members within 30 yards": four ticks of 88.
+-- The amount is read from the text of the spell cast; that figure stands in when it cannot be read.
+local function ManaTideMana(spellID)
+	local text = addon.Compat.GetSpellDescription(spellID) or "";
+	local duration = tonumber(text:match("for (%d+) sec"));
+	local amount, every = text:match("restores (%d+) mana every (%d+) sec");
+	if not (duration and amount) then return 352 end
+	return tonumber(amount) * math.floor(duration / tonumber(every));
+end
+
 --[[----------------------------------------------------------------------------
 	Combat / encounter boundaries
 ------------------------------------------------------------------------------]]
@@ -200,6 +211,13 @@ function addon:OnPlayerSpellcast(spellID)
 
 	self.HealMatcher:OnCastSucceeded(spellID, now);
 
+	-- the cast's name: the per-spell tallies are kept by it, and a totem is known by it (TalentValues)
+	local spellName = s and s.name or self.Compat.PlainString((self.Compat.GetSpellInfo(spellID)));
+	if spellName == "Mana Tide Totem" then
+		local mana = ManaTideMana(spellID);
+		self.SegmentManager:ForEachLive(function(seg) seg.manaTideMana = seg.manaTideMana + mana end);
+	end
+
 	-- a mana potion or rune: mana that came neither from the pool nor from regen
 	if not s then
 		local gained = ManaRestoredBy(spellID);
@@ -227,7 +245,16 @@ function addon:OnPlayerSpellcast(spellID)
 	if s then self:LogEvent("cast", s, self.HealMatcher:SentTarget(spellID), nil, nil, free and 0 or cost) end
 	if cost <= 0 or free then return end
 	local spent = cost - back; -- Litany and set bonuses return part of the cost
-	self.SegmentManager:ForEachLive(function(seg) seg:IncManaSpent(spent) end); -- heal or not, it drains the pool
+	local totem = spellName ~= nil and spellName:find("Totem$") ~= nil;
+	self.SegmentManager:ForEachLive(function(seg)
+		seg:IncManaSpent(spent); -- heal or not, it drains the pool
+		if totem then seg.totemMana = seg.totemMana + spent end
+		if s then
+			local r = seg:Spell(s.name);
+			r.casts, r.mana = r.casts + 1, r.mana + spent;
+			r.baseMana, r.castTime = r.baseMana + s.manaCost, r.castTime + math.max(s.castTime, 0); -- a channel's cast time is -1
+		end
+	end);
 	self.ManaDeficit:Spend(spent, now, "cast " .. spellID);
 	if s and s.filler then
 		self.SegmentManager:ForEachLive(function(seg) seg:IncFillerCasts(spent) end);
