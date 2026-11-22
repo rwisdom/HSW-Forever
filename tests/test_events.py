@@ -211,6 +211,7 @@ class UnitEvents(unittest.TestCase):
         fire(addon, "UNIT_SPELLCAST_FAILED_QUIET", "player", "cast-B", HL)
         fire(addon, "UNIT_COMBAT", "party1", "HEAL", "", 1000, 2)
         fire(addon, "UNIT_COMBAT", "party1", "HEAL", "CRITICAL", 900, 2)     # someone else's heal on Bob, same frame
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "cast-A", HL)      # the cast ends: one of the two was its heal
         self.assertEqual(seg.hits[HL].direct.n, 1)
 
     def test_filler_cast_records_mana(self):

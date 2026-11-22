@@ -65,6 +65,7 @@ class DirectHeals(unittest.TestCase):
     def test_sent_target_with_suffix_matches_bare_unit_name(self):
         lua, addon, hm = start(PARTY)
         hm.OnCastSent(hm, HL, "Me Bam", 0)                             # Forever: "Hop Bam" for the player "Hop"
+        hm.OnCastSucceeded(hm, HL, 2.5)
         hm.OnUnitCombat(hm, "player", "HEAL", "", 1000, 2.5)
         hm.OnCastSent(hm, HS, "Bob-Realm", 3)
         hm.OnUnitCombat(hm, "party1", "HEAL", "", 500, 3.1)
@@ -82,12 +83,15 @@ class DirectHeals(unittest.TestCase):
         self.assertEqual(heals(lua), [("SPELL_HEAL", "Player-2", HS, False)])
 
     def test_expectation_expires_two_seconds_after_the_cast_time(self):
-        lua, addon, hm = start()
-        hm.OnCastSent(hm, HL, "", 0)                                   # 2.5 s cast: with no word of its end the wait closes at 4.5
+        lua, addon, hm = start(PARTY)
+        hm.OnCastSent(hm, HL, "", 0)                                   # 2.5 s cast: the wait for its end closes at 4.5
+        hm.OnUnitCombat(hm, "party1", "HEAL", "", 300, 4.6)            # any heal after that clears it away
+        hm.OnCastSucceeded(hm, HL, 4.6)
         hm.OnUnitCombat(hm, "player", "HEAL", "", 1000, 4.6)
         self.assertEqual(heals(lua), [])
         hm.OnCastSent(hm, HL, "", 10)
-        hm.OnUnitCombat(hm, "player", "HEAL", "", 1000, 14.4)          # inside it
+        hm.OnCastSucceeded(hm, HL, 14.4)                               # inside it
+        hm.OnUnitCombat(hm, "player", "HEAL", "", 1000, 14.4)
         self.assertEqual(len(heals(lua)), 1)
 
     def test_a_cast_that_ends_late_keeps_its_expectation_through_other_heals(self):
@@ -127,9 +131,12 @@ class DirectHeals(unittest.TestCase):
         lua, addon, hm = start()
         hm.OnCastSent(hm, HL, "", 0)
         hm.OnCastSent(hm, HL, "", 2.4)                                 # queued before the first lands
+        hm.OnCastSucceeded(hm, HL, 2.5)
         hm.OnUnitCombat(hm, "player", "HEAL", "", 1000, 2.5)
         hm.OnCastSent(hm, HL, "", 4.9)
+        hm.OnCastSucceeded(hm, HL, 5.0)
         hm.OnUnitCombat(hm, "player", "HEAL", "", 1000, 5.0)
+        hm.OnCastSucceeded(hm, HL, 7.5)
         hm.OnUnitCombat(hm, "player", "HEAL", "", 1000, 7.5)           # last of the chain
         self.assertEqual(len(heals(lua)), 3)
 
@@ -138,12 +145,14 @@ class DirectHeals(unittest.TestCase):
         hm.OnCastSent(hm, HL, "", 0)
         hm.OnCastSent(hm, HS, "", 1)
         hm.OnUnitCombat(hm, "player", "HEAL", "", 500, 1)
+        hm.OnCastSucceeded(hm, HL, 2.5)
         hm.OnUnitCombat(hm, "player", "HEAL", "", 1000, 2.5)
         self.assertEqual([h[2] for h in heals(lua)], [HS, HL])
 
     def test_chain_heal_bounces_skip_the_band(self):
         lua, addon, hm = start(PARTY)
         hm.OnCastSent(hm, CHAIN, "Bob", 0)
+        hm.OnCastSucceeded(hm, CHAIN, 2.5)
         for token, amount in (("party1", 500), ("party2", 250), ("player", 125)):
             hm.OnUnitCombat(hm, token, "HEAL", "", amount, 2.5)
         self.assertEqual([h[2] for h in heals(lua)], [CHAIN, CHAIN, CHAIN])
@@ -192,6 +201,7 @@ class EarthfuryJumps(unittest.TestCase):
     def test_jumps_after_the_main_heal_are_ours(self):
         lua, addon, hm = start8(PARTY)
         hm.OnCastSent(hm, HW, "Bob", 0)
+        hm.OnCastSucceeded(hm, HW, 2)
         for token, amount in (("party1", 230), ("party2", 46), ("player", 9)):
             hm.OnUnitCombat(hm, token, "HEAL", "", amount, 2)
         self.assertEqual([(h[1], h[2]) for h in heals(lua)], [("Player-2", HW), ("Player-3", HW), ("Player-1", HW)])
@@ -199,6 +209,7 @@ class EarthfuryJumps(unittest.TestCase):
     def test_jumps_before_the_main_heal_are_held_until_it_lands(self):
         lua, addon, hm = start8(PARTY)
         hm.OnCastSent(hm, HW, "Bob", 0)
+        hm.OnCastSucceeded(hm, HW, 2)
         hm.OnUnitCombat(hm, "player", "HEAL", "", 9, 2)
         hm.OnUnitCombat(hm, "party2", "HEAL", "CRITICAL", 54, 2)
         self.assertEqual(heals(lua), [])
@@ -209,6 +220,7 @@ class EarthfuryJumps(unittest.TestCase):
         lua, addon, hm = start8(PARTY)
         hm.OnCastSent(hm, HW, "Bob", 0)
         hm.OnUnitCombat(hm, "party2", "HEAL", "", 20, 1)        # a frame earlier: someone's tick
+        hm.OnCastSucceeded(hm, HW, 2)
         hm.OnUnitCombat(hm, "party1", "HEAL", "", 230, 2)
         hm.OnUnitCombat(hm, "player", "HEAL", "", 9, 2)
         hm.OnUnitCombat(hm, "party2", "HEAL", "", 46, 2)
@@ -219,6 +231,7 @@ class EarthfuryJumps(unittest.TestCase):
     def test_a_held_heal_arrives_once_per_token(self):
         lua, addon, hm = start8(PARTY + "; " + SELF_TWICE)
         hm.OnCastSent(hm, HW, "Bob", 0)
+        hm.OnCastSucceeded(hm, HW, 2)
         hm.OnUnitCombat(hm, "player", "HEAL", "", 9, 2)
         hm.OnUnitCombat(hm, "targettarget", "HEAL", "", 9, 2)
         hm.OnUnitCombat(hm, "party1", "HEAL", "", 230, 2)
@@ -230,6 +243,7 @@ class EarthfuryJumps(unittest.TestCase):
         hm.OnCastSent(hm, HW, "Bob", 0)
         hm.OnUnitCombat(hm, "party2", "HEAL", "", 20, 1)
         self.assertEqual(len(list(lua.globals().MSGS.keys())), 0)   # held: the landing frame is not known yet
+        hm.OnCastSucceeded(hm, HW, 2)
         hm.OnUnitCombat(hm, "party1", "HEAL", "", 230, 2)
         self.assertEqual([h[1] for h in heals(lua)], ["Player-2"])
         self.assertIn("Cat", lua.globals().MSGS[1])
@@ -237,6 +251,7 @@ class EarthfuryJumps(unittest.TestCase):
     def test_lesser_healing_wave_does_not_jump(self):
         lua, addon, hm = start8(PARTY)
         hm.OnCastSent(hm, LHW, "Bob", 0)
+        hm.OnCastSucceeded(hm, LHW, 1.5)
         hm.OnUnitCombat(hm, "party1", "HEAL", "", 250, 1.5)
         hm.OnUnitCombat(hm, "player", "HEAL", "", 9, 1.5)
         self.assertEqual([h[1] for h in heals(lua)], ["Player-2"])
@@ -245,10 +260,103 @@ class EarthfuryJumps(unittest.TestCase):
         lua, addon, hm = start(PARTY)
         addon.ply_earthfury = 7
         hm.OnCastSent(hm, HW, "Bob", 0)
+        hm.OnCastSucceeded(hm, HW, 2)
         hm.OnUnitCombat(hm, "player", "HEAL", "", 9, 2)
         hm.OnUnitCombat(hm, "party1", "HEAL", "", 230, 2)
         hm.OnUnitCombat(hm, "party2", "HEAL", "", 46, 2)
         self.assertEqual([h[1] for h in heals(lua)], ["Player-2"])
+
+
+class CastsInFlight(unittest.TestCase):
+    """The heal of a spell with a cast time lands as the cast ends: one that comes while the cast is in flight is not its heal."""
+
+    def test_a_totem_tick_mid_cast_does_not_take_the_casts_heal(self):
+        # In game 2026-11-21, Healing Stream down: `7.39,heal,547` was the tick and `8.83,tick,6375,...,1` the
+        # Healing Wave (sent about 6.8, ended 8.83), a crit. The Healing Wave was priced as a non-crit.
+        lua, addon, hm = start()
+        hm.OnWaterTotem(hm, HST, 3.33)
+        hm.OnUnitCombat(hm, "player", "HEAL", "", 6, 5.40)
+        hm.OnCastSent(hm, HW, "", 6.83)
+        hm.OnUnitCombat(hm, "player", "HEAL", "", 6, 7.39)             # the tick, mid-cast
+        self.assertEqual(len(heals(lua)), 1)                           # held: nothing says yet whose it is
+        hm.OnUnitCombat(hm, "player", "HEAL", "CRITICAL", 204, 8.83)   # the Healing Wave lands, before its SUCCEEDED in the frame
+        hm.OnCastSucceeded(hm, HW, 8.83)
+        self.assertEqual([(h[0], h[2], h[3]) for h in heals(lua)],
+                         [("SPELL_PERIODIC_HEAL", HST, False), ("SPELL_PERIODIC_HEAL", HST, False), ("SPELL_HEAL", HW, True)])
+
+    def test_someone_elses_heal_mid_cast_is_not_ours(self):
+        # Razorfen Kraul 2026-11-16: a heal on Kon at 6.38 took the expectation of the cast that ended at 8.16
+        lua, addon, hm = start(PARTY)
+        lua.execute('MSGS = {}; function HSW_TEST_ADDON:Msg(s) table.insert(MSGS, tostring(s)) end; HSW_TEST_ADDON.discoverSpells = true')
+        hm.OnCastSent(hm, HL, "Bob", 5.66)
+        hm.OnUnitCombat(hm, "party1", "HEAL", "", 300, 6.38)
+        hm.OnUnitCombat(hm, "party1", "HEAL", "CRITICAL", 1500, 8.16)
+        hm.OnCastSucceeded(hm, HL, 8.16)
+        self.assertEqual(heals(lua), [("SPELL_HEAL", "Player-2", HL, True)])
+        msgs = list(lua.globals().MSGS.values())
+        self.assertEqual(len(msgs), 1)
+        self.assertIn("unattributed heal on Bob", msgs[0])
+
+    def test_of_two_heals_just_before_the_casts_end_the_later_is_its_own(self):
+        lua, addon, hm = start()
+        hm.OnWaterTotem(hm, HST, 0)
+        hm.OnCastSent(hm, HW, "", 0)
+        hm.OnUnitCombat(hm, "player", "HEAL", "", 6, 1.9)              # a tick, inside the wait for the cast's end
+        hm.OnUnitCombat(hm, "player", "HEAL", "CRITICAL", 204, 2.0)
+        hm.OnCastSucceeded(hm, HW, 2.0)
+        self.assertEqual([(h[2], h[3]) for h in heals(lua)], [(HW, True)])
+        hm.Flush(hm)
+        self.assertEqual([(h[2], h[3]) for h in heals(lua)], [(HW, True), (HST, False)])
+
+    def test_a_heal_held_for_a_cast_is_a_hot_tick_that_was_due(self):
+        lua, addon, hm = start()
+        hm.OnCastSent(hm, REJUV, "", 0)
+        hm.OnCastSucceeded(hm, REJUV, 0)
+        hm.OnCastSent(hm, REGROWTH, "", 2)                             # 2 s cast
+        hm.OnUnitCombat(hm, "player", "HEAL", "", 194, 3)              # Rejuvenation's first tick, mid-cast
+        hm.OnCastSucceeded(hm, REGROWTH, 4)
+        hm.OnUnitCombat(hm, "player", "HEAL", "", 1500, 4)             # the heal after the cast's end this time
+        self.assertEqual([(h[0], h[2]) for h in heals(lua)], [("SPELL_PERIODIC_HEAL", REJUV), ("SPELL_HEAL", REGROWTH)])
+
+    def test_bounces_that_come_before_the_casts_end_in_its_frame(self):
+        lua, addon, hm = start(PARTY)
+        hm.OnCastSent(hm, CHAIN, "Bob", 0)
+        for token, amount in (("party1", 500), ("party2", 250), ("player", 125)):
+            hm.OnUnitCombat(hm, token, "HEAL", "", amount, 2.5)
+        self.assertEqual(heals(lua), [])
+        hm.OnCastSucceeded(hm, CHAIN, 2.5)
+        self.assertEqual(sorted(h[1] for h in heals(lua)), ["Player-1", "Player-2", "Player-3"])
+        self.assertEqual({h[2] for h in heals(lua)}, {CHAIN})
+
+    def test_jumps_and_the_main_heal_before_the_casts_end_in_its_frame(self):
+        lua, addon, hm = start8(PARTY)
+        hm.OnCastSent(hm, HW, "Bob", 0)
+        hm.OnUnitCombat(hm, "player", "HEAL", "", 9, 2)                # a jump
+        hm.OnUnitCombat(hm, "party1", "HEAL", "CRITICAL", 345, 2)      # the main heal
+        hm.OnUnitCombat(hm, "party2", "HEAL", "", 46, 2)               # a jump
+        self.assertEqual(heals(lua), [])
+        hm.OnCastSucceeded(hm, HW, 2)
+        self.assertEqual(sorted((h[1], h[2], h[3]) for h in heals(lua)),
+                         [("Player-1", HW, False), ("Player-2", HW, True), ("Player-3", HW, False)])
+
+    def test_a_second_cast_end_is_the_next_casts(self):
+        lua, addon, hm = start()
+        hm.OnCastSent(hm, HL, "", 0)
+        hm.OnCastSent(hm, HL, "", 2.4)                                 # queued
+        hm.OnCastSucceeded(hm, HL, 2.5)                                # the first ends; its heal is late
+        hm.OnCastSucceeded(hm, HL, 5.0)                                # the queued one ends
+        hm.OnUnitCombat(hm, "player", "HEAL", "", 1000, 5.0)
+        hm.OnUnitCombat(hm, "player", "HEAL", "CRITICAL", 1500, 5.0)
+        self.assertEqual(len(heals(lua)), 1)                           # the first cast's wait ran out at 4.5; the second took one heal
+
+    def test_heals_held_when_the_fight_ends_are_settled(self):
+        lua, addon, hm = start()
+        hm.OnWaterTotem(hm, HST, 0)
+        hm.OnCastSent(hm, HW, "", 10)
+        hm.OnUnitCombat(hm, "player", "HEAL", "", 6, 10.5)             # a tick, with a cast in flight as the fight ends
+        self.assertEqual(heals(lua), [])
+        hm.Flush(hm)
+        self.assertEqual(heals(lua), [("SPELL_PERIODIC_HEAL", "Player-1", HST, False)])
 
 
 SECRET = 'issecretvalue = function(v) return v == "SECRET" end'   # the stub's stand-in for a secret string

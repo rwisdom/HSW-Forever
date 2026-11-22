@@ -421,6 +421,7 @@ end
 function addon:EndFight()
 	if not self.inCombat then return end
 	addon:Discover("fight ended.");
+	self.HealMatcher:Flush(); -- heals still waiting on a cast that did not end are counted as they stand
 	self:ScanPlayerBuffs(); -- buffs read again once the player is out of combat: Water Shield globes spent in the fight count in it
 	self.inCombat = false;
 	self.manualFight = nil;

@@ -125,9 +125,11 @@ Consequences and known limits:
   measure. A fight of pure overheal prices to nothing and does not reach history.
 - The meter gives per-spell totals only, no per-target split. Rules that depend on the target (Oath
   of Light, Renewed Hope, Boundless Light) use the target the spell hit most often that fight.
-- A heal from another healer landing on your target within about a second of your cast can be
-  counted as one of your hits. The total is still yours alone; the stray count only shifts the crit
-  normalisation slightly.
+- The client does not say which spell a heal came from. A heal that lands on your target while your
+  cast is still in flight is not that cast's: it counts as a tick of yours that was due, as your
+  Healing Stream Totem's, or as nobody's. A heal from another healer that lands in the quarter second
+  before your cast ends, or between its end and your own heal, can still be counted as one of your
+  hits. The total is still yours alone; the stray count only shifts the crit normalisation slightly.
 - Power Word: Shield is credited at cast with its expected size (Classic coefficient); Illumination
   and Water Shield mana is credited on each crit. Water Shield has three globes (four with an item
   that adds one, read off the buff out of combat): a heal crit spends

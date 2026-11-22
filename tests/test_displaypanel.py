@@ -455,6 +455,20 @@ class Finaliser(unittest.TestCase):
         self.assertFalse(any("meter recorded no healing" in m for m in msgs), msgs)
         self.assertEqual(addon.History.Size(addon.History), 0)
 
+    def test_a_heal_held_for_a_cast_in_flight_is_settled_when_the_fight_ends(self):
+        shaman = ALWAYS + ('; STUB.class = "SHAMAN"; STUB.talents = { {name="Elemental", talents={}}, {name="Enhancement", talents={}},'
+                           ' {name="Restoration", talents={ {name="Tidal Mastery", rank=1, max=5} }} }')
+        lua, addon = start(extra=shaman, files=CORE_FILES + ["Parsers/RestoShaman.lua", "DisplayPanel.lua", "Core.lua"])
+        addon.StartFight(addon, "Boss", True)
+        hm = addon.HealMatcher
+        hm.OnWaterTotem(hm, 6375, 0)
+        hm.OnCastSent(hm, 547, "", 10)                                           # a Healing Wave in flight as the fight ends
+        hm.OnUnitCombat(hm, "player", "HEAL", "", 6, 10.5)                       # a totem tick: held for the cast's end
+        self.assertIsNone(seg(addon).hits[6375])
+        lua.execute("STUB.time = 11")
+        addon.EndFight(addon)
+        self.assertEqual(seg(addon).hits[6375].tick.n, 1)
+
     def test_hits_counted_but_no_meter_healing_is_reported(self):
         # Westfall 2026-11-08: a fight the meter opened no session for finalised to nothing with no word
         # about it. Discover mode now says the meter had no healing when the matcher counted hits.

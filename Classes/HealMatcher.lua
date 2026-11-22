@@ -8,7 +8,9 @@ local name, addon = ...;
 	  UNIT_COMBAT               a unit was healed: crit flag, no source, no spell; the amount is
 	                            a secret value on the release client (the session totals price it)
 	Direct heals: a landing expectation opens at SENT for the cast target (any unit
-	for multi-target spells) and is matched to the next heal on that unit.
+	for multi-target spells) and is matched to the next heal on that unit. The heal of
+	a spell with a cast time lands as the cast ends, so a heal that comes while the cast
+	is in flight is held until the cast's end is heard of, and was not its heal otherwise.
 	HoT ticks: registered at SUCCEEDED per target (or per group member) and matched
 	to later heals on that unit by the tick that is due.
 	Jumps (Earthfury Healing Wave): land on other units in the frame of the main heal,
@@ -22,14 +24,16 @@ local LANDING_WINDOW = 1.0;             -- seconds after a cast's end in which i
 local LATE_CAST = 2.0;                  -- seconds past its cast time a cast may end (lag, pushback) and keep its expectation
 local SEEN_WINDOW = 1.0;                -- how long dedupe keys are kept
 local TICK_WINDOW = 0.5;                -- seconds a HoT tick may land off its due time
+local HOLD_WINDOW = 0.25;               -- seconds a heal waits for the end of a cast in flight on its unit
 local TOTEM = "Healing Stream Totem";
 
-local expectations = {}; -- { spellID=, target=, remaining=, jumps=, landed=, expires= }, newest last
+local expectations = {}; -- { spellID=, target=, remaining=, jumps=, ready=, succeeded=, landed=, expires= }, newest last
 local sentTarget = {};   -- spellID -> target name of the last UNIT_SPELLCAST_SENT
 local hots = {};         -- unit name -> { [spellID] = { nextTick=, interval=, expires= } }
 local totem = nil;       -- { spellID=, expires= } while our totem is down
 local seen = {};         -- "guid:amount" -> time of the last heal attributed or held with that key
-local held = {};         -- heals of the current frame that may be jumps: { guid=, unitName=, crit=, at= }
+local held = {};         -- heals that wait: { guid=, unitName=, crit=, at=, cast= }. cast: for the end of a cast in
+                         -- flight on the unit (HOLD_WINDOW); else a heal of the current frame that may be a jump
 
 local function playerName() return UnitName("player") end
 
@@ -115,6 +119,7 @@ function HealMatcher:OnCastSent(spellID, targetName, now, castGUID)
 	if direct then
 		table.insert(expectations, {
 			spellID = spellID, target = targetName, remaining = s.targets, castGUID = castGUID,
+			ready = s.castTime <= 0, -- an instant lands at once; a cast when it ends (OnCastSucceeded)
 			jumps = addon:CastJumps(s), expires = now + math.max(s.castTime, 0) + LATE_CAST,
 		});
 	end
@@ -144,39 +149,52 @@ local function registerHot(s, targetName, now)
 	end
 end
 
--- UNIT_SPELLCAST_SUCCEEDED: the cast finished now. Spell pushback stretches a cast past the window
--- opened at SENT, so the oldest pending expectation of the spell gets a fresh landing window; the
--- periodic parts start now.
-function HealMatcher:OnCastSucceeded(spellID, now)
-	if not addon.inCombat then return end
-	local s = addon.Spells:Get(spellID);
-	if not s then return end
-	now = now or GetTime();
-	for _, e in ipairs(expectations) do
-		if e.spellID == spellID and not e.landed then
-			e.expires = math.max(e.expires, now + LANDING_WINDOW);
-			break;
-		end
+-- Our HoT on unitName with a tick due now, nearest first; its next tick moves one interval on.
+-- Due means within TICK_WINDOW of the tick grid (so a tick lost to another match does not lose the
+-- HoT).
+local function takeHotTick(unitName, now)
+	local byId = hots[unitName];
+	if not byId then return nil end
+	local bestId, bestDist;
+	for id, h in pairs(byId) do
+		local phase = (now - h.nextTick) % h.interval;
+		local dist = math.min(phase, h.interval - phase);
+		if dist <= TICK_WINDOW and (not bestDist or dist < bestDist) then bestId, bestDist = id, dist end
 	end
-	if s.name == TOTEM then
-		self:OnWaterTotem(spellID, now);
-	elseif s.tick > 0 and s.duration > 0 then
-		registerHot(s, sentTarget[spellID] or playerName(), now);
+	if bestId then byId[bestId].nextTick = now + byId[bestId].interval end
+	return bestId;
+end
+
+-- A held heal that nothing claimed. One that waited for a cast's end was not that cast's: it is a
+-- tick of ours that was due when it landed, else the totem's, else someone else's. One that might
+-- have been a jump was tried as a tick before it was held.
+local function settleLate(h)
+	local tick = h.cast and takeHotTick(h.unitName, h.at);
+	if tick then
+		credit("SPELL_PERIODIC_HEAL", h.guid, tick, h.crit);
+	elseif totem and totem.expires >= h.at then
+		credit("SPELL_PERIODIC_HEAL", h.guid, totem.spellID, h.crit);
+	else
+		unattributed(h.unitName);
 	end
+end
+
+-- Held heals whose wait is over: a possible jump of an earlier frame (no main heal landed with it),
+-- a heal that waited HOLD_WINDOW for a cast to end.
+local function expireHeld(now)
+	local keep = {};
+	for _, h in ipairs(held) do
+		if h.at < now - (h.cast and HOLD_WINDOW or 0) then settleLate(h) else keep[#keep + 1] = h end
+	end
+	wipe(held);
+	for i, h in ipairs(keep) do held[i] = h end
 end
 
 local function expire(now)
 	for i = #expectations, 1, -1 do
 		if expectations[i].expires < now then table.remove(expectations, i) end
 	end
-	-- held heals of an earlier frame: no main heal landed with them
-	for i = #held, 1, -1 do
-		local h = held[i];
-		if h.at < now then
-			if totem then credit("SPELL_PERIODIC_HEAL", h.guid, totem.spellID, h.crit) else unattributed(h.unitName) end
-			table.remove(held, i);
-		end
-	end
+	expireHeld(now);
 	for unitName, byId in pairs(hots) do
 		for id, h in pairs(byId) do
 			if h.expires < now then byId[id] = nil end
@@ -189,27 +207,46 @@ local function expire(now)
 	end
 end
 
--- The expectation due soonest that can land on unitName (multi-target spells land anywhere).
--- A queued cast is sent before the previous one lands, so the newest is rarely the one landing.
--- Returns the spell id and, when the heal was the main heal of a jumping spell, its expectation.
+-- Whether expectation e can land on unitName (multi-target spells land anywhere).
+local function fits(e, unitName)
+	local s = addon.Spells:Get(e.spellID);
+	return s and not e.landed and (s.targets > 1 or e.target == unitName);
+end
+
+-- One heal of e (expectations[idx]) has landed. Returns e when that was the main heal of a jumping
+-- spell: its jumps come in this frame.
+local function land(e, idx, now)
+	e.remaining = e.remaining - 1;
+	if e.remaining > 0 then return nil end
+	if e.jumps > 0 then
+		e.landed, e.expires = now, now; -- jumps still arrive this frame, none later
+		return e;
+	end
+	table.remove(expectations, idx);
+	return nil;
+end
+
+-- The expectation due soonest that can land on unitName now: an instant's, or a cast's whose end
+-- has been heard of. A queued cast is sent before the previous one lands, so the newest is rarely
+-- the one landing. Returns the spell id and, when the heal was the main heal of a jumping spell,
+-- its expectation.
 local function takeExpectation(unitName, now)
 	local best, bestIdx;
 	for i, e in ipairs(expectations) do
-		local s = addon.Spells:Get(e.spellID);
-		local fits = s and not e.landed and (s.targets > 1 or e.target == unitName);
-		if fits and (not best or e.expires < best.expires) then
+		if e.ready and fits(e, unitName) and (not best or e.expires < best.expires) then
 			best, bestIdx = e, i;
 		end
 	end
 	if not best then return nil end
-	best.remaining = best.remaining - 1;
-	if best.remaining > 0 then return best.spellID end
-	if best.jumps > 0 then
-		best.landed, best.expires = now, now; -- jumps still arrive this frame, none later
-		return best.spellID, best;
+	return best.spellID, land(best, bestIdx, now);
+end
+
+-- A cast that could land on unitName is still in flight: its heal comes as it ends, not before.
+local function awaited(unitName)
+	for _, e in ipairs(expectations) do
+		if not e.ready and fits(e, unitName) then return true end
 	end
-	table.remove(expectations, bestIdx);
-	return best.spellID;
+	return false;
 end
 
 -- A jump of the spell whose main heal landed this frame on another unit.
@@ -230,10 +267,14 @@ local function mayJump(unitName)
 	return false;
 end
 
--- The main heal of e has just landed: the heals held this frame on other units are its jumps.
+-- The main heal of e has just landed: the heals held this frame as possible jumps are its jumps
+-- on other units. Heals that wait for a cast's end stay held.
 local function creditHeld(e)
+	local keep = {};
 	for _, h in ipairs(held) do
-		if e.jumps > 0 and h.unitName ~= e.target then
+		if h.cast then
+			keep[#keep + 1] = h;
+		elseif e.jumps > 0 and h.unitName ~= e.target then
 			e.jumps = e.jumps - 1;
 			credit("SPELL_HEAL", h.guid, e.spellID, h.crit);
 		else
@@ -241,22 +282,49 @@ local function creditHeld(e)
 		end
 	end
 	wipe(held);
+	for i, h in ipairs(keep) do held[i] = h end
 end
 
--- Our HoT on unitName with a tick due now, nearest first; its next tick moves one interval on.
--- Due means within TICK_WINDOW of the tick grid (so a tick lost to another match does not lose the
--- HoT).
-local function takeHotTick(unitName, now)
-	local byId = hots[unitName];
-	if not byId then return nil end
-	local bestId, bestDist;
-	for id, h in pairs(byId) do
-		local phase = (now - h.nextTick) % h.interval;
-		local dist = math.min(phase, h.interval - phase);
-		if dist <= TICK_WINDOW and (not bestDist or dist < bestDist) then bestId, bestDist = id, dist end
+-- The cast of e (expectations[idx]) has just ended: the heals held for a cast's end on a unit it
+-- can land on were its own, the newest first (one that landed a moment earlier is a tick).
+local function settleHeld(e, idx, now)
+	local landed;
+	for i = #held, 1, -1 do
+		local h = held[i];
+		if h.cast and fits(e, h.unitName) then
+			table.remove(held, i);
+			credit("SPELL_HEAL", h.guid, e.spellID, h.crit);
+			landed = land(e, idx, now);
+			if e.remaining <= 0 then break end
+		end
 	end
-	if bestId then byId[bestId].nextTick = now + byId[bestId].interval end
-	return bestId;
+	if landed then creditHeld(landed) end
+end
+
+-- UNIT_SPELLCAST_SUCCEEDED: the cast finished now. Its heal lands in this frame, before or after
+-- this event (seen in game 2026-11-21: the heal first), or shortly after: the oldest pending
+-- expectation of the spell may be taken from now on, takes the heals held for it and gets a fresh
+-- landing window (spell pushback stretches a cast past the one opened at SENT). The periodic parts
+-- start now.
+function HealMatcher:OnCastSucceeded(spellID, now)
+	if not addon.inCombat then return end
+	local s = addon.Spells:Get(spellID);
+	if not s then return end
+	now = now or GetTime();
+	expireHeld(now);
+	for i, e in ipairs(expectations) do
+		if e.spellID == spellID and not e.landed and not e.succeeded then
+			e.succeeded, e.ready = now, true;
+			e.expires = math.max(e.expires, now + LANDING_WINDOW);
+			settleHeld(e, i, now);
+			break;
+		end
+	end
+	if s.name == TOTEM then
+		self:OnWaterTotem(spellID, now);
+	elseif s.tick > 0 and s.duration > 0 then
+		registerHot(s, sentTarget[spellID] or playerName(), now);
+	end
 end
 
 -- UNIT_COMBAT(unitToken, action, flag, amount, school). The amount is a secret value on the
@@ -279,6 +347,12 @@ function HealMatcher:OnUnitCombat(unitToken, action, flag, amount, now)
 	expire(now);
 
 	local ev, spellID, landed = "SPELL_HEAL", takeExpectation(unitName, now);
+	if not spellID and awaited(unitName) then
+		-- a cast on this unit is in flight: its heal if the cast ends now, a tick or someone else's if not
+		seen[key] = now;
+		table.insert(held, { guid = guid, unitName = unitName, crit = crit, at = now, cast = true });
+		return;
+	end
 	if not spellID then
 		ev, spellID = "SPELL_PERIODIC_HEAL", takeHotTick(unitName, now);
 	end
@@ -300,6 +374,12 @@ function HealMatcher:OnUnitCombat(unitToken, action, flag, amount, now)
 	seen[key] = now;
 	credit(ev, guid, spellID, crit);
 	if landed then creditHeld(landed) end
+end
+
+-- The fight is over (addon:EndFight): heals still held are settled as they stand.
+function HealMatcher:Flush()
+	for _, h in ipairs(held) do settleLate(h) end
+	wipe(held);
 end
 
 addon.HealMatcher = HealMatcher;
