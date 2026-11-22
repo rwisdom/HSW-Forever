@@ -276,6 +276,20 @@ class UnitEvents(unittest.TestCase):
         ttl = addon.SegmentManager.Get(addon.SegmentManager, "Total")
         self.assertEqual((ttl.totemMana, ttl.manaTideMana), (110, 352 + 160))
 
+    def test_a_mana_spring_totem_cast_feeds_the_mana_count_until_another_water_totem(self):
+        desc = '; STUB.spellDesc[5675] = "Summons a Mana Spring Totem with 5 health at the feet of the caster for 5 min that restores 4 mana every 2 seconds to group members within 30 yards."'
+        lua, addon, seg = start(SHAMAN, 264, extra=TOTEMS + desc)
+        md = addon.ManaDeficit
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", MANA_SPRING)  # in a fight the buff cannot be read: the cast stands in
+        self.assertEqual((md.spring, seg.manaGained), (2, 0))
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", EARTH_SHOCK)
+        self.assertEqual(md.spring, 2)
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", HST1)         # one water totem at a time
+        self.assertEqual(md.spring, 0)
+        addon.inCombat = False
+        fire(addon, "UNIT_SPELLCAST_SUCCEEDED", "player", "g", MANA_SPRING)  # between pulls too
+        self.assertEqual(md.spring, 2)
+
     def test_mana_potion_adds_its_tooltip_average_to_mana_gained(self):
         # Seen in game 2026-11-11: a Minor Mana Potion is the player's cast 437, "Restores 140 to 180 mana."
         lua, addon, seg = start(SHAMAN, 264, extra=DESCS)

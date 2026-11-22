@@ -39,6 +39,13 @@ local function ManaTideMana(spellID)
 	return tonumber(amount) * math.floor(duration / tonumber(every));
 end
 
+-- The water totems (data export: "Tools: Water Totem"). One stands at a time, so dropping any of
+-- them ends the player's Mana Spring (ManaDeficit:OnWaterTotem).
+local WaterTotems = {
+	["Mana Spring Totem"] = true, ["Healing Stream Totem"] = true, ["Mana Tide Totem"] = true,
+	["Poison Cleansing Totem"] = true, ["Disease Cleansing Totem"] = true, ["Fire Resistance Totem"] = true,
+};
+
 --[[----------------------------------------------------------------------------
 	Combat / encounter boundaries
 ------------------------------------------------------------------------------]]
@@ -179,6 +186,11 @@ function addon:OnPlayerSpellcast(spellID)
 	end
 	local s = self.Spells:Get(spellID);
 	local back = s and self:CastManaReturn(s) or 0; -- every heal cast, in or out of combat: Litany of Light tracks the previous one
+	-- the cast's name: the per-spell tallies are kept by it, and a totem is known by it (TalentValues)
+	local spellName = s and s.name or self.Compat.PlainString((self.Compat.GetSpellInfo(spellID)));
+	if spellName and WaterTotems[spellName] then -- in or out of combat: Mana Spring's mana starts or stops here
+		self.ManaDeficit:OnWaterTotem(spellName == "Mana Spring Totem" and spellID or nil);
+	end
 	if not self.inCombat then
 		-- between pulls the bar still moves, and the next fight starts where it stands
 		local gained = not s and ManaRestoredBy(spellID) or 0;
@@ -211,8 +223,6 @@ function addon:OnPlayerSpellcast(spellID)
 
 	self.HealMatcher:OnCastSucceeded(spellID, now);
 
-	-- the cast's name: the per-spell tallies are kept by it, and a totem is known by it (TalentValues)
-	local spellName = s and s.name or self.Compat.PlainString((self.Compat.GetSpellInfo(spellID)));
 	if spellName == "Mana Tide Totem" then
 		local mana = ManaTideMana(spellID);
 		self.SegmentManager:ForEachLive(function(seg) seg.manaTideMana = seg.manaTideMana + mana end);

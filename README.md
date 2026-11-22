@@ -149,6 +149,8 @@ Consequences and known limits:
   has: the client stops sending mana changes when the bar is full, and after a few seconds of that
   the count is set to full. A mana buff counts when it was on you out of combat
   and its text reads "N mana every M sec" (Blessing of Wisdom); one cast on you mid-fight is seen
-  only after the fight. It does not see Mana Tide, Mana Spring, another player's Innervate, dying
+  only after the fight. Mana Spring Totem counts at its tooltip rate while its buff is on you: read
+  out of combat, and in a fight from your own water totem casts, so a totem killed or left behind
+  mid-fight is seen only after it. It does not see Mana Tide, another player's Innervate, dying
   or levelling up: with those Intellect reads high, by at most one full pool a fight. After a `/reload` the bar is taken as full. Mana
   potions, runes and drinks count at their tooltip figures, not at what they actually restored.

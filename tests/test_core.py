@@ -275,6 +275,11 @@ class Chat(unittest.TestCase):
         self.chat("stats")
         self.assertTrue(any("mana deficit=250 drink=20.0/s buffs=3.6/s" in m for m in self.msgs()), self.msgs())
 
+    def test_stats_counts_mana_spring_among_the_buffs(self):
+        self.lua.execute("HSW_TEST_ADDON.ManaDeficit.spring = 3")
+        self.chat("stats")
+        self.assertTrue(any("buffs=3.0/s" in m for m in self.msgs()), self.msgs())
+
     def test_spec_on_a_class_without_a_healing_spec(self):
         self.lua.execute('STUB.class = "WARRIOR"; STUB.talents = {}; HSW_TEST_ADDON.Util.RebuildTalentCache()')
         self.chat("spec")

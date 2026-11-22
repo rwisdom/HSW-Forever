@@ -7,10 +7,10 @@ local name, addon = ...;
 	full bar (0) and at an empty one (max mana). It runs in and out of combat, so a
 	pull that starts below full starts with what the last one left. A fight's share
 	of the mana pool is how far the deficit rose over the fight (addon:EndFight).
-	Nothing ever corrects it against the real bar: Mana Tide, buff MP5 and the like
-	are not seen, and the error lasts until the estimated bar is full again.
+	Nothing ever corrects it against the real bar: Mana Tide and the like are not
+	seen, and the error lasts until the estimated bar is full again.
 ------------------------------------------------------------------------------]]
-local ManaDeficit = { deficit = 0, drinkRate = 0, endedDrink = 0, buffs = {}, log = {}, events = 0 };
+local ManaDeficit = { deficit = 0, drinkRate = 0, endedDrink = 0, buffs = {}, spring = 0, log = {}, events = 0 };
 
 -- The last changes to the deficit, printed by `/hsw mana`: the time, what happened, the deficit
 -- before and after, and how many mana events came since the line before. Regen is not noted; it
@@ -123,9 +123,9 @@ function ManaDeficit:IsFull(now)
 end
 
 -- Brings the deficit up to `now` and returns it: Spirit regen at the base rate outside the
--- five-second rule and at the casting share inside it; gear MP5, a drink and mana buffs
--- throughout. A bar known to be full sets it to 0, whatever the count says: that clears what
--- the count could not see (Mana Spring, an Innervate, a level). The first call starts the clock
+-- five-second rule and at the casting share inside it; gear MP5, a drink, mana buffs and Mana
+-- Spring throughout. A bar known to be full sets it to 0, whatever the count says: that clears
+-- what the count could not see (a Mana Tide, an Innervate, a level). The first call starts the clock
 -- from a full bar (login, /reload).
 function ManaDeficit:Advance(now)
 	now = now or GetTime();
@@ -140,7 +140,7 @@ function ManaDeficit:Advance(now)
 	local sinceSpend = self.last and self.lastSpend and self.last - self.lastSpend or math.huge;
 	local inFSR = math.max(0, math.min(dt, addon.FSR_SECONDS - sinceSpend));
 	local regen = (addon.ply_regen_base or 0) * (dt - inFSR + (addon.ply_castpct or 0) * inFSR)
-		+ ((addon.ply_mp5 or 0) / 5 + self.drinkRate + self:HeldBuffRate() + self:UnseenBuffRate()) * dt;
+		+ ((addon.ply_mp5 or 0) / 5 + self.drinkRate + self:HeldBuffRate() + self:UnseenBuffRate() + self.spring) * dt;
 	self.deficit = math.max(0, self.deficit - regen);
 	self.last = now;
 	return self.deficit;
@@ -217,12 +217,60 @@ function ManaDeficit.BuffRateOf(spellID)
 	return buffRates[spellID];
 end
 
+--[[----------------------------------------------------------------------------
+	Mana Spring Totem. Seen in game 2026-11-22 (level 36 shaman, rank 2): the totem
+	puts a buff named "Mana Spring" (10491) on the player whose text is empty, and its
+	mana is not in the client's regen rates (`/hsw stats` read flat 0.00/s with the
+	totem down and without it). The rate is read from the totem spell's own text,
+	"...restores 6 mana every 2 seconds to group members within 30 yards."; a rank the
+	player has not learned has no text. `spring` is that rate while the buff is up.
+	The buff is read where buffs can be (ScanBuffs); in a fight the player's own water
+	totem casts switch it (OnWaterTotem), and the next scan that reads sets it right.
+	A totem killed or left behind mid-fight goes unseen until then.
+	Restorative Totems (+5% a point) is not added: whether the text already holds it
+	is not known.
+------------------------------------------------------------------------------]]
+local SpringRanks = { 10497, 10496, 10495, 5675 }; -- Mana Spring Totem, highest rank first
+local springAura = {}; -- aura spell id -> whether it is the Mana Spring buff
+
+local function isSpringAura(id)
+	if springAura[id] == nil then
+		springAura[id] = addon.Compat.PlainString((addon.Compat.GetSpellInfo(id))) == "Mana Spring";
+	end
+	return springAura[id];
+end
+
+-- Mana per second of the Mana Spring Totem rank the player last cast; with no cast seen (a
+-- /reload, another shaman's totem) of the highest rank the client describes.
+function ManaDeficit:SpringRate()
+	local rate = self.springCast and ManaDeficit.BuffRateOf(self.springCast);
+	if rate and rate > 0 then return rate end
+	for _, id in ipairs(SpringRanks) do
+		rate = ManaDeficit.BuffRateOf(id);
+		if rate and rate > 0 then return rate end
+	end
+	return 0;
+end
+
+local function setSpring(self, rate, now)
+	self:Advance(now); -- the time so far ran at the old rate
+	if rate ~= self.spring then note(self, string.format("mana spring %.1f/s", rate), self.deficit, now) end
+	self.spring = rate;
+end
+
+-- The player dropped a water totem: Mana Spring Totem (springID is its spell id) or another one
+-- (nil), which takes its place, since only one water totem stands at a time.
+function ManaDeficit:OnWaterTotem(springID, now)
+	if springID then self.springCast = springID end
+	setSpring(self, springID and self:SpringRate() or 0, now);
+end
+
 -- The player's buffs (UNIT_AURA, PLAYER_ENTERING_WORLD): the drink rate is the sum over the buffs
--- up, `buffs` the rates of the lasting ones. In combat the client refuses aura reads and both stay
--- what they were: the drink 0 since the pull, a blessing as last seen (one cast or run out
--- mid-fight is missed).
+-- up, `buffs` the rates of the lasting ones, `spring` Mana Spring's. In combat the client refuses
+-- aura reads and all stay what they were: the drink 0 since the pull, a blessing as last seen (one
+-- cast or run out mid-fight is missed).
 function ManaDeficit:ScanBuffs(now)
-	local drink, lasting = 0, {};
+	local drink, lasting, spring = 0, {}, false;
 	for i = 1, 40 do
 		local _, _, _, id, blocked = addon.Compat.UnitAura("player", i);
 		if blocked then return end
@@ -230,9 +278,11 @@ function ManaDeficit:ScanBuffs(now)
 		drink = drink + (ManaDeficit.DrinkRateOf(id) or 0);
 		local rate = ManaDeficit.BuffRateOf(id);
 		if rate and rate > 0 then lasting[#lasting + 1] = rate end
+		spring = spring or isSpringAura(id);
 	end
 	self:SetDrinkRate(drink, now); -- the time so far ran at the old rates
 	self.buffs = lasting;
+	setSpring(self, spring and self:SpringRate() or 0, now);
 end
 
 addon.ManaDeficit = ManaDeficit;

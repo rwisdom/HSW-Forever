@@ -240,6 +240,34 @@ class ManaDeficitTests(unittest.TestCase):
         self.assertEqual((md.drinkRate, md.UnseenBuffRate(md)), (0, 0))
         self.assertAlmostEqual(md.deficit, 500 - 5 * 8.375 - 5 * 16.75 - 10 * 20 - 10 * 3.6)   # both ran until the scan that missed them
 
+    SPRING = ('STUB.spellDesc[5675] = "Summons a Mana Spring Totem with 5 health at the feet of the caster for 5 min that restores 4 mana every 2 seconds to group members within 30 yards."'
+              '; STUB.spellDesc[10495] = "Summons a Mana Spring Totem with 5 health at the feet of the caster for 5 min that restores 6 mana every 2 seconds to group members within 30 yards."'
+              '; local info = GetSpellInfo; function GetSpellInfo(id) if id == 10491 then return "Mana Spring" end return info(id) end')
+
+    def test_mana_spring_is_counted_from_its_buff_at_the_totems_rate(self):
+        # In game 2026-11-22: the buff (10491 "Mana Spring") has no text and its mana is not in the client's regen rates
+        lua, _, md = self.md(self.SPRING)
+        lua.execute("STUB.auras = { { id = 10491 } }")
+        md.Spend(md, 500, 0)
+        md.ScanBuffs(md, 0)
+        self.assertEqual(md.spring, 3)                              # no cast seen: the highest rank the client describes, 6 every 2 s
+        self.assertAlmostEqual(md.Advance(md, 4), 500 - 4 * 8.375 - 4 * 3)
+        lua.execute("STUB.auras = {}")
+        md.ScanBuffs(md, 4)                                         # the totem is gone, or out of reach
+        self.assertEqual(md.spring, 0)
+        self.assertAlmostEqual(md.Advance(md, 5), 500 - 5 * 8.375 - 4 * 3)
+
+    def test_the_players_water_totems_switch_mana_spring_where_buffs_cannot_be_read(self):
+        lua, _, md = self.md(self.SPRING)
+        md.OnWaterTotem(md, 5675, 0)                                # Mana Spring Totem rank 1 dropped in a fight
+        self.assertEqual(md.spring, 2)
+        md.OnWaterTotem(md, None, 10)                               # another water totem takes its place
+        self.assertEqual(md.spring, 0)
+        lua.execute("STUB.auras = { { id = 10491 } }")
+        md.ScanBuffs(md, 20)
+        self.assertEqual(md.spring, 2)                              # the rank last cast, not the highest known
+        self.assertTrue(any("mana spring 2.0/s" in line for line in md.Lines(md).values()))
+
 
 if __name__ == "__main__":
     unittest.main()

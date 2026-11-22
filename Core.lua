@@ -494,7 +494,8 @@ function addon:PrintPlayerStats()
 	self:Msg(string.format("IntPerCrit=%s RegenPerSpirit=%.4f",
 		tostring(self.IntPerCrit), self.RegenPerSpirit or 0));
 	-- the estimate of mana below a full bar, to hold against the real bar in game
-	self:Msg(string.format("mana deficit=%.0f drink=%.1f/s buffs=%.1f/s", self.ManaDeficit:Advance(), self.ManaDeficit.drinkRate, self.ManaDeficit:UnseenBuffRate()));
+	self:Msg(string.format("mana deficit=%.0f drink=%.1f/s buffs=%.1f/s", self.ManaDeficit:Advance(), self.ManaDeficit.drinkRate,
+		self.ManaDeficit:UnseenBuffRate() + self.ManaDeficit.spring)); -- Mana Spring among the buffs
 	self.ManaDeficit:Mark("stats"); -- a line in the `/hsw mana` log, to match it to a screenshot of this print
 end
 
