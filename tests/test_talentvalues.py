@@ -276,6 +276,12 @@ class HistoryPage(unittest.TestCase):
         for gone in ("Per point|r", "Relic (each as if worn)", "Trinkets (stats only)", "~20.00"):   # "|r": the column heading, not the note
             self.assertFalse(any(gone in n for n in c), gone)
 
+    def test_stat_weights_come_before_gear_and_talents(self):
+        _, addon, _ = shaman_entry()
+        c = cells(addon)
+        self.assertLess(c.index("Stat Weights"), c.index("Gear & Talents"))             # the weights the values are measured in come first
+        self.assertLess(c.index("Gear & Talents"), c.index("Stat Points Per 1% HPS"))
+
     def test_the_notes_explain_the_values(self):
         _, addon, _ = shaman_entry()
         c = cells(addon)

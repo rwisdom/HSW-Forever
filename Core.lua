@@ -316,6 +316,21 @@ function addon:BuildOptionsTableForHistorySegment(i)
 	OptionsBuilder:AddHeaderRow(segmentName);
 	OptionsBuilder:AddNewLine();
 
+	-- the weights first: the talent, relic and trinket values under them are on their scale
+	OptionsBuilder:AddDivider("Stat Weights");
+	OptionsBuilder:AddKVPair("Heal");
+	OptionsBuilder:AddKVPair("Crt");
+	OptionsBuilder:AddNewLine();
+	OptionsBuilder:AddNewLine();
+	OptionsBuilder:AddKVPair("Hst");
+	OptionsBuilder:AddKVPair("Int");
+	OptionsBuilder:AddNewLine();
+	OptionsBuilder:AddNewLine();
+	OptionsBuilder:AddKVPair("Spi");
+	OptionsBuilder:AddKVPair("Mp5");
+	OptionsBuilder:AddNewLine();
+	OptionsBuilder:AddNewLine();
+
 	local function gearStr(gearTbl, iconSize)
 		if not gearTbl then return nil end
 		local s = gearTbl.icon and ("|T" .. tostring(gearTbl.icon) .. ":" .. (iconSize or 16) .. "|t ") or "";
@@ -386,20 +401,6 @@ function addon:BuildOptionsTableForHistorySegment(i)
 			OptionsBuilder:AddNewLine();
 		end
 	end
-	OptionsBuilder:AddNewLine();
-
-	OptionsBuilder:AddDivider("Stat Weights");
-	OptionsBuilder:AddKVPair("Heal");
-	OptionsBuilder:AddKVPair("Crt");
-	OptionsBuilder:AddNewLine();
-	OptionsBuilder:AddNewLine();
-	OptionsBuilder:AddKVPair("Hst");
-	OptionsBuilder:AddKVPair("Int");
-	OptionsBuilder:AddNewLine();
-	OptionsBuilder:AddNewLine();
-	OptionsBuilder:AddKVPair("Spi");
-	OptionsBuilder:AddKVPair("Mp5");
-	OptionsBuilder:AddNewLine();
 	OptionsBuilder:AddNewLine();
 
 	if h.HealPct and h.HealPct > 0 then

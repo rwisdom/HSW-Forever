@@ -49,7 +49,7 @@ weights were built from; click in it, Ctrl+A, Ctrl+C to copy.
 
 For a Resto Shaman a logged segment's page lists the talents taken, one row each: points, what a
 point was worth and what the talent was worth in that fight, with a totals row. Values are in points
-of +Healing, the scale of the stat weights under them: a talent at 62 did what 62 +Healing on gear
+of +Healing, the scale of the stat weights above them: a talent at 62 did what 62 +Healing on gear
 would have done in that fight. `~` marks an estimate (Improved Healing Wave, Riptide, Mana Tide
 Totem, Totemic Focus, Totem of Sustaining); a dash marks a talent that heals nothing. Below the
 talents five healing totems are priced, each as if it had been worn in that fight, with the worn one
