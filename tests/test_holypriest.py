@@ -20,9 +20,19 @@ class HolyPriestTests(unittest.TestCase):
         _, addon, seg = start("PRIEST", HOLY, FILES)           # Holy crit 10%
         heal(addon, "SPELL_HEAL", FH, 841 + 0.429 * 200)
         self.assertAlmostEqual(seg.t.heal, 0.429 * crits(0.10))
-        self.assertAlmostEqual(seg.t.spirit, 0.25 * 0.429 * crits(0.10))
+        self.assertAlmostEqual(seg.t.spirit, 1.10 * 0.25 * 0.429 * crits(0.10))   # Human: 1.10 Spirit a point
         heal(addon, "SPELL_PERIODIC_HEAL", RENEW, 166 + 0.2 * 200)
-        self.assertAlmostEqual(seg.t.spirit, (0.25 * 0.429 + 0.25 * 0.2) * crits(0.10))
+        self.assertAlmostEqual(seg.t.spirit, 1.10 * (0.25 * 0.429 + 0.25 * 0.2) * crits(0.10))
+
+    def test_spiritual_guidance_takes_total_spirit_so_a_humans_point_of_gear_spirit_counts_for_more(self):
+        # "Increases your spell healing by up to 25% of your total Spirit": The Human Spirit makes a point on
+        # gear 1.10 on the sheet, as it does for regen
+        _, addon, seg = start("PRIEST", HOLY, FILES)           # Human
+        heal(addon, "SPELL_HEAL", FH, 841 + 0.429 * 200)
+        self.assertAlmostEqual(seg.t.spirit, 1.10 * 0.25 * 0.429 * crits(0.10))
+        _, addon, seg = start("PRIEST", HOLY, FILES, extra='STUB.race = "Dwarf"')
+        heal(addon, "SPELL_HEAL", FH, 841 + 0.429 * 200)
+        self.assertAlmostEqual(seg.t.spirit, 0.25 * 0.429 * crits(0.10))
 
     def test_inner_focus_only_on_direct_heals(self):
         lua, addon, seg = start("PRIEST", HOLY, FILES)         # Holy crit 10%

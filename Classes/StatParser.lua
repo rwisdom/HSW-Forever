@@ -274,12 +274,15 @@ function StatParser:Allocate(ev, s, heal, n, destUnit, f, SP, C, CB, H, segments
 	-- Verified in game 2026-11-12 on Ancestral Knowledge 5/5 (checklist A22): the talent multiplies
 	-- gear Int, and sheet Int gives crit at one rate whatever raised it.
 	local intmult = addon.ply_intmult or 1;
+	-- Spirit likewise: 1 Spirit on gear is ply_spiritmult on the sheet, and a talent that turns Spirit
+	-- into +Healing takes the total (Spiritual Guidance: "of your total Spirit")
+	local spiritmult = addon.ply_spiritmult or 1;
 
 	for _, seg in ipairs(segments) do
 		local c  = f.CriticalStrike and f.CriticalStrike(ev, s, heal / n, destUnit, C, CB, seg) * n or 0; -- per hit
 		local i  = f.Intellect and f.Intellect(ev, s, heal, destUnit, _SP, seg) or 0;
 		local sp = f.Spirit and f.Spirit(ev, s, heal, destUnit, _SP, seg) or 0;
-		seg:AllocateHeal(_SP, _C + c, _H, ((_C + c) / addon.IntPerCrit + i) * intmult, sp, s.spellID);
+		seg:AllocateHeal(_SP, _C + c, _H, ((_C + c) / addon.IntPerCrit + i) * intmult, sp * spiritmult, s.spellID);
 		local r = seg:Spell(s.name);
 		r.crit = r.crit + _C + c;
 	end

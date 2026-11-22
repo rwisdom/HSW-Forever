@@ -269,7 +269,7 @@ class Overrides(unittest.TestCase):
         self.assertAlmostEqual(ttl.t.crit, per1 + 2)
         # Int buys crit with its extras (31.9 Int = 1%), and all of it scales with Divine Intellect 5/5
         self.assertAlmostEqual(seg.t.int, ((per1 + 1) / 31.9 + seg.t.heal) * 1.10)
-        self.assertAlmostEqual(seg.t.spirit, 0.5 * seg.t.heal)
+        self.assertAlmostEqual(seg.t.spirit, 0.5 * seg.t.heal * 1.10)   # and Spirit's extra with The Human Spirit
         heal(addon, "SPELL_HEAL", HL, 2000, crit=True)            # a crit heal is normalised with the overridden bonus
         self.assertAlmostEqual(seg.t.heal, 2 * 0.714 * 1000 / (1580 + 0.714 * 200) * 2)
 

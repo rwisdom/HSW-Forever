@@ -74,7 +74,7 @@ class DiscPriestTests(unittest.TestCase):
         heal(addon, "SPELL_HEAL", FH, 841 + 0.429 * 200)
         self.assertAlmostEqual(seg.t.heal, 0.429 * crits(0.35))
         self.assertAlmostEqual(seg.t.crit, crit_per_pct(841 + 0.429 * 200) + aegis(841 + 0.429 * 200))
-        self.assertAlmostEqual(seg.t.spirit, 0.10 * 0.429 * crits(0.35))
+        self.assertAlmostEqual(seg.t.spirit, 1.10 * 0.10 * 0.429 * crits(0.35))   # Human: 1.10 Spirit a point
         self.assertAlmostEqual(addon.ply_intmult, 1.10)        # Mental Strength 2%/rank
 
     def test_shield_credited_at_cast_has_no_aegis(self):
