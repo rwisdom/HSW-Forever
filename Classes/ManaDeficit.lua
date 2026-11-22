@@ -218,7 +218,7 @@ function ManaDeficit.BuffRateOf(spellID)
 end
 
 --[[----------------------------------------------------------------------------
-	Mana Spring Totem. Seen in game 2026-11-21 (level 36 shaman, rank 2): the totem
+	Mana Spring Totem. Seen in game 2026-11-21 (level 37 shaman, rank 2): the totem
 	puts a buff named "Mana Spring" (10491) on the player whose text is empty, and its
 	mana is not in the client's regen rates (`/hsw stats` read flat 0.00/s with the
 	totem down and without it). The rate is read from the totem spell's own text,
