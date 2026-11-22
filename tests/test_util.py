@@ -58,6 +58,11 @@ class TalentCache(unittest.TestCase):
         addon.Util.RebuildTalentCache()
         self.assertEqual(snap[1].rank, 4)   # a history entry keeps the snapshot it was given
 
+    def test_snapshot_rows_carry_the_max_rank(self):
+        lua, addon = load(FILES, setup='STUB.class = "PALADIN"; STUB.talents = { {name="Holy", talents={ {name="Illumination", rank=5, max=5}, {name="Divine Favor", rank=1, max=1} }} }')
+        snap = addon.Util.GetTalentSnapshot()
+        self.assertEqual([(snap[i].name, snap[i].rank, snap[i].max) for i in (1, 2)], [("Illumination", 5, 5), ("Divine Favor", 1, 1)])
+
     def test_cache_waits_for_trait_data(self):
         # early in login C_ClassTalents has no active config yet: ranks read 0 and the cache is retried on the next lookup
         setup = talents("PALADIN", [("Holy", [("Illumination", 5)])]) + "; C_ClassTalents.GetActiveConfigID = function() return nil end"

@@ -34,11 +34,11 @@ local SPEC_BY_CLASS_TAB = {
 local SPEC_NO_POINTS = { PALADIN = 65, PRIEST = 257, SHAMAN = 264, DRUID = 105 };
 
 local talentRanks = {};   -- name -> rank
-local rankedTalents = {}; -- { {name=, icon=, rank=}, ... } with rank > 0, in tree order
+local rankedTalents = {}; -- { {name=, icon=, rank=, max=}, ... } with rank > 0, in tree order
 local tabPoints = {};     -- tab index -> points spent
 local cacheBuilt = false;
 
--- Calls fn(name, icon, rank) for every node of the player's trait tree. Returns false when the
+-- Calls fn(name, icon, rank, maxRank) for every node of the player's trait tree. Returns false when the
 -- trait data is not available yet (early in login).
 local function ForEachTalent(fn)
 	if not (C_ClassTalents and C_Traits) then return false end
@@ -53,7 +53,7 @@ local function ForEachTalent(fn)
 			local def = entry and entry.definitionID and C_Traits.GetDefinitionInfo(entry.definitionID);
 			if def and def.spellID then
 				local tname, _, icon = addon.Compat.GetSpellInfo(def.spellID);
-				if tname then fn(tname, icon, node.activeRank or 0) end
+				if tname then fn(tname, icon, node.activeRank or 0, node.maxRanks) end
 			end
 		end
 	end
@@ -64,9 +64,9 @@ function Util.RebuildTalentCache()
 	wipe(talentRanks); wipe(rankedTalents); wipe(tabPoints);
 	local _, class = UnitClass("player");
 	local tabs = addon.TalentTab and addon.TalentTab[class];
-	cacheBuilt = ForEachTalent(function(tname, icon, rank)
+	cacheBuilt = ForEachTalent(function(tname, icon, rank, max)
 		talentRanks[tname] = rank;
-		if rank > 0 then table.insert(rankedTalents, { name = tname, icon = icon, rank = rank }) end
+		if rank > 0 then table.insert(rankedTalents, { name = tname, icon = icon, rank = rank, max = max }) end
 		local tab = tabs and tabs[tname];
 		if tab then tabPoints[tab] = (tabPoints[tab] or 0) + rank end
 	end);
