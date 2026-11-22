@@ -22,7 +22,9 @@ S[18562].base = 776;
 -- is on the totem) and 223 over 30 ticks at 67 (7.43). The ratio gives 6 * (7.43 / 6.26 - 1) / 67 =
 -- 0.017, and 0.015 with the 6% taken as given: 0.016. Classic's 0.045 would make a tick 9.6 at 67.
 -- None of 103 ticks seen was a crit: the totem's healing cannot crit.
-eachRank("Healing Stream Totem", function(s) s.coeffTick = 0.016; s.canCrit = false end);
+-- Not a filler: one stands at a time, for 5 min, so more mana buys no more of its healing, and one
+-- dropped before the pull heals through the fight with no mana spent in it.
+eachRank("Healing Stream Totem", function(s) s.coeffTick = 0.016; s.canCrit = false; s.filler = false end);
 -- Prayer of Mending keeps coeff 0 (_SP = 0) until measured in game.
 
 --[[----------------------------------------------------------------------------

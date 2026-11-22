@@ -119,6 +119,20 @@ class RestoShamanTests(unittest.TestCase):
         lua.execute("local a = HSW_TEST_ADDON; a.StatParser:ApplyTotals(a.SegmentManager:Get(0), { [6371] = 18 })")
         self.assertAlmostEqual(seg.t.heal, 0.016 * 18 / (6 + 0.016 * 200))   # 0.0313; with one of the three taken as a crit it was 0.0268
 
+    def test_healing_stream_totem_is_not_a_filler(self):
+        # One totem stands at a time, for 5 min: more mana buys no more of its healing. Dropped before the pull
+        # its mana is not in the fight either. Figures of 2026-11-22: 194 from the totem beside 1057 from four
+        # Healing Waves read as 18% more healing per mana.
+        lua, addon, seg = start("SHAMAN", RESTO, FILES)
+        for _ in range(4):
+            seg.IncFillerCasts(seg, 100)
+            count(addon, "SPELL_HEAL", HW)
+        for _ in range(31):
+            count(addon, "SPELL_PERIODIC_HEAL", 6375)
+        lua.execute(f"local a = HSW_TEST_ADDON; a.StatParser:ApplyTotals(a.SegmentManager:Get(0), {{ [{HW}] = 1057, [6371] = 194 }})")
+        self.assertEqual(seg.totalHealing, 1251)
+        self.assertAlmostEqual(seg.GetFillerHPM(seg), 1057 / 400)
+
     def test_crit_is_worth_water_shield_mana_only_while_a_globe_remains(self):
         lua, addon, seg = start("SHAMAN", RESTO, FILES)
         bt = addon.BuffTracker
