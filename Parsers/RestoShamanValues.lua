@@ -24,6 +24,16 @@ local function castingRegen(ctx, share)
 	return share * (addon.ply_regen_base or 0) * ctx.seg.timeInFSR * ctx.hpm;
 end
 
+-- Healing per mana over all the filler mana, returns not taken off: the rate for the whole of a
+-- source of returned mana. Without it the fight has the mana left at this rate; ctx.hpm, net of
+-- the returns, is the rate for one more point and reads such a source high by
+-- fillerManaSpent / (fillerManaSpent - manaRestore): 5.9% over a dungeon run (2026-11-23).
+local function grossHPM(ctx)
+	local seg = ctx.seg;
+	if seg.fillerManaSpent <= 0 then return 0 end
+	return seg.fillerHealing / seg.fillerManaSpent;
+end
+
 local function critPerPoint(ctx, rank) return rank * ctx.seg.t.crit end -- 1% crit on every heal per point
 
 local talents = {
@@ -43,7 +53,7 @@ local talents = {
 	end },
 	["Tidal Focus"]  = { fn = function(ctx, rank) return 0.01 * rank * healBaseMana(ctx) * ctx.hpm end },
 	["Mindfulness"]  = { fn = function(ctx, rank) return castingRegen(ctx, 0.5 / 3 * rank) end },
-	["Water Shield"] = { fn = function(ctx) return ctx.seg.manaRestore * ctx.hpm end },
+	["Water Shield"] = { fn = function(ctx) return ctx.seg.manaRestore * grossHPM(ctx) end },
 	-- the Healing Stream part only: Mana Spring's mana cannot be seen
 	["Restorative Totems"] = { fn = function(ctx, rank)
 		return ctx.spell("Healing Stream Totem").healing * 0.1 * rank / (1 + 0.1 * rank);
@@ -75,7 +85,7 @@ local relics = {
 	{ name = "Tidal Totem", id = 272431, fn = function(ctx) return 0.05 * ctx.spell("Healing Wave").baseMana * ctx.hpm end },
 	-- rough: one more globe is spent each time a heal crit empties the shield; globes hits on the shaman take in a fight are not seen
 	{ name = "Totem of Sustaining", id = 23200, rough = true, fn = function(ctx)
-		return ctx.seg.shieldsEmptied * addon.Shaman.WaterShieldReturn * (addon.ply_maxmana or 0) * ctx.hpm;
+		return ctx.seg.shieldsEmptied * addon.Shaman.WaterShieldReturn * (addon.ply_maxmana or 0) * grossHPM(ctx);
 	end },
 	{ name = "Totem of Urgency", id = 279249, fn = function(ctx) return 4 * ctx.spell("Lesser Healing Wave").crit end },
 	{ name = "Totem of Tides", id = 22345, fn = function(ctx) return 0.05 * ctx.spell("Riptide").baseMana * ctx.hpm end },

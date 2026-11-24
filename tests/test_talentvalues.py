@@ -122,7 +122,7 @@ class RestoShamanValues(unittest.TestCase):
     def test_mana_talents(self):
         self.check(self.rows["Tidal Focus"], 0.05 * (4000 + 1000 + 600) * 2 / 2)     # the totem's 80 is not a healing spell's
         self.check(self.rows["Mindfulness"], 0.5 * 10 * 60 * 2 / 2)
-        self.check(self.rows["Water Shield"], 120 * 2 / 2)
+        self.check(self.rows["Water Shield"], 120 * (12000 / 6120) / 2)              # the whole return, at healing over all the filler mana
 
     def test_rough_talents(self):
         self.check(self.rows["Improved Healing Wave"], 20 * 60 * 5000 / 12000 / 2, True)   # 3.0 s to 2.5 s is 20% haste; haste is worth 60 per 1%
@@ -135,7 +135,7 @@ class RestoShamanValues(unittest.TestCase):
 
     def test_relics(self):
         self.check(self.relics["Tidal Totem"], 0.05 * 4000 * 2 / 2)
-        self.check(self.relics["Totem of Sustaining"], 2 * 0.02 * 3000 * 2 / 2, True)
+        self.check(self.relics["Totem of Sustaining"], 2 * 0.02 * 3000 * (12000 / 6120) / 2, True)   # returned mana, as Water Shield's
         self.check(self.relics["Totem of Urgency"], 4 * 10 / 2)
         self.check(self.relics["Totem of Tides"], 0.05 * 600 * 2 / 2)
         self.check(self.relics["Polished Driftwood Icon"], 0.08 * 10 * 60 * 2 / 2)
