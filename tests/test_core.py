@@ -141,6 +141,18 @@ class History(unittest.TestCase):
         for label in ("Healing", "Healing\nPer 1% HPS", "Crit", "Crit\nPer 1% HPS", "Haste", "Haste\nPer 1% HPS", "Intellect", "Spirit", "MP5", "Pawn >>", "icon_Illumination"):
             self.assertTrue(any(label in n for n in names), label)
 
+    def test_a_weight_of_six_characters_fits_its_cell(self):
+        # In game 2026-11-25: 10.27 read "10..." in a cell 44 px wide, so the large font runs at about 10 px a
+        # character. AceConfigDialog draws a width of 1 as 170 px.
+        lua, addon = start()
+        addon.AddHistoricalSegment(addon, fought_segment(lua, addon))
+        t = addon.BuildOptionsTableForHistorySegment(addon, 0)
+        label = next(v for _, v in t.items() if v.name == "Crit")
+        value = t["c" + str(label.order - 1)]
+        self.assertEqual(value.fontSize, "large")
+        self.assertGreaterEqual(value.width * 170, 60)                           # 100.00
+        self.assertAlmostEqual(value.width + label.width, 0.9)                   # two pairs to a row, as before
+
     def test_history_segment_shows_the_spec_notes_and_no_resources(self):
         lua, addon = start()
         addon.AddHistoricalSegment(addon, fought_segment(lua, addon))

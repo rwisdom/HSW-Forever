@@ -116,12 +116,12 @@ function OptionsBuilder:AddKVPairRaw(key,value,options)
             name = fmtValue(value,options),
             type = "description",  
             fontSize = "large",
-            width=options.Width / 1.05 * 0.3
+            width=options.Width / 1.05 * 0.45 -- 66 px at the default width: 10.27 was cut to "10..." at 44 (in game 2026-11-25)
         });
         self:AddCtrl({
             name = fmtKey(key,options),
             type = "description",
-            width = options.Width / 1.05 * 0.75
+            width = options.Width / 1.05 * 0.6
         });
     end
 end
