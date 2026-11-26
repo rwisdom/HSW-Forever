@@ -32,6 +32,7 @@ function UnitManager:Cache()
 	self.units = {};
 	self.names = {};
 	self.groupNames = {};
+	self.petNames = {};
 	local P = addon.Compat.PlainString;
 	local function add(token)
 		local g = P(UnitGUID(token)); -- secret for a unit reached through a hostile one: unusable as a key
@@ -41,6 +42,7 @@ function UnitManager:Cache()
 		if n then
 			self.names[n] = token;
 			table.insert(self.groupNames, n);
+			if token:find("pet") then table.insert(self.petNames, n) end
 		end
 	end
 	if UnitInRaid(ply) then
@@ -54,6 +56,7 @@ end
 --[[----------------------------------------------------------------------------
 	Find(guid) - unit token for a GUID. FindByName(name) - unit token for a name.
 	GroupNames() - names of the player and every group member (party-wide HoTs).
+	PetNames() - names of the group's pets.
 ------------------------------------------------------------------------------]]
 function UnitManager:Find(guid)
 	return self.units[guid];
@@ -65,6 +68,10 @@ end
 
 function UnitManager:GroupNames()
 	return self.groupNames or {};
+end
+
+function UnitManager:PetNames()
+	return self.petNames or {};
 end
 
 

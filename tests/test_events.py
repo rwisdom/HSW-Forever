@@ -203,6 +203,16 @@ class UnitEvents(unittest.TestCase):
         fire(addon, "UNIT_COMBAT", "partypet1", "HEAL", "", 1000, 2)
         self.assertEqual(seg.hits[HL].targets.Let, 1)
 
+    def test_heal_on_a_pet_under_the_mouse_with_a_secret_guid_is_counted(self):
+        # Razorfen Downs 2026-11-26: the pet healed by mouseover has a secret GUID as well as a secret name
+        lua, addon, seg = start(extra=PARTY + '; issecretvalue = function(v) return v == "SECRET" end'
+                                '; STUB.guids.partypet1 = "Pet-9"; STUB.names.partypet1 = "Let"'
+                                '; STUB.guids.target = "Player-2"; STUB.names.target = "Bob"'
+                                '; STUB.guids.mouseover = "SECRET"; STUB.names.mouseover = "SECRET"')
+        cast(addon, HL, "SECRET")
+        fire(addon, "UNIT_COMBAT", "partypet1", "HEAL", "", 1000, 2)
+        self.assertEqual(seg.hits[HL].targets.Let, 1)
+
     def test_quiet_failure_of_a_duplicate_sent_leaves_one_expectation(self):
         # Forever sends a queued cast twice and fails one copy quietly
         lua, addon, seg = start(extra=PARTY)

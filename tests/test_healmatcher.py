@@ -399,6 +399,38 @@ class SecretValues(unittest.TestCase):
         hm.OnCastSent(hm, HS, "SECRET", 0)
         self.assertEqual(hm.SentTarget(hm, HS), "Pussycat")
 
+    def test_a_secret_unit_under_the_mouse_is_the_groups_only_pet(self):
+        # Razorfen Downs 2026-11-26, release client: the pet under the mouse has a secret GUID now. 27
+        # casts on the hunter's pet went to the selected member or to the player ("using Purpose (mouseover
+        # secret, target party2)"), and 24 were followed by "unattributed heal on Milo".
+        lua, addon, hm = start(PARTY + "; " + SECRET + '; STUB.guids.partypet2 = "Pet-9"; STUB.names.partypet2 = "Pussycat"'
+                               '; STUB.guids.target = "Player-2"; STUB.names.target = "Bob"'
+                               '; STUB.guids.mouseover = "SECRET"; STUB.names.mouseover = "SECRET"')
+        lua.execute('function HSW_TEST_ADDON:Msg() end; HSW_TEST_ADDON.discoverSpells = true')
+        hm.OnCastSent(hm, HS, "SECRET", 0)
+        hm.OnUnitCombat(hm, "partypet2", "HEAL", "", 500, 0.1)
+        self.assertEqual(heals(lua), [("SPELL_HEAL", "Pet-9", HS, False)])
+        self.assertEqual(hm.SentTarget(hm, HS), "Pussycat")
+        log = addon.hsw.db["global"].discoverLog
+        self.assertTrue(log[1].endswith("using Pussycat (mouseover secret, target party1)."), log[1])
+
+    def test_a_secret_unit_under_the_mouse_with_two_pets_in_the_group_is_either_pet(self):
+        lua, addon, hm = start(PARTY + "; " + SECRET + '; STUB.guids.partypet1 = "Pet-8"; STUB.names.partypet1 = "Let"'
+                               '; STUB.guids.partypet2 = "Pet-9"; STUB.names.partypet2 = "Pussycat"'
+                               '; STUB.guids.mouseover = "SECRET"; STUB.names.mouseover = "SECRET"')
+        hm.OnCastSent(hm, HS, "SECRET", 0)
+        hm.OnUnitCombat(hm, "party1", "HEAL", "", 500, 0.1)             # on Bob: not a pet, not ours
+        hm.OnUnitCombat(hm, "partypet2", "HEAL", "", 500, 0.1)
+        hm.OnUnitCombat(hm, "partypet1", "HEAL", "", 500, 0.2)          # one cast, one heal
+        self.assertEqual(heals(lua), [("SPELL_HEAL", "Pet-9", HS, False)])
+        self.assertEqual(hm.SentTarget(hm, HS), "(pet)")
+
+    def test_a_secret_unit_under_the_mouse_with_no_pet_in_the_group_changes_nothing(self):
+        lua, addon, hm = start(PARTY + "; " + SECRET + '; STUB.guids.target = "Player-2"; STUB.names.target = "Bob"'
+                               '; STUB.guids.mouseover = "SECRET"; STUB.names.mouseover = "SECRET"')
+        hm.OnCastSent(hm, HS, "SECRET", 0)
+        self.assertEqual(hm.SentTarget(hm, HS), "Bob")
+
     def test_secret_target_of_a_non_healing_spell_is_not_reported(self):
         # Dungeon 2026-11-07: Flame Shock on a mob (secret name) printed "secret cast target" on every cast
         lua, addon, hm = start(SECRET)

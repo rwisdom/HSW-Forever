@@ -26,6 +26,7 @@ local SEEN_WINDOW = 1.0;                -- how long dedupe keys are kept
 local TICK_WINDOW = 0.5;                -- seconds a HoT tick may land off its due time
 local HOLD_WINDOW = 0.25;               -- seconds a heal waits for the end of a cast in flight on its unit
 local TOTEM = "Healing Stream Totem";
+local ANY_PET = "(pet)";                -- cast target: one of the group's pets, which one is not known
 
 local expectations = {}; -- { spellID=, target=, remaining=, jumps=, ready=, succeeded=, landed=, expires= }, newest last
 local sentTarget = {};   -- spellID -> target name of the last UNIT_SPELLCAST_SENT
@@ -82,12 +83,19 @@ end
 -- macro heals it with another unit selected, Razorfen Kraul 2026-11-16), else the group member or
 -- group pet the player has selected; nil for neither. A member under the mouse is not it: a
 -- player's name is plain.
+-- On the release client the pet under the mouse has a secret GUID too (Razorfen Downs 2026-11-26,
+-- 27 casts on a hunter's pet): then it is the group's pet, and ANY_PET when the group has several.
 local function secretTarget()
 	for _, unit in ipairs({ "mouseover", "target" }) do
-		local guid = addon.Compat.PlainString(UnitGUID(unit));
+		local raw = UnitGUID(unit);
+		local guid = addon.Compat.PlainString(raw);
 		local token = guid and addon.UnitManager:Find(guid);
 		if token and (unit == "target" or token:find("pet")) then
 			return addon.Compat.PlainString(UnitName(token));
+		end
+		if unit == "mouseover" and not guid and type(raw) == "string" then -- a secret is only asked its type, as in PlainString
+			local pets = addon.UnitManager:PetNames();
+			if #pets > 0 then return #pets == 1 and pets[1] or ANY_PET end
 		end
 	end
 end
@@ -213,10 +221,14 @@ local function expire(now)
 	end
 end
 
--- Whether expectation e can land on unitName (multi-target spells land anywhere).
+-- Whether expectation e can land on unitName (multi-target spells land anywhere, a cast on
+-- ANY_PET on any pet of the group).
 local function fits(e, unitName)
 	local s = addon.Spells:Get(e.spellID);
-	return s and not e.landed and (s.targets > 1 or e.target == unitName);
+	if not s or e.landed then return false end
+	if s.targets > 1 or e.target == unitName then return true end
+	local token = e.target == ANY_PET and addon.UnitManager:FindByName(unitName);
+	return token and token:find("pet") ~= nil or false;
 end
 
 -- One heal of e (expectations[idx]) has landed. Returns e when that was the main heal of a jumping
