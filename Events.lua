@@ -47,6 +47,51 @@ local WaterTotems = {
 	["Poison Cleansing Totem"] = true, ["Disease Cleansing Totem"] = true, ["Fire Resistance Totem"] = true,
 };
 
+-- A paid cast's mana on the live segments: the pool, the totems' part, the spell's own tally and
+-- the fillers.
+local function tallyCast(s, spellName, spent)
+	local totem = spellName ~= nil and spellName:find("Totem$") ~= nil;
+	addon.SegmentManager:ForEachLive(function(seg)
+		seg:IncManaSpent(spent); -- heal or not, it drains the pool
+		if totem then seg.totemMana = seg.totemMana + spent end
+		if s then
+			local r = seg:Spell(s.name);
+			r.casts, r.mana = r.casts + 1, r.mana + spent;
+			r.baseMana, r.castTime = r.baseMana + s.manaCost, r.castTime + math.max(s.castTime, 0); -- a channel's cast time is -1
+		end
+		if s and s.filler then seg:IncFillerCasts(spent) end
+	end);
+end
+
+-- Casts that ended out of combat in the last OPENER_WINDOW seconds: { s=, spellName=, target=,
+-- cost=, spent=, at= }. A healer's first cast on a tank who is pulling ends before the healer's
+-- own combat starts (dungeon 2026-11-25: Riptide, 13 fights in 50, each time in the second the
+-- fight began), and the meter prices its healing in the fight.
+local OPENER_WINDOW = 2;
+local openers = {};
+
+local function dropOldOpeners()
+	local oldest = GetTime() - OPENER_WINDOW;
+	while openers[1] and openers[1].at < oldest do table.remove(openers, 1) end
+end
+
+-- A fight has just started: those casts are its own, with their row and their mana. The count
+-- already holds the mana, so the fight's share of the pool starts before them.
+local function adoptOpeners()
+	if not addon.inCombat then return end
+	dropOldOpeners();
+	local seg = addon.SegmentManager:Get(0);
+	for _, c in ipairs(openers) do
+		if c.s then addon:LogEvent("cast", c.s, c.target, nil, nil, c.cost) end
+		if c.cost > 0 then
+			tallyCast(c.s, c.spellName, c.spent);
+			seg.deficitStart = math.max(0, seg.deficitStart - c.spent);
+			addon.lastManaSpend = c.at;
+		end
+	end
+	wipe(openers);
+end
+
 --[[----------------------------------------------------------------------------
 	Combat / encounter boundaries
 ------------------------------------------------------------------------------]]
@@ -94,6 +139,7 @@ function addon.hsw:PLAYER_REGEN_DISABLED()
 	addon.foughtSinceBuffs = true; -- so Water Shield globes can go unseen (ScanPlayerBuffs)
 	stopCombatPoll(); -- back in combat: the fight is still open, nothing to end
 	addon:StartFight(nil);
+	adoptOpeners();
 	-- no combat log to name the fight from: use the hostile target we have, if any. Its name is
 	-- a secret string once combat has started (then the fight stays "Trash" until the finaliser
 	-- names it after its meter session).
@@ -121,6 +167,7 @@ function addon.hsw:ENCOUNTER_START(eventName, encounterId, encounterName)
 	local open = addon.inCombat and addon.SegmentManager:Get(0);
 	addon:EndFight();
 	addon:StartFight(encounterName, true);
+	adoptOpeners();
 	local boss = addon.SegmentManager:Get(0);
 	if open and boss ~= open then open.cutShortBy = boss end -- the finaliser settles who gets a session both sat in
 	addon.inBossFight = true; -- wait for ENCOUNTER_END to close the segment
@@ -198,8 +245,12 @@ function addon:OnPlayerSpellcast(spellID)
 		-- between pulls the bar still moves, and the next fight starts where it stands
 		local gained = not s and ManaRestoredBy(spellID) or 0;
 		if gained > 0 then self.ManaDeficit:Gain(gained, nil, "potion " .. spellID) end
-		local spent = SpellManaCost(spellID, s) - back;
+		local cost = SpellManaCost(spellID, s);
+		local spent = cost - back;
 		if spent > 0 then self.ManaDeficit:Spend(spent, nil, "cast " .. spellID) end
+		self.HealMatcher:OnCastSucceeded(spellID); -- a HoT ticks on into the next fight
+		dropOldOpeners();
+		table.insert(openers, { s = s, spellName = spellName, target = self.HealMatcher:SentTarget(spellID), cost = cost, spent = spent, at = GetTime() });
 		return;
 	end
 	local now = GetTime();
@@ -258,20 +309,8 @@ function addon:OnPlayerSpellcast(spellID)
 	if s then self:LogEvent("cast", s, self.HealMatcher:SentTarget(spellID), nil, nil, free and 0 or cost) end
 	if cost <= 0 or free then return end
 	local spent = cost - back; -- Litany and set bonuses return part of the cost
-	local totem = spellName ~= nil and spellName:find("Totem$") ~= nil;
-	self.SegmentManager:ForEachLive(function(seg)
-		seg:IncManaSpent(spent); -- heal or not, it drains the pool
-		if totem then seg.totemMana = seg.totemMana + spent end
-		if s then
-			local r = seg:Spell(s.name);
-			r.casts, r.mana = r.casts + 1, r.mana + spent;
-			r.baseMana, r.castTime = r.baseMana + s.manaCost, r.castTime + math.max(s.castTime, 0); -- a channel's cast time is -1
-		end
-	end);
+	tallyCast(s, spellName, spent);
 	self.ManaDeficit:Spend(spent, now, "cast " .. spellID);
-	if s and s.filler then
-		self.SegmentManager:ForEachLive(function(seg) seg:IncFillerCasts(spent) end);
-	end
 	self.SegmentManager:ForEachLive(function(seg) seg:AccumulateFSR(now) end);
 	self.lastManaSpend = now;
 end

@@ -642,6 +642,96 @@ class UnitEvents(unittest.TestCase):
         self.assertEqual(len(list(seg.hits.keys())), 0)
 
 
+FIGHT_FILES = CORE_FILES + ["Parsers/RestoShaman.lua", "DisplayPanel.lua", "Core.lua", "Events.lua"]
+RIPTIDE = 408521   # Riptide R1: instant HoT, 150 mana, a tick every 3 s
+
+
+def before_the_pull():
+    """Out of combat as a Resto Shaman with Bob in the party; the combat events start a real fight (DisplayPanel.lua)."""
+    lua, addon = load(FIGHT_FILES, setup=SHAMAN + "; " + PARTY + "; HSW_TEST_SAVED = { alwaysEnabled = true, logEvents = true }")
+    lua.execute("""
+        local a = HSW_TEST_ADDON
+        a.hsw:OnInitialize()
+        a.Util.RebuildTalentCache(); a:SetupConversionFactors(); a:UpdatePlayerStats()
+        a.frame = CreateFrame(); a:SetupUnitEvents()
+        UNIT_EVENTS = a.frame; a.frame = nil                      -- the window is not built here: nothing to repaint
+    """)
+    return lua, addon
+
+
+def unit(lua, event, *args):
+    frame = lua.globals().UNIT_EVENTS
+    frame.OnEvent(frame, event, *args)
+
+
+def riptide_on_bob(lua):
+    unit(lua, "UNIT_SPELLCAST_SENT", "player", "Bob", "cast-guid", RIPTIDE)
+    unit(lua, "UNIT_SPELLCAST_SUCCEEDED", "player", "cast-guid", RIPTIDE)
+
+
+def live(addon):
+    return addon.SegmentManager.Get(addon.SegmentManager, 0)
+
+
+class Opener(unittest.TestCase):
+    # Dungeon 2026-11-25: Riptide on the tank as he pulled ended before PLAYER_REGEN_DISABLED 13 times in 50 fights.
+    # The fight had its healing (the meter's) without its cast row, its 142 mana or its ticks.
+    def test_a_cast_that_ends_just_before_the_pull_is_counted_in_the_fight(self):
+        lua, addon = before_the_pull()
+        riptide_on_bob(lua)
+        lua.execute("STUB.time = 0.4")
+        addon.hsw.PLAYER_REGEN_DISABLED(addon.hsw)
+        seg = live(addon)
+        self.assertEqual(list(seg.events.values()), ["0.00,cast,408521,Riptide,Bob,,,150"])
+        tally = seg.Spell(seg, "Riptide")
+        self.assertEqual((seg.manaSpent, tally.casts, tally.mana), (150, 1, 150))
+        self.assertEqual(addon.SegmentManager.Get(addon.SegmentManager, "Total").manaSpent, 150)
+
+    def test_its_hot_ticks_in_the_fight(self):
+        lua, addon = before_the_pull()
+        riptide_on_bob(lua)
+        lua.execute("STUB.time = 0.4")
+        addon.hsw.PLAYER_REGEN_DISABLED(addon.hsw)
+        lua.execute("STUB.time = 3")
+        unit(lua, "UNIT_COMBAT", "party1", "HEAL", "", 100, 8)
+        self.assertEqual(live(addon).hits[RIPTIDE].tick.n, 1)
+
+    def test_its_mana_is_in_the_fights_share_of_the_pool(self):
+        lua, addon = before_the_pull()
+        riptide_on_bob(lua)                                          # from a full bar
+        self.assertEqual(addon.ManaDeficit.deficit, 150)
+        addon.hsw.PLAYER_REGEN_DISABLED(addon.hsw)
+        self.assertEqual(live(addon).deficitStart, 0)
+
+    def test_it_starts_the_five_second_rule(self):
+        lua, addon = before_the_pull()
+        riptide_on_bob(lua)
+        lua.execute("STUB.time = 0.4")
+        addon.hsw.PLAYER_REGEN_DISABLED(addon.hsw)
+        seg = live(addon)
+        seg.AccumulateFSR(seg, 3.4)
+        self.assertEqual((round(seg.timeInFSR, 6), seg.timeOutsideFSR), (3, 0))
+
+    def test_a_cast_well_before_the_pull_stays_out_of_the_fight(self):
+        lua, addon = before_the_pull()
+        riptide_on_bob(lua)
+        lua.execute("STUB.time = 2.5")
+        addon.hsw.PLAYER_REGEN_DISABLED(addon.hsw)
+        seg = live(addon)
+        self.assertEqual((seg.manaSpent, len(list(seg.events.values()))), (0, 0))
+        self.assertGreater(seg.deficitStart, 0)
+
+    def test_a_boss_pull_takes_it_and_the_combat_event_after_does_not_take_it_again(self):
+        lua, addon = before_the_pull()
+        riptide_on_bob(lua)
+        lua.execute("STUB.time = 0.3")
+        addon.hsw.ENCOUNTER_START(addon.hsw, "ENCOUNTER_START", 1, "Lucifron")
+        lua.execute("STUB.time = 0.5")
+        addon.hsw.PLAYER_REGEN_DISABLED(addon.hsw)
+        seg = live(addon)
+        self.assertEqual((seg.id, seg.manaSpent, len(list(seg.events.values()))), ("Lucifron", 150, 1))
+
+
 class FiveSecondRule(unittest.TestCase):
     def test_mana_cast_starts_fsr_and_accumulates(self):
         lua, addon, seg = start()

@@ -46,9 +46,16 @@ local function bareName(n)
 end
 
 -- A fight starts. The totem stays: one dropped before the pull heals through it (seen in game
--- 2026-11-21: every tick of such a fight read "unattributed heal").
+-- 2026-11-21: every tick of such a fight read "unattributed heal"). So do the HoTs (a Riptide
+-- cast as the tank pulls, dungeon 2026-11-25) and a cast still in flight, with its target: its
+-- heal lands in this fight.
 function HealMatcher:Reset()
-	wipe(expectations); wipe(sentTarget); wipe(hots); wipe(seen); wipe(held);
+	local now = GetTime();
+	for i = #expectations, 1, -1 do
+		local e = expectations[i];
+		if e.ready or e.expires < now then table.remove(expectations, i) end
+	end
+	wipe(seen); wipe(held);
 end
 
 -- A water totem of the player's went down, in or out of combat (Events.lua): Healing Stream Totem
@@ -97,8 +104,8 @@ end
 -- UNIT_SPELLCAST_SENT: targetName is "" for self casts and totems. In a dungeon the client hands
 -- it over as a secret string that cannot be read: then the pet under the mouse or the selected
 -- group member, else the player.
--- The target is remembered out of combat too (Oath of Light is sworn before the pull); expectations
--- open only in a fight.
+-- The target is remembered out of combat too (Oath of Light is sworn before the pull), and the
+-- expectation opens there too: a cast begun before the pull lands in the fight (Reset keeps it).
 function HealMatcher:OnCastSent(spellID, targetName, now, castGUID)
 	local s = addon.Spells:Get(spellID);
 	local plain = addon.Compat.PlainString(targetName);
@@ -112,7 +119,6 @@ function HealMatcher:OnCastSent(spellID, targetName, now, castGUID)
 		end
 	end
 	sentTarget[spellID] = targetName;
-	if not addon.inCombat then return end
 	if not s or addon.AbsorbSpells[spellID] then return end -- shields are credited at cast (Events.lua)
 	now = now or GetTime();
 	local direct = (s.coeff > 0 or s.base > 0 or s.tick == 0) and s.name ~= TOTEM;
@@ -305,20 +311,23 @@ end
 -- this event (seen in game 2026-11-21: the heal first), or shortly after: the oldest pending
 -- expectation of the spell may be taken from now on, takes the heals held for it and gets a fresh
 -- landing window (spell pushback stretches a cast past the one opened at SENT). The periodic parts
--- start now.
+-- start now, out of combat too: they tick on into the next fight.
 function HealMatcher:OnCastSucceeded(spellID, now)
-	if not addon.inCombat then return end
 	local s = addon.Spells:Get(spellID);
 	if not s then return end
 	now = now or GetTime();
-	expireHeld(now);
-	for i, e in ipairs(expectations) do
-		if e.spellID == spellID and not e.landed and not e.succeeded then
-			e.succeeded, e.ready = now, true;
-			e.expires = math.max(e.expires, now + LANDING_WINDOW);
-			settleHeld(e, i, now);
-			break;
+	if addon.inCombat then
+		expireHeld(now);
+		for i, e in ipairs(expectations) do
+			if e.spellID == spellID and not e.landed and not e.succeeded then
+				e.succeeded, e.ready = now, true;
+				e.expires = math.max(e.expires, now + LANDING_WINDOW);
+				settleHeld(e, i, now);
+				break;
+			end
 		end
+	else
+		self:OnCastFailed(spellID); -- its heal landed out of combat: nothing to wait for
 	end
 	if s.name == TOTEM then
 		self:OnWaterTotem(spellID, now);

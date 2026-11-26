@@ -11,6 +11,7 @@ WG = 408120      # Wild Growth R1: party HoT, 1 s ticks over 7 s
 PWS = 10901      # Power Word: Shield R10: absorb, never a UNIT_COMBAT heal
 HW = 547         # Healing Wave R3: base 138, 2.5 s cast; Earthfury jumps to two more units at 20% each
 LHW = 8008       # Lesser Healing Wave R2: no jumps
+RIPTIDE = 408521 # Riptide R1: HoT only, 3 s ticks over 15 s
 
 PARTY = 'STUB.group = "party"; STUB.groupSize = 2; STUB.guids.party1 = "Player-2"; STUB.names.party1 = "Bob"; STUB.guids.party2 = "Player-3"; STUB.names.party2 = "Cat"'
 SELF_TWICE = 'STUB.guids.targettarget = "Player-1"; STUB.names.targettarget = "Me"'   # the player seen through a second token
@@ -503,6 +504,63 @@ class Housekeeping(unittest.TestCase):
         addon.inCombat = False
         hm.OnUnitCombat(hm, "player", "HEAL", "", 500, 1.1)
         self.assertEqual(heals(lua), [])
+
+    def test_a_hot_cast_in_the_fight_before_ticks_on_in_the_next(self):
+        lua, addon, hm = start(PARTY)
+        hm.OnCastSent(hm, RIPTIDE, "Bob", 0)
+        hm.OnCastSucceeded(hm, RIPTIDE, 0)
+        hm.Reset(hm)                                                   # the next pull
+        hm.OnUnitCombat(hm, "party1", "HEAL", "", 100, 3)
+        self.assertEqual(heals(lua), [("SPELL_PERIODIC_HEAL", "Player-2", RIPTIDE, False)])
+
+    def test_a_hot_cast_before_the_pull_ticks_in_the_fight(self):
+        # Dungeon 2026-11-25: Riptide on the tank as he pulled, 13 times; its ticks all read "unattributed heal"
+        lua, addon, hm = start(PARTY)
+        addon.inCombat = False
+        hm.OnCastSent(hm, RIPTIDE, "Bob", 0)
+        hm.OnCastSucceeded(hm, RIPTIDE, 0)
+        hm.Reset(hm)
+        addon.inCombat = True
+        hm.OnUnitCombat(hm, "party1", "HEAL", "", 100, 3)
+        self.assertEqual(heals(lua), [("SPELL_PERIODIC_HEAL", "Player-2", RIPTIDE, False)])
+
+    def test_a_cast_in_flight_when_the_fight_starts_lands_in_it(self):
+        # Blackfathom Deeps 2026-11-13 and every run since: the heal read "unattributed", the cast row named the player
+        lua, addon, hm = start(PARTY)
+        addon.inCombat = False
+        hm.OnCastSent(hm, HW, "Bob", 0)
+        lua.execute("STUB.time = 1")
+        hm.Reset(hm)                                                   # the pull, 1 s into the cast
+        addon.inCombat = True
+        hm.OnCastSucceeded(hm, HW, 2.5)
+        hm.OnUnitCombat(hm, "party1", "HEAL", "", 300, 2.5)
+        self.assertEqual(heals(lua), [("SPELL_HEAL", "Player-2", HW, False)])
+        self.assertEqual(hm.SentTarget(hm, HW), "Bob")
+
+    def test_a_cast_that_ended_before_the_pull_does_not_take_the_next_casts_end(self):
+        lua, addon, hm = start(PARTY)
+        addon.inCombat = False
+        hm.OnCastSent(hm, HW, "Bob", 0)
+        hm.OnCastSucceeded(hm, HW, 2.5)                                # landed out of combat: nothing to wait for
+        lua.execute("STUB.time = 3")
+        hm.Reset(hm)
+        addon.inCombat = True
+        hm.OnCastSent(hm, HW, "Cat", 3)
+        hm.OnCastSucceeded(hm, HW, 5.5)
+        hm.OnUnitCombat(hm, "party2", "HEAL", "", 300, 5.5)
+        self.assertEqual(heals(lua), [("SPELL_HEAL", "Player-3", HW, False)])
+
+    def test_a_cast_sent_long_before_the_pull_that_never_ended_is_forgotten(self):
+        lua, addon, hm = start(PARTY)
+        addon.inCombat = False
+        hm.OnCastSent(hm, HW, "Bob", 0)                                # no end and no failure ever came
+        lua.execute("STUB.time = 100")
+        hm.Reset(hm)
+        addon.inCombat = True
+        hm.OnCastSent(hm, HW, "Cat", 100)
+        hm.OnCastSucceeded(hm, HW, 102.5)
+        hm.OnUnitCombat(hm, "party2", "HEAL", "", 300, 102.5)
+        self.assertEqual(heals(lua), [("SPELL_HEAL", "Player-3", HW, False)])
 
     def test_unattributed_heal_reported_in_discovery_mode(self):
         lua, addon, hm = start()
